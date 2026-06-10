@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MSS - Progress History</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#ffd8ea",
+                        "success": "#10B981",
+                        "outline": "#8b7079",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#574048",
+                        "primary-fixed-dim": "#ffb0cd",
+                        "on-error-container": "#93000a",
+                        "surface-bright": "#f8f9ff",
+                        "tertiary-fixed": "#ffd9e2",
+                        "inverse-on-surface": "#eaf1ff",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#fffbff",
+                        "on-secondary-container": "#7c3d63",
+                        "background": "#f8f9ff",
+                        "surface-container": "#e6eeff",
+                        "surface-container-high": "#dee9fc",
+                        "primary-light": "#FCE7F3",
+                        "border-pink": "#FBCFE8",
+                        "inverse-surface": "#27313f",
+                        "surface": "#f8f9ff",
+                        "secondary": "#8a486f",
+                        "on-tertiary-fixed-variant": "#8e0048",
+                        "on-background": "#121c2a",
+                        "outline-variant": "#debec8",
+                        "on-surface": "#121c2a",
+                        "on-secondary-fixed": "#3a0329",
+                        "tertiary-fixed-dim": "#ffb1c7",
+                        "inverse-primary": "#ffb0cd",
+                        "primary-fixed": "#ffd9e4",
+                        "surface-dim": "#d0dbed",
+                        "primary-container": "#d23284",
+                        "on-primary-fixed-variant": "#8c0053",
+                        "primary": "#b10e6b",
+                        "error-container": "#ffdad6",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#EF4444",
+                        "secondary-fixed-dim": "#ffaeda",
+                        "warning": "#F59E0B",
+                        "tertiary": "#b5005d",
+                        "on-error": "#ffffff",
+                        "surface-container-highest": "#d9e3f6",
+                        "on-primary-container": "#fffbff",
+                        "on-tertiary-fixed": "#3f001c",
+                        "on-secondary": "#ffffff",
+                        "tertiary-container": "#da2676",
+                        "on-primary-fixed": "#3e0022",
+                        "surface-soft": "#FFF5F9",
+                        "surface-container-low": "#eff4ff",
+                        "on-secondary-fixed-variant": "#6f3157",
+                        "surface-tint": "#b4136d",
+                        "surface-variant": "#d9e3f6",
+                        "secondary-container": "#ffaeda"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-gap": "16px",
+                        "margin-mobile": "16px",
+                        "container-max": "1200px",
+                        "gutter": "24px",
+                        "sidebar-width": "90px"
+                    },
+                    "fontFamily": {
+                        "display-hero": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "caption": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "headline-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "display-hero": ["56px", { "lineHeight": "64px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "caption": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9ff; }
+        .shadow-soft { box-shadow: 0 10px 25px -5px rgba(236, 72, 153, 0.08), 0 8px 10px -6px rgba(236, 72, 153, 0.05); }
+        .glass-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid #FBCFE8; }
+        .gradient-text { background: linear-gradient(135deg, #F9A8D4, #EC4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    </style>
+</head>
+<body class="text-on-surface flex min-h-screen">
+<!-- SideNavBar (Shared Component) -->
+<nav class="hidden md:flex bg-surface-container-lowest dark:bg-inverse-surface border-r border-pink dark:border-outline-variant shadow-sm fixed left-0 top-0 h-full w-[90px] flex-col items-center py-6 gap-stack-gap z-50">
+<div class="mb-8 flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-primary-light flex items-center justify-center text-primary font-bold mb-2">
+                MS
+            </div>
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed text-[10px]">MSS</span>
+</div>
+<a class="flex flex-col items-center justify-center w-16 h-16 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors rounded-xl scale-95 active:scale-90 transition-transform mb-2" href="#">
+<span class="material-symbols-outlined mb-1">clinical_notes</span>
+<span class="text-[10px] font-label-md text-label-md">New Scan</span>
+</a>
+<a class="flex flex-col items-center justify-center w-16 h-16 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors rounded-xl scale-95 active:scale-90 transition-transform mb-2" href="#">
+<span class="material-symbols-outlined mb-1">dashboard</span>
+<span class="text-[10px] font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center w-16 h-16 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors rounded-xl scale-95 active:scale-90 transition-transform mb-2" href="#">
+<span class="material-symbols-outlined mb-1">face</span>
+<span class="text-[10px] font-label-md text-label-md">My Skin</span>
+</a>
+<a class="flex flex-col items-center justify-center w-16 h-16 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors rounded-xl scale-95 active:scale-90 transition-transform mb-2" href="#">
+<span class="material-symbols-outlined mb-1">calendar_today</span>
+<span class="text-[10px] font-label-md text-label-md">Routine</span>
+</a>
+<a class="flex flex-col items-center justify-center w-16 h-16 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors rounded-xl scale-95 active:scale-90 transition-transform mb-2" href="#">
+<span class="material-symbols-outlined mb-1">shopping_bag</span>
+<span class="text-[10px] font-label-md text-label-md">Products</span>
+</a>
+<a class="flex flex-col items-center justify-center w-16 h-16 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors rounded-xl scale-95 active:scale-90 transition-transform mb-2" href="#">
+<span class="material-symbols-outlined mb-1">history</span>
+<span class="text-[10px] font-label-md text-label-md">History</span>
+</a>
+<!-- Active Tab: Progress -->
+<a class="flex flex-col items-center justify-center w-16 h-16 bg-primary-light dark:bg-secondary-container text-primary dark:text-on-secondary-container rounded-full scale-95 active:scale-90 transition-transform mb-2 shadow-soft" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">trending_up</span>
+<span class="text-[10px] font-label-md text-label-md font-bold">Progress</span>
+</a>
+<a class="flex flex-col items-center justify-center w-16 h-16 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors rounded-xl scale-95 active:scale-90 transition-transform mt-auto mb-4" href="#">
+<span class="material-symbols-outlined mb-1">more_horiz</span>
+<span class="text-[10px] font-label-md text-label-md">More</span>
+</a>
+</nav>
+<!-- TopNavBar (Shared Component) -->
+<header class="bg-surface-soft/80 dark:bg-background/80 backdrop-blur-md fixed top-0 right-0 w-full md:w-[calc(100%-90px)] z-40 bg-transparent flex justify-end items-center px-gutter h-16 gap-4 border-b border-pink/30">
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant opacity-80 hover:opacity-100 transition-opacity hover:bg-primary-light/50">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant opacity-80 hover:opacity-100 transition-opacity hover:bg-primary-light/50">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="bg-gradient-to-r from-[#F9A8D4] to-[#EC4899] text-white px-6 py-2 rounded-full font-label-md text-label-md shadow-soft hover:shadow-md transition-shadow">
+            Upgrade
+        </button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 w-full md:pl-[90px] pt-20 pb-24 md:pb-12 px-margin-mobile md:px-gutter flex justify-center">
+<div class="w-full max-w-container-max flex flex-col gap-stack-gap">
+<!-- Page Header -->
+<div class="mb-4">
+<h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg font-bold text-on-surface">Your Skin Journey</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Track your progress and celebrate improvements over time.</p>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-stack-gap">
+<!-- Before/After Comparison (Bento Grid Item - spans full or 8 cols on large screens) -->
+<div class="lg:col-span-12 glass-card rounded-xl p-6 shadow-soft flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">compare</span>
+                            Transformation
+                        </h2>
+<select class="bg-surface rounded-full border border-pink px-4 py-2 font-label-md text-label-md text-on-surface-variant outline-none focus:ring-2 focus:ring-primary-light">
+<option>Last 3 Months</option>
+<option>Last 6 Months</option>
+<option>1 Year</option>
+</select>
+</div>
+<div class="flex flex-col md:flex-row gap-4 h-full min-h-[300px]">
+<!-- Before -->
+<div class="flex-1 relative rounded-lg overflow-hidden border border-pink/50 group">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="A close-up portrait of a person's face showing subtle skin texture and initial concerns before starting a skincare routine, taken in soft, flat clinical lighting. The image embodies a modern, clinical wellness aesthetic with a light color palette, highlighting areas for improvement against a neutral, airy background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4tX2JWgVUcqeIZbD3bXsV_72OCWVaVoj_xmjkfOGt_Io9n-KlnVKlFYFPj_MhDcAyq2tjhRv1-2Y_gSTib4tpWLPwR-dXSEpMkaZsd6qqCQBtM8ICXtwxQCjWidcAIGj5Hhicws3MM9jCfBf_bV44C7ARVchZs-WL2qHa_lTsiqsZW833eKhRlgT86T0jixzXDMK2HK6wxqcIdrAP-fqd9z-9JF3Yify4aqynT_jMOdbB5aYYmk0kQVVjYMsjWWK7uFR-pTaoAVQ"/>
+<div class="absolute bottom-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full border border-pink/30 shadow-sm">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Before</span>
+<span class="font-caption text-caption text-on-surface-variant ml-2">Oct 12, 2023</span>
+</div>
+</div>
+<!-- After -->
+<div class="flex-1 relative rounded-lg overflow-hidden border border-pink/50 group">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="A close-up portrait of a person's face showing clear, radiant, and improved skin texture after following a skincare routine. The lighting is soft and glowing, enhancing the healthy skin tone within a light, premium rose-water minimalist aesthetic. The overall mood is confident and refreshing." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPkL9kUyHfhkJg62iJaxNtq03ZaAzJfi66gcnWv96ZTKNWW5RBiOYQbA7Vm1nuNdzQAR0JXyeI1NOIG9V9tx1ajwkONePXePPw2o0GEhnaBQWzUs2EzfKQy8kj7D6j3PJ45Ms26nA9X8bZXx-8JjICEpThAfkRnyf2IJNNB7iLOA40nuPeSPaPU9Ogm60ESHDMYCXo9V9PgMoGpDJRLsNsj-K4T5ztGdd_rgBNSU6gVVt81C4ezOAhBLy4-Lm5e5de_Qt1DFt47JE"/>
+<div class="absolute bottom-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full border border-pink/30 shadow-sm">
+<span class="font-label-md text-label-md text-success font-semibold flex items-center gap-1">
+                                    After <span class="material-symbols-outlined text-[14px]">auto_awesome</span>
+</span>
+<span class="font-caption text-caption text-on-surface-variant ml-2">Today</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Line Chart Trend (Bento Grid Item - spans 8 cols) -->
+<div class="lg:col-span-8 glass-card rounded-xl p-6 shadow-soft flex flex-col min-h-[350px]">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">monitoring</span>
+                            Skin Health Score
+                        </h2>
+<div class="flex gap-2">
+<span class="px-3 py-1 rounded-full bg-primary-light text-primary font-label-md text-label-md text-[12px]">Overall</span>
+<span class="px-3 py-1 rounded-full bg-surface text-on-surface-variant border border-pink/50 font-label-md text-label-md text-[12px]">Hydration</span>
+</div>
+</div>
+<!-- Decorative Chart Area -->
+<div class="flex-1 relative w-full h-full border-b border-l border-pink/30 mt-4 pt-4 pr-2">
+<!-- Y-axis labels -->
+<div class="absolute -left-6 top-0 bottom-0 flex flex-col justify-between text-on-surface-variant font-caption text-[10px]">
+<span>100</span>
+<span>75</span>
+<span>50</span>
+</div>
+<!-- Grid lines -->
+<div class="absolute inset-0 flex flex-col justify-between px-2 pt-2 pb-6">
+<div class="w-full border-t border-pink/20"></div>
+<div class="w-full border-t border-pink/20"></div>
+<div class="w-full border-t border-pink/20"></div>
+</div>
+<!-- SVG Line Chart (Simulated with SVG for visual fidelity) -->
+<svg class="absolute inset-0 w-full h-full px-2 pt-2 pb-6" preserveaspectratio="none" viewbox="0 0 100 100">
+<defs>
+<lineargradient id="chartGradient" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#EC4899" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="#FCE7F3" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<!-- Fill -->
+<polygon fill="url(#chartGradient)" points="0,80 20,60 40,65 60,40 80,30 100,20 100,100 0,100"></polygon>
+<!-- Line -->
+<polyline fill="none" points="0,80 20,60 40,65 60,40 80,30 100,20" stroke="#EC4899" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></polyline>
+<!-- Data Points -->
+<circle cx="20" cy="60" fill="#ffffff" r="1.5" stroke="#b10e6b" stroke-width="0.5"></circle>
+<circle cx="40" cy="65" fill="#ffffff" r="1.5" stroke="#b10e6b" stroke-width="0.5"></circle>
+<circle cx="60" cy="40" fill="#ffffff" r="1.5" stroke="#b10e6b" stroke-width="0.5"></circle>
+<circle cx="80" cy="30" fill="#ffffff" r="1.5" stroke="#b10e6b" stroke-width="0.5"></circle>
+<!-- Latest Point Active -->
+<circle cx="100" cy="20" fill="#b10e6b" r="2.5"></circle>
+<circle class="animate-ping" cx="100" cy="20" fill="none" r="4" stroke="#F9A8D4" stroke-width="1" style="animation-duration: 3s;"></circle>
+</svg>
+<!-- X-axis labels -->
+<div class="absolute bottom-[-20px] left-0 right-0 flex justify-between px-2 text-on-surface-variant font-caption text-[10px]">
+<span>Oct</span>
+<span>Nov</span>
+<span>Dec</span>
+<span>Jan</span>
+<span>Feb</span>
+<span>Mar</span>
+</div>
+</div>
+</div>
+<!-- Past Scans List (Bento Grid Item - spans 4 cols) -->
+<div class="lg:col-span-4 glass-card rounded-xl p-6 shadow-soft flex flex-col h-[400px] overflow-hidden">
+<div class="flex justify-between items-center mb-4">
+<h2 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">history</span>
+                            Scan History
+                        </h2>
+</div>
+<div class="flex-1 overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-3">
+<!-- Scan Item 1 -->
+<div class="p-4 rounded-lg border border-pink/40 bg-surface-lowest hover:bg-surface-soft transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-2">
+<div>
+<span class="font-label-md text-label-md font-semibold text-on-surface">Today, 9:41 AM</span>
+<p class="font-caption text-caption text-on-surface-variant">Score: 84/100</p>
+</div>
+<span class="w-8 h-8 rounded-full bg-success/10 text-success flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">arrow_upward</span>
+</span>
+</div>
+<div class="flex gap-2 mt-2">
+<span class="px-2 py-1 bg-surface-container-high rounded text-[10px] text-on-surface-variant font-label-md">Hydration +5%</span>
+</div>
+</div>
+<!-- Scan Item 2 -->
+<div class="p-4 rounded-lg border border-pink/40 bg-surface-lowest hover:bg-surface-soft transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-2">
+<div>
+<span class="font-label-md text-label-md font-semibold text-on-surface">Feb 14, 2024</span>
+<p class="font-caption text-caption text-on-surface-variant">Score: 82/100</p>
+</div>
+<span class="w-8 h-8 rounded-full bg-success/10 text-success flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">arrow_upward</span>
+</span>
+</div>
+<div class="flex gap-2 mt-2">
+<span class="px-2 py-1 bg-surface-container-high rounded text-[10px] text-on-surface-variant font-label-md">Acne -2%</span>
+</div>
+</div>
+<!-- Scan Item 3 -->
+<div class="p-4 rounded-lg border border-pink/40 bg-surface-lowest hover:bg-surface-soft transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-2">
+<div>
+<span class="font-label-md text-label-md font-semibold text-on-surface">Jan 28, 2024</span>
+<p class="font-caption text-caption text-on-surface-variant">Score: 78/100</p>
+</div>
+<span class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">horizontal_rule</span>
+</span>
+</div>
+</div>
+<!-- Scan Item 4 -->
+<div class="p-4 rounded-lg border border-pink/40 bg-surface-lowest hover:bg-surface-soft transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-2">
+<div>
+<span class="font-label-md text-label-md font-semibold text-on-surface">Jan 10, 2024</span>
+<p class="font-caption text-caption text-on-surface-variant">Score: 79/100</p>
+</div>
+<span class="w-8 h-8 rounded-full bg-error/10 text-error flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">arrow_downward</span>
+</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<style>
+        /* Custom subtle scrollbar for the history list */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(251, 207, 232, 0.2); 
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(236, 72, 153, 0.3); 
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(236, 72, 153, 0.5); 
+        }
+    </style>
+</body></html>

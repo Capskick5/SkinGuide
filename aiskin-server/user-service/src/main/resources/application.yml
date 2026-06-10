@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: user-service
+  # Spring Boot 4.0: connection props moved to spring.mongodb.*
+  mongodb:
+    uri: ${MONGODB_URI:mongodb+srv://hoannaa2011_db_user:nonoru04@user-service.hil3ccd.mongodb.net/aiskin_user?retryWrites=true&w=majority}
+  data:
+    mongodb:
+      # Spring Data-specific behaviour stays under spring.data.mongodb
+      auto-index-creation: true
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+server:
+  port: 8081
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+# JWT / Auth configuration
+app:
+  jwt:
+    # Base64-encoded 256-bit secret. OVERRIDE in production via env var.
+    secret: ${JWT_SECRET:Y2hhbmdlLW1lLXRoaXMtaXMtYS1kZXYtb25seS1zZWNyZXQta2V5LTEyMzQ1Ng==}
+    access-token-ttl-seconds: ${JWT_ACCESS_TTL:900}        # 15 minutes
+    refresh-token-ttl-seconds: ${JWT_REFRESH_TTL:1209600}  # 14 days
+    issuer: aiskin-user-service
+  otp:
+    ttl-seconds: ${OTP_TTL:300}   # 5 minutes
+    length: 6
+    # Dev only: return OTP in API response so you can test without a real email.
+    expose-in-response: ${OTP_EXPOSE:true}
+
+logging:
+  level:
+    mss.userservice: DEBUG
+
+# SpringDoc / Swagger UI
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+  api-docs:
+    path: /v3/api-docs
