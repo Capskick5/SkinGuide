@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MSS - AI Skincare Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed": "#ffd8ea",
+                    "success": "#10B981",
+                    "outline": "#8b7079",
+                    "on-tertiary": "#ffffff",
+                    "on-surface-variant": "#574048",
+                    "primary-fixed-dim": "#ffb0cd",
+                    "on-error-container": "#93000a",
+                    "surface-bright": "#f8f9ff",
+                    "tertiary-fixed": "#ffd9e2",
+                    "inverse-on-surface": "#eaf1ff",
+                    "on-primary": "#ffffff",
+                    "on-tertiary-container": "#fffbff",
+                    "on-secondary-container": "#7c3d63",
+                    "background": "#f8f9ff",
+                    "surface-container": "#e6eeff",
+                    "surface-container-high": "#dee9fc",
+                    "primary-light": "#FCE7F3",
+                    "border-pink": "#FBCFE8",
+                    "inverse-surface": "#27313f",
+                    "surface": "#f8f9ff",
+                    "secondary": "#8a486f",
+                    "on-tertiary-fixed-variant": "#8e0048",
+                    "on-background": "#121c2a",
+                    "outline-variant": "#debec8",
+                    "on-surface": "#121c2a",
+                    "on-secondary-fixed": "#3a0329",
+                    "tertiary-fixed-dim": "#ffb1c7",
+                    "inverse-primary": "#ffb0cd",
+                    "primary-fixed": "#ffd9e4",
+                    "surface-dim": "#d0dbed",
+                    "primary-container": "#d23284",
+                    "on-primary-fixed-variant": "#8c0053",
+                    "primary": "#b10e6b",
+                    "error-container": "#ffdad6",
+                    "surface-container-lowest": "#ffffff",
+                    "error": "#EF4444",
+                    "secondary-fixed-dim": "#ffaeda",
+                    "warning": "#F59E0B",
+                    "tertiary": "#b5005d",
+                    "on-error": "#ffffff",
+                    "surface-container-highest": "#d9e3f6",
+                    "on-primary-container": "#fffbff",
+                    "on-tertiary-fixed": "#3f001c",
+                    "on-secondary": "#ffffff",
+                    "tertiary-container": "#da2676",
+                    "on-primary-fixed": "#3e0022",
+                    "surface-soft": "#FFF5F9",
+                    "surface-container-low": "#eff4ff",
+                    "on-secondary-fixed-variant": "#6f3157",
+                    "surface-tint": "#b4136d",
+                    "surface-variant": "#d9e3f6",
+                    "secondary-container": "#ffaeda"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-gap": "16px",
+                    "margin-mobile": "16px",
+                    "container-max": "1200px",
+                    "gutter": "24px",
+                    "sidebar-width": "90px"
+            },
+            "fontFamily": {
+                    "display-hero": [
+                            "Inter"
+                    ],
+                    "body-md": [
+                            "Inter"
+                    ],
+                    "label-md": [
+                            "Inter"
+                    ],
+                    "body-lg": [
+                            "Inter"
+                    ],
+                    "caption": [
+                            "Inter"
+                    ],
+                    "headline-md": [
+                            "Inter"
+                    ],
+                    "headline-lg-mobile": [
+                            "Inter"
+                    ],
+                    "headline-lg": [
+                            "Inter"
+                    ]
+            },
+            "fontSize": {
+                    "display-hero": [
+                            "56px",
+                            {
+                                    "lineHeight": "64px",
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "body-md": [
+                            "16px",
+                            {
+                                    "lineHeight": "24px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "label-md": [
+                            "14px",
+                            {
+                                    "lineHeight": "20px",
+                                    "fontWeight": "500"
+                            }
+                    ],
+                    "body-lg": [
+                            "18px",
+                            {
+                                    "lineHeight": "28px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "caption": [
+                            "13px",
+                            {
+                                    "lineHeight": "18px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "headline-md": [
+                            "24px",
+                            {
+                                    "lineHeight": "32px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-lg-mobile": [
+                            "28px",
+                            {
+                                    "lineHeight": "36px",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-lg": [
+                            "32px",
+                            {
+                                    "lineHeight": "40px",
+                                    "fontWeight": "600"
+                            }
+                    ]
+            }
+    },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        /* Ambient Pink Shadow */
+        .shadow-ambient-pink {
+            box-shadow: 0 10px 40px -10px rgba(236, 72, 153, 0.08);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #F9A8D4, #EC4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-surface-soft min-h-screen font-body-md text-on-surface antialiased overflow-x-hidden flex">
+<!-- Auth Container: 2 Column Layout (Hidden on Mobile) -->
+<div class="flex w-full min-h-screen">
+<!-- Left Column: Branding & Imagery -->
+<div class="hidden lg:flex lg:w-1/2 relative flex-col justify-between overflow-hidden bg-gradient-to-br from-primary-light via-surface-soft to-secondary-fixed">
+<!-- Abstract decorative elements -->
+<div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary-container opacity-5 blur-[100px]"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-tertiary-container opacity-10 blur-[120px]"></div>
+<!-- Branding Header -->
+<div class="p-12 relative z-10">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#F9A8D4] to-[#EC4899] flex items-center justify-center shadow-ambient-pink">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">face</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tight">MSS</h1>
+<p class="font-caption text-caption text-secondary">AI Skincare</p>
+</div>
+</div>
+</div>
+<!-- Value Prop & Imagery -->
+<div class="flex-1 flex flex-col justify-center p-12 relative z-10 max-w-lg mx-auto">
+<h2 class="font-display-hero text-display-hero mb-6 text-on-surface">
+                    Unlock your <br/><span class="gradient-text">skin's true</span> <br/>potential.
+                </h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-12">
+                    Advanced AI analysis meets clinical precision to create a personalized skincare routine designed exclusively for you.
+                </p>
+<!-- Mockup/Illustration Area -->
+<div class="relative w-full aspect-[4/3] rounded-[2rem] overflow-hidden shadow-ambient-pink border border-white/40">
+<img alt="Skincare aesthetic" class="object-cover w-full h-full" data-alt="A clean, modern flat lay of premium skincare products arranged on a soft, light pink background. The composition includes sleek white bottles, clear glass droppers containing delicate serums, and organic shapes like smooth stones or rose petals. The lighting is soft and diffused, creating a premium, clinical yet welcoming aesthetic that embodies modern SaaS wellness." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsbQLg_Lszh-UmxJ1zC6I8hhFkzFPab75hF7lTF_6hHM5wRHXalQ00-aWqFamge0NuAakr0fF19eZlna4pevhl24cPGB3sYjutRwHUU9cVtkSXpF9RZiHjVPNxv67KDbxQdSytYpH21bUwgkcAqs6eGlNWPBOKXSM8YaSYDB8n7qdnulrNbZlBTYPcwqYdWv_PGL-PwZW2xRogAt6ZK2cWs6jtcoqxpij04dzASXByvVKuOBXjFDwiA-U_5oxYzhly-SB1VCNP3ds"/>
+<!-- Floating Glassmorphism Element -->
+<div class="absolute bottom-6 left-6 right-6 p-4 rounded-xl bg-white/70 backdrop-blur-md border border-white flex items-center gap-4">
+<div class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-success" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Analysis Complete</p>
+<p class="font-caption text-caption text-on-surface-variant">Skin barrier health is optimal.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="p-12 text-center relative z-10">
+<p class="font-caption text-caption text-on-surface-variant">© 2024 MSS Skincare. All rights reserved.</p>
+</div>
+</div>
+<!-- Right Column: Form Area -->
+<div class="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-surface-container-lowest">
+<!-- Mobile Branding (Hidden on Desktop) -->
+<div class="lg:hidden absolute top-8 left-8 flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-gradient-to-br from-[#F9A8D4] to-[#EC4899] flex items-center justify-center shadow-ambient-pink">
+<span class="material-symbols-outlined text-white text-sm" style="font-variation-settings: 'FILL' 1;">face</span>
+</div>
+<h1 class="font-headline-md text-headline-md font-bold text-primary tracking-tight text-xl">MSS</h1>
+</div>
+<div class="w-full max-w-md">
+<div class="mb-10 text-center lg:text-left">
+<h2 class="font-headline-lg-mobile lg:font-headline-lg text-headline-lg-mobile lg:text-headline-lg text-on-surface mb-2">Welcome back</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Please enter your details to sign in.</p>
+</div>
+<!-- Auth Tabs (Visual only for demonstration) -->
+<div class="flex p-1 bg-surface-container-low rounded-xl mb-8 border border-border-pink/50">
+<button class="flex-1 py-2 px-4 rounded-lg bg-white shadow-sm font-label-md text-label-md text-primary font-semibold transition-all">
+                        Log In
+                    </button>
+<button class="flex-1 py-2 px-4 rounded-lg font-label-md text-label-md text-on-surface-variant hover:text-primary transition-all">
+                        Sign Up
+                    </button>
+</div>
+<form class="space-y-6" onsubmit="event.preventDefault();">
+<!-- Email Input -->
+<div class="space-y-2">
+<label class="block font-label-md text-label-md text-on-surface" for="email">Email</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline">mail</span>
+</div>
+<input class="w-full pl-11 pr-4 py-3 bg-surface-bright border border-outline-variant rounded-xl text-on-surface font-body-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" id="email" name="email" placeholder="name@example.com" required="" type="email"/>
+</div>
+</div>
+<!-- Password Input -->
+<div class="space-y-2">
+<div class="flex items-center justify-between">
+<label class="block font-label-md text-label-md text-on-surface" for="password">Password</label>
+<a class="font-caption text-caption text-primary hover:text-tertiary transition-colors" href="#">Forgot password?</a>
+</div>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline">lock</span>
+</div>
+<input class="w-full pl-11 pr-11 py-3 bg-surface-bright border border-outline-variant rounded-xl text-on-surface font-body-md focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" id="password" name="password" placeholder="••••••••" required="" type="password"/>
+<button class="absolute inset-y-0 right-0 pr-4 flex items-center text-outline hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</div>
+</div>
+<!-- Remember Me -->
+<div class="flex items-center">
+<input class="w-5 h-5 rounded-md border-outline-variant text-primary focus:ring-primary/20 bg-surface-bright" id="remember" type="checkbox"/>
+<label class="ml-3 block font-body-md text-body-md text-on-surface-variant" for="remember">Remember for 30 days</label>
+</div>
+<!-- Submit Button -->
+<button class="w-full py-3.5 px-4 rounded-full bg-gradient-to-r from-[#F9A8D4] to-[#EC4899] text-white font-label-md text-label-md font-bold shadow-ambient-pink hover:opacity-90 active:scale-[0.98] transition-all flex justify-center items-center gap-2" type="submit">
+                        Sign In
+                        <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+<!-- OAuth Options -->
+<div class="mt-8">
+<div class="relative">
+<div class="absolute inset-0 flex items-center">
+<div class="w-full border-t border-border-pink"></div>
+</div>
+<div class="relative flex justify-center text-sm">
+<span class="px-4 bg-surface-container-lowest text-on-surface-variant font-caption text-caption">Or continue with</span>
+</div>
+</div>
+<div class="mt-6 grid grid-cols-2 gap-4">
+<button class="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl border border-border-pink bg-white text-on-surface font-label-md text-label-md hover:bg-surface-soft transition-colors shadow-sm" type="button">
+<svg class="w-5 h-5" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
+<path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
+<path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"></path>
+<path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
+</svg>
+                                Google
+                            </button>
+<button class="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl border border-border-pink bg-white text-on-surface font-label-md text-label-md hover:bg-surface-soft transition-colors shadow-sm" type="button">
+<svg class="w-5 h-5 text-black" fill="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.04 2.26-.82 3.59-.72 1.37.07 2.39.63 3.1 1.54-2.64 1.48-2.2 5.25.43 6.32-.67 1.81-1.46 3.48-2.2 4.03zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"></path>
+</svg>
+                                Apple
+                            </button>
+</div>
+</div>
+</form>
+<p class="mt-8 text-center font-body-md text-body-md text-on-surface-variant">
+                    Don't have an account? 
+                    <a class="font-label-md text-label-md text-primary font-semibold hover:text-tertiary transition-colors" href="#">Sign up</a>
+</p>
+</div>
+</div>
+</div>
+</body></html>

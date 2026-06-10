@@ -1,0 +1,186 @@
+@import 'tailwindcss';
+
+/*
+  MSS - Aura Radiant Design System
+  Tailwind v4 theme tokens (maps the Stitch design system to utility classes
+  e.g. bg-primary, text-on-surface, border-pink, font-headline-lg ...)
+*/
+@theme {
+  /* ---- Colors ----
+     Lumina palette: indigo-violet primary + periwinkle accent on cool
+     neutral surfaces. Calmer & more premium than the old magenta theme. */
+  --color-primary: #6750e4;
+  --color-primary-container: #8a78f0;
+  --color-primary-light: #ece9fd;
+  --color-primary-fixed: #e3defc;
+  --color-primary-fixed-dim: #c5bdf7;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #ffffff;
+
+  --color-secondary: #605a72;
+  --color-secondary-container: #ddd8ef;
+  --color-secondary-fixed: #e8e4f6;
+  --color-secondary-fixed-dim: #cbc4e7;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #2c2840;
+
+  --color-tertiary: #4f7cfa;
+  --color-tertiary-container: #6f93fb;
+  --color-on-tertiary: #ffffff;
+
+  --color-background: #f8f8fd;
+  --color-on-background: #1b1a2b;
+
+  --color-surface: #f8f8fd;
+  --color-surface-soft: #f3f2fc;
+  --color-surface-bright: #fcfcff;
+
+  /* Page canvas (trắng) + nền navbar tím nhạt */
+  --color-canvas: #ffffff;
+  --color-nav: #ebe9fb;
+  --color-nav-2: #e1ddf6;
+  --color-surface-dim: #d6d3e8;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f4f3fc;
+  --color-surface-container: #edebf7;
+  --color-surface-container-high: #e6e3f3;
+  --color-surface-container-highest: #dedbef;
+  --color-surface-variant: #dedbef;
+  --color-on-surface: #1b1a2b;
+  --color-on-surface-variant: #514c63;
+
+  --color-inverse-surface: #302e42;
+  --color-inverse-on-surface: #f1eefb;
+  --color-inverse-primary: #c5bdf7;
+
+  --color-outline: #7a7590;
+  --color-outline-variant: #cbc6dd;
+  /* Token giữ tên cũ (border-pink) nhưng nay là viền tím nhạt */
+  --color-border-pink: #e4e0f3;
+
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+
+  /* ---- Font family ---- */
+  --font-sans: 'Inter', system-ui, sans-serif;
+
+  /* ---- Font sizes (token = font-size + line-height) ---- */
+  --text-display-hero: 56px;
+  --text-display-hero--line-height: 64px;
+  --text-display-hero--letter-spacing: -0.02em;
+  --text-display-hero--font-weight: 700;
+
+  --text-headline-lg: 32px;
+  --text-headline-lg--line-height: 40px;
+  --text-headline-lg--font-weight: 600;
+
+  --text-headline-lg-mobile: 28px;
+  --text-headline-lg-mobile--line-height: 36px;
+  --text-headline-lg-mobile--font-weight: 600;
+
+  --text-headline-md: 24px;
+  --text-headline-md--line-height: 32px;
+  --text-headline-md--font-weight: 600;
+
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 28px;
+
+  --text-body-md: 16px;
+  --text-body-md--line-height: 24px;
+
+  --text-label-md: 14px;
+  --text-label-md--line-height: 20px;
+  --text-label-md--font-weight: 500;
+
+  --text-caption: 13px;
+  --text-caption--line-height: 18px;
+
+  /* ---- Radius ---- */
+  --radius-lg: 2rem;
+  --radius-xl: 3rem;
+
+  /* ---- Spacing tokens ---- */
+  --spacing-sidebar: 104px;
+  --spacing-gutter: 24px;
+  --spacing-container-max: 1200px;
+}
+
+/* Material Symbols icon font base */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  user-select: none;
+}
+.material-symbols-outlined.icon-filled {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Shared helpers from Stitch design */
+.gradient-bg {
+  background: linear-gradient(135deg, #8a78f0, #6750e4 55%, #4f7cfa);
+}
+.gradient-text {
+  background: linear-gradient(135deg, #8a78f0, #6750e4 55%, #4f7cfa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Wordmark thương hiệu AiSkin */
+.brand-wordmark {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
+}
+.brand-wordmark .brand-ai {
+  font-weight: 800;
+  background: linear-gradient(120deg, #8a78f0 0%, #6750e4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.brand-wordmark .brand-skin {
+  font-weight: 700;
+  color: var(--color-on-surface);
+}
+.shadow-ambient-pink {
+  box-shadow: 0 10px 40px -10px rgba(103, 80, 228, 0.18);
+}
+
+/* Ẩn thanh cuộn nhưng vẫn cuộn được */
+.scrollbar-hidden {
+  -ms-overflow-style: none; /* IE & Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge Chromium */
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100vh;
+}
+/* Ẩn thanh cuộn toàn cục */
+html {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar {
+  display: none;
+}
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--color-nav);
+  color: var(--color-on-surface);
+}
