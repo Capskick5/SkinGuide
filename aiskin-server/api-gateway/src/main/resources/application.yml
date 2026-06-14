@@ -29,6 +29,20 @@ spring:
               filters:
                 - RewritePath=/api-docs/user-service/(?<segment>.*), /$\{segment}
 
+            # Product service endpoints: /api/products/**, /api/brands/**, /api/categories/**, /api/ingredients/**
+            - id: product-service
+              uri: lb://product-service
+              predicates:
+                - Path=/api/products/**,/api/brands/**,/api/categories/**,/api/ingredients/**
+
+            # Expose product-service OpenAPI doc through the gateway
+            - id: product-service-api-docs
+              uri: lb://product-service
+              predicates:
+                - Path=/api-docs/product-service/**
+              filters:
+                - RewritePath=/api-docs/product-service/(?<segment>.*), /$\{segment}
+
 server:
   port: 8080
 
@@ -43,11 +57,12 @@ eureka:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
-    # Show only the configured downstream services, not the gateway's own empty doc
     disable-swagger-default-url: true
     urls:
       - name: user-service
         url: /api-docs/user-service/v3/api-docs
+      - name: product-service
+        url: /api-docs/product-service/v3/api-docs
 
 # Surface gateway routes for local debugging
 management:

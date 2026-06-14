@@ -21,9 +21,12 @@ export default function LoginForm() {
   const onFinish = async (values) => {
     setLoading(true)
     try {
-      await login({ email: values.email, password: values.password })
+      const loggedUser = await login({ email: values.email, password: values.password })
       message.success('Đăng nhập thành công')
-      navigate(redirectTo, { replace: true })
+      // Admin → admin dashboard, otherwise → previous page or user dashboard
+      const isAdmin = loggedUser?.roles?.includes('ADMIN')
+      const dest = isAdmin ? PATHS.ADMIN_DASHBOARD : redirectTo
+      navigate(dest, { replace: true })
     } catch (err) {
       if (err.status === 401) {
         message.error('Email hoặc mật khẩu không đúng')

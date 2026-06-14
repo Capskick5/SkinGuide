@@ -22,6 +22,14 @@ export const PATHS = {
   PROFILE: '/profile',
   SETTINGS: '/settings',
 
+  // Admin
+  ADMIN_DASHBOARD: '/admin',
+  ADMIN_USERS: '/admin/users',
+  ADMIN_PRODUCTS: '/admin/products',
+  ADMIN_BRANDS: '/admin/brands',
+  ADMIN_CATEGORIES: '/admin/categories',
+  ADMIN_INGREDIENTS: '/admin/ingredients',
+
   // Misc
   NOT_FOUND: '*',
 }

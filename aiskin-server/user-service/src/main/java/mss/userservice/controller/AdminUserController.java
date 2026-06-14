@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import mss.userservice.dto.UserResponse;
+import mss.userservice.model.Role;
 import mss.userservice.service.UserService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -49,5 +50,11 @@ public class AdminUserController {
     @Operation(summary = "Vô hiệu hóa tài khoản")
     public ResponseEntity<UserResponse> deactivate(@PathVariable String id) {
         return ResponseEntity.ok(userService.setActive(id, false));
+    }
+
+    @PutMapping("/{id}/role")
+    @Operation(summary = "Gán role cho người dùng (USER hoặc ADMIN)")
+    public ResponseEntity<UserResponse> setRole(@PathVariable String id, @RequestParam Role role) {
+        return ResponseEntity.ok(userService.setRole(id, role));
     }
 }
