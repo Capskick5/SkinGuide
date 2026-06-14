@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom'
 import { PATHS } from '@/route/paths'
 import Logo from '@/components/common/Logo'
 import AuthBranding from './components/AuthBranding'
-import SocialButtons from './components/SocialButtons'
 import LoginForm from './components/LoginForm'
 import RegisterForm from './components/RegisterForm'
 
@@ -60,8 +59,6 @@ export default function AuthPage({ mode = 'login' }) {
           </div>
 
           {isLogin ? <LoginForm /> : <RegisterForm />}
-
-          <SocialButtons />
 
           <p className="mt-8 text-center text-body-md text-on-surface-variant">
             {isLogin ? 'Chưa có tài khoản? ' : 'Đã có tài khoản? '}
