@@ -19,8 +19,9 @@
 | Persona | Vai trò | Nhu cầu chính | Pain points |
 |---------|---------|----------------|-------------|
 | Người dùng cuối | Người quan tâm chăm sóc da (18-45 tuổi) | Biết tình trạng da, nhận tư vấn sản phẩm | Không biết da mình có vấn đề gì, sản phẩm nào phù hợp |
-| Chuyên gia da liễu | Bác sĩ/chuyên viên tư vấn | Theo dõi khách hàng, đưa ra lộ trình điều trị | Khó theo dõi nhiều khách hàng, thiếu công cụ hỗ trợ |
-| Quản trị viên | Quản lý hệ thống | Quản lý dữ liệu, giám sát hoạt động | Cần dashboard tổng quan, báo cáo |
+| Quản trị viên | Quản lý hệ thống & sản phẩm | Quản lý catalog sản phẩm, giám sát hoạt động | Cần dashboard quản trị, CRUD sản phẩm |
+
+> **Ghi chú:** Persona "Chuyên gia da liễu" tạm loại khỏi MVP, cân nhắc cho phase 2.
 
 ## 3. Use Cases chính
 
@@ -42,21 +43,35 @@
 
 ## 4. Tính năng cốt lõi (Core Features)
 
-- [x] Chụp và upload ảnh khuôn mặt (Mobile)
-- [x] Phân tích hình ảnh da bằng AI
-- [x] Phát hiện vấn đề da (mụn, nám, lão hóa, độ ẩm...)
-- [x] Tạo lộ trình chăm sóc da cá nhân hóa
-- [x] Tư vấn sản phẩm điều trị
-- [ ] Theo dõi tiến trình cải thiện da
+### Phase hiện tại (MVP → Docker packaging)
+- [x] Đăng ký / Đăng nhập (JWT + OTP)
+- [x] Quản lý user profile & skin profile
+- [x] API Gateway + Service Discovery
+- [ ] Chụp/upload ảnh khuôn mặt (Web)
+- [ ] Phân tích hình ảnh da bằng AI
+- [ ] Phát hiện vấn đề da (mụn, nám, lão hóa, lỗ chân lông...)
+- [ ] Tạo lộ trình chăm sóc da cá nhân hóa (morning + evening)
+- [ ] Tư vấn sản phẩm phù hợp
 - [ ] Lịch sử phân tích
-- [ ] Thông báo nhắc nhở chăm sóc da
+- [ ] Theo dõi tiến trình cải thiện da
+- [ ] Docker packaging toàn bộ hệ thống
 
-## 5. Tính năng ngoài phạm vi (Out of Scope)
+### Phase 2 (Sau deploy)
+- [ ] Mobile app (Flutter) QR scan + face capture
+- [ ] Thông báo nhắc nhở chăm sóc da
+- [ ] Tư vấn chuyên gia (kết nối bác sĩ da liễu)
+- [ ] Đa ngôn ngữ
+
+## 5. Tính năng ngoài phạm vi (Out of Scope — MVP)
 
 - Chẩn đoán y khoa chính thức (chỉ là tư vấn, không thay thế bác sĩ)
-- Bán sản phẩm trực tiếp (chỉ tư vấn)
-- Tư vấn trực tiếp với bác sĩ (có thể là phase 2)
+- Bán sản phẩm trực tiếp (chỉ tư vấn, không e-commerce)
+- Tư vấn trực tiếp với bác sĩ (phase 2)
 - Phân tích toàn thân (chỉ tập trung vào da mặt)
+- Mobile app deploy (chờ domain)
+- Cloud deployment (dừng ở Docker packaging)
+- CI/CD pipeline
+- Đa ngôn ngữ (phase 2)
 
 ## 6. Yêu cầu phi chức năng (Non-functional)
 

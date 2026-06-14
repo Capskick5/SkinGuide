@@ -56,7 +56,7 @@
 
 #### **2.1. Treatment_Plans**
 - **Mô tả:** Lộ trình chăm sóc da (morning/evening routine)
-- **Service Owner:** Skincare Service
+- **Service Owner:** Recommendation Service
 - **Relationships:**
   - `N → 1` Users (reference userId)
   - `N → 1` Scan_Logs (reference scanLogId)

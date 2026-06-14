@@ -43,6 +43,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
+        ex.printStackTrace(); // In ra console để biết nguyên nhân thực sự gây ra lỗi 500
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponse.of(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                         "Internal Server Error", "Đã xảy ra lỗi không mong muốn"));
