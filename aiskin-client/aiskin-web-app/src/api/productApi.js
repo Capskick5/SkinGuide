@@ -7,72 +7,72 @@ import { request } from './httpClient'
 export const productApi = {
   // ---------- Products ----------
   async listProducts() {
-    return request('/api/products')
+    return request('/products')
   },
   async getProduct(id) {
-    return request(`/api/products/${id}`)
+    return request(`/products/${id}`)
   },
   async createProduct(data) {
-    return request('/api/products', { method: 'POST', body: data })
+    return request('/products', { method: 'POST', body: data })
   },
   async updateProduct(id, data) {
-    return request(`/api/products/${id}`, { method: 'PUT', body: data })
+    return request(`/products/${id}`, { method: 'PUT', body: data })
   },
   async deleteProduct(id) {
-    return request(`/api/products/${id}`, { method: 'DELETE' })
+    return request(`/products/${id}`, { method: 'DELETE' })
   },
   async searchProducts(keyword) {
-    return request(`/api/products/search?keyword=${encodeURIComponent(keyword)}`)
+    return request(`/products/search?keyword=${encodeURIComponent(keyword)}`)
   },
 
   // ---------- Brands ----------
   async listBrands() {
-    return request('/api/brands')
+    return request('/brands')
   },
   async getBrand(id) {
-    return request(`/api/brands/${id}`)
+    return request(`/brands/${id}`)
   },
   async createBrand(data) {
-    return request('/api/brands', { method: 'POST', body: data })
+    return request('/brands', { method: 'POST', body: data })
   },
   async updateBrand(id, data) {
-    return request(`/api/brands/${id}`, { method: 'PUT', body: data })
+    return request(`/brands/${id}`, { method: 'PUT', body: data })
   },
   async deleteBrand(id) {
-    return request(`/api/brands/${id}`, { method: 'DELETE' })
+    return request(`/brands/${id}`, { method: 'DELETE' })
   },
 
   // ---------- Categories ----------
   async listCategories() {
-    return request('/api/categories')
+    return request('/categories')
   },
   async getCategory(id) {
-    return request(`/api/categories/${id}`)
+    return request(`/categories/${id}`)
   },
   async createCategory(data) {
-    return request('/api/categories', { method: 'POST', body: data })
+    return request('/categories', { method: 'POST', body: data })
   },
   async updateCategory(id, data) {
-    return request(`/api/categories/${id}`, { method: 'PUT', body: data })
+    return request(`/categories/${id}`, { method: 'PUT', body: data })
   },
   async deleteCategory(id) {
-    return request(`/api/categories/${id}`, { method: 'DELETE' })
+    return request(`/categories/${id}`, { method: 'DELETE' })
   },
 
   // ---------- Ingredients ----------
   async listIngredients() {
-    return request('/api/ingredients')
+    return request('/ingredients')
   },
   async getIngredient(id) {
-    return request(`/api/ingredients/${id}`)
+    return request(`/ingredients/${id}`)
   },
   async createIngredient(data) {
-    return request('/api/ingredients', { method: 'POST', body: data })
+    return request('/ingredients', { method: 'POST', body: data })
   },
   async updateIngredient(id, data) {
-    return request(`/api/ingredients/${id}`, { method: 'PUT', body: data })
+    return request(`/ingredients/${id}`, { method: 'PUT', body: data })
   },
   async deleteIngredient(id) {
-    return request(`/api/ingredients/${id}`, { method: 'DELETE' })
+    return request(`/ingredients/${id}`, { method: 'DELETE' })
   },
 }
