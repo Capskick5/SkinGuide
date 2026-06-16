@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { PATHS } from './paths'
 import AppLayout from '@/components/layout/AppLayout'
+import AdminLayout from '@/components/layout/AdminLayout'
 import ProtectedRoute from './ProtectedRoute'
+import AdminRoute from './AdminRoute'
 
 import AuthPage from '@/page/auth/AuthPage'
 import ForgotPasswordPage from '@/page/auth/ForgotPasswordPage'
@@ -13,6 +15,14 @@ import HistoryPage from '@/page/history/HistoryPage'
 import ProgressPage from '@/page/progress/ProgressPage'
 import ProfilePage from '@/page/profile/ProfilePage'
 import NotFoundPage from '@/page/misc/NotFoundPage'
+
+// Admin pages
+import AdminDashboardPage from '@/page/admin/AdminDashboardPage'
+import AdminUsersPage from '@/page/admin/AdminUsersPage'
+import AdminProductsPage from '@/page/admin/AdminProductsPage'
+import AdminBrandsPage from '@/page/admin/AdminBrandsPage'
+import AdminCategoriesPage from '@/page/admin/AdminCategoriesPage'
+import AdminIngredientsPage from '@/page/admin/AdminIngredientsPage'
 
 /**
  * Khai báo tập trung toàn bộ route của ứng dụng.
@@ -41,6 +51,18 @@ export default function AppRoutes() {
             <Route path={PATHS.PROGRESS} element={<ProgressPage />} />
             <Route path={PATHS.PROFILE} element={<ProfilePage />} />
             <Route path={PATHS.SETTINGS} element={<ProfilePage />} />
+          </Route>
+        </Route>
+
+        {/* Admin (yêu cầu ROLE_ADMIN) */}
+        <Route element={<AdminRoute />}>
+          <Route element={<AdminLayout />}>
+            <Route path={PATHS.ADMIN_DASHBOARD} element={<AdminDashboardPage />} />
+            <Route path={PATHS.ADMIN_USERS} element={<AdminUsersPage />} />
+            <Route path={PATHS.ADMIN_PRODUCTS} element={<AdminProductsPage />} />
+            <Route path={PATHS.ADMIN_BRANDS} element={<AdminBrandsPage />} />
+            <Route path={PATHS.ADMIN_CATEGORIES} element={<AdminCategoriesPage />} />
+            <Route path={PATHS.ADMIN_INGREDIENTS} element={<AdminIngredientsPage />} />
           </Route>
         </Route>
 
