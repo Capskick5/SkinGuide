@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 # Eureka configuration
 EUREKA_SERVER = "http://localhost:8761/eureka"
 APP_NAME = "ai-scan-service"
-APP_PORT = 5001
+APP_PORT = 5000
 
 # Global AI model instance
 acne_detector = None
@@ -28,17 +28,18 @@ async def lifespan(app: FastAPI):
         logger.error(f"Lỗi khi khởi tạo AI: {e}")
         
     # 2. Register to Eureka on startup
-    # [TẠM TẮT] Tránh lỗi treo/sập Server nếu bạn chưa bật Server Eureka (Java Spring Boot)
-    # try:
-    #     await eureka_client.init_async(
-    #         eureka_server=EUREKA_SERVER,
-    #         app_name=APP_NAME,
-    #         instance_port=APP_PORT,
-    #         instance_host="127.0.0.1"
-    #     )
-    #     logger.info("Đã đăng ký với Eureka thành công!")
-    # except Exception as e:
-    #     logger.error(f"Lỗi Eureka: {e}")
+    try:
+        # Chạy init_async nhưng không await nếu không muốn nó block, 
+        # Tuy nhiên py-eureka-client yêu cầu await để hoàn tất đăng ký trước khi nhận request
+        await eureka_client.init_async(
+            eureka_server=EUREKA_SERVER,
+            app_name=APP_NAME,
+            instance_port=APP_PORT,
+            instance_host="127.0.0.1"
+        )
+        logger.info("Đã đăng ký với Eureka thành công!")
+    except Exception as e:
+        logger.error(f"Lỗi Eureka: {e}")
         
     yield
     
@@ -59,7 +60,7 @@ from fastapi.responses import Response
 import cv2
 import numpy as np
 
-@app.post("/api/scans/analyze")
+@app.post("/api/scans/analyze", tags=["AI Skin Scan"])
 def analyze_acne(image: UploadFile = File(...), visualize: bool = Form(False)):
     """
     Nhận file ảnh từ người dùng, chạy AI YOLOv8 nhận diện mụn.
