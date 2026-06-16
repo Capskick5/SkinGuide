@@ -11,16 +11,19 @@ spring:
               uri: lb://user-service
               predicates:
                 - Path=/api/auth/**
+                
             # User endpoints (protected downstream): /api/users/**
             - id: user-service-users
               uri: lb://user-service
               predicates:
                 - Path=/api/users/**
+
             # Admin endpoints: /api/admin/users/**
             - id: user-service-admin-users
               uri: lb://user-service
               predicates:
                 - Path=/api/admin/users/**
+
             # Expose user-service OpenAPI doc through the gateway for Swagger aggregation
             - id: user-service-api-docs
               uri: lb://user-service
