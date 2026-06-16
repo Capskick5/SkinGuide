@@ -66,6 +66,11 @@ export async function request(path, { method = 'GET', body, auth = true, _retry 
     throw new ApiError(res.status, message, data?.fieldErrors)
   }
 
+  // Unwrap ApiResponse if it's from a service that wraps responses
+  if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
+    return data.data
+  }
+
   return data
 }
 

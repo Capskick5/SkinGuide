@@ -4,6 +4,7 @@ import mss.userservice.dto.ChangePasswordRequest;
 import mss.userservice.dto.UpdateProfileRequest;
 import mss.userservice.dto.UserResponse;
 import mss.userservice.exception.ApiException;
+import mss.userservice.model.Role;
 import mss.userservice.model.User;
 import mss.userservice.repository.UserRepository;
 import mss.userservice.security.RefreshTokenStore;
@@ -70,6 +71,13 @@ public class UserService {
         if (!active) {
             refreshTokenStore.revokeAllForUser(userId);
         }
+        return UserResponse.from(userRepository.save(user));
+    }
+
+    /** Assign a single role to user (replaces existing roles). */
+    public UserResponse setRole(String userId, Role role) {
+        User user = loadUser(userId);
+        user.setRoles(java.util.Set.of(role));
         return UserResponse.from(userRepository.save(user));
     }
 
