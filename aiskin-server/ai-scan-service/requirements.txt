@@ -11,3 +11,7 @@ numpy
 tensorflow
 keras
 keras-cv
+torch
+torchvision
+pandas
+scikit-learn

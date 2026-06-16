@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 import py_eureka_client.eureka_client as eureka_client
 from contextlib import asynccontextmanager
 from app.services.acne_inference import AcneDetector
+from app.services.skin_type_inference import SkinTypeDetector
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -14,15 +15,17 @@ APP_PORT = 5000
 
 # Global AI model instance
 acne_detector = None
+skin_detector = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global acne_detector
+    global acne_detector, skin_detector
     logger.info("Khởi động AI Scan Service...")
     
     # 1. Khởi tạo mô hình AI (Load weight tốn khoảng vài giây)
     try:
         acne_detector = AcneDetector()
+        skin_detector = SkinTypeDetector()
         logger.info("AI Model nạp thành công.")
     except Exception as e:
         logger.error(f"Lỗi khi khởi tạo AI: {e}")
@@ -67,20 +70,24 @@ def analyze_acne(image: UploadFile = File(...), visualize: bool = Form(False)):
     - visualize=False (Mặc định): Trả về JSON tọa độ (Dành cho App).
     - visualize=True: Trả về trực tiếp bức ảnh đã vẽ khung đỏ (Dành cho Test/Báo cáo).
     """
-    if acne_detector is None:
+    if acne_detector is None or skin_detector is None:
         raise HTTPException(status_code=503, detail="AI Model chưa được nạp sẵn sàng.")
         
     try:
         # Đọc mảng byte của file ảnh
         bytes_data = image.file.read()
         
-        # Gọi mô hình nhận diện (Hạ mức tin cậy xuống 0.05 để xem các dự đoán yếu của mô hình 2 epochs)
+        # Gọi mô hình nhận diện mụn (Hạ mức tin cậy xuống 0.05 để xem các dự đoán yếu của mô hình 2 epochs)
         results = acne_detector.predict(bytes_data, confidence_threshold=0.05)
+        
+        # Gọi mô hình phân loại da
+        skin_type = skin_detector.predict(bytes_data)
         
         if not visualize:
             return {
                 "status": "success",
-                "message": "Phân tích mụn thành công",
+                "message": "Phân tích thành công",
+                "skin_type": skin_type,
                 "acne_count": len(results),
                 "data": results
             }
