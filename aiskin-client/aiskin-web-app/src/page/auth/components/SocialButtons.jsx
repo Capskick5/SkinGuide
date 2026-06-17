@@ -1,7 +1,70 @@
+import { useAuth } from '@/hook/useAuth'
+import { useNavigate } from 'react-router-dom'
+import { App as AntApp } from 'antd'
+import { useEffect } from 'react'
+import { PATHS } from '@/route/paths'
+
 /**
  * Nút đăng nhập bằng mạng xã hội (Google, Apple).
  */
 export default function SocialButtons() {
+  const { loginWithGoogle } = useAuth()
+  const navigate = useNavigate()
+  const { message } = AntApp.useApp()
+
+  const handleGoogleCredential = async (credential) => {
+    try {
+      await loginWithGoogle(credential)
+      message.success('Đăng nhập bằng Google thành công')
+      navigate(PATHS.DASHBOARD, { replace: true })
+    } catch (err) {
+      message.error(err.message || 'Đăng nhập Google thất bại, vui lòng thử lại')
+    }
+  }
+
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+    if (window.google && clientId) {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: (response) => {
+          if (response.credential) {
+            handleGoogleCredential(response.credential)
+          }
+        },
+      })
+    }
+  }, [])
+
+  const onGoogleClick = () => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+    if (window.google && clientId) {
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          // If One Tap prompt is blocked or skipped, fallback to mock prompt in dev or log it
+          console.log('One Tap prompt is skipped/blocked, rendering mock or alert')
+          fallbackPrompt()
+        }
+      })
+    } else {
+      fallbackPrompt()
+    }
+  }
+
+  const fallbackPrompt = () => {
+    const mockEmail = window.prompt(
+      'Vui lòng nhập Email Google để giả lập đăng nhập (Chế độ DEV):',
+      'google-test@gmail.com'
+    )
+    if (mockEmail) {
+      if (!mockEmail.includes('@')) {
+        message.error('Email không hợp lệ')
+        return
+      }
+      handleGoogleCredential(`mock-google-token-${mockEmail.trim().toLowerCase()}`)
+    }
+  }
+
   return (
     <div className="mt-8">
       <div className="relative">
@@ -18,7 +81,8 @@ export default function SocialButtons() {
       <div className="mt-6 grid grid-cols-2 gap-4">
         <button
           type="button"
-          className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl border border-border-pink bg-white text-on-surface text-label-md hover:bg-surface-soft transition-colors shadow-sm"
+          onClick={onGoogleClick}
+          className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl border border-border-pink bg-white text-on-surface text-label-md hover:bg-surface-soft transition-colors shadow-sm cursor-pointer"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
