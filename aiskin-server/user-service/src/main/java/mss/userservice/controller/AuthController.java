@@ -38,6 +38,12 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));
     }
 
+    @PostMapping("/google")
+    @Operation(summary = "Đăng nhập hoặc đăng ký bằng tài khoản Google")
+    public ResponseEntity<AuthResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        return ResponseEntity.ok(authService.loginWithGoogle(request.credential()));
+    }
+
     @PostMapping("/refresh")
     @Operation(summary = "Làm mới access token bằng refresh token")
     public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
