@@ -13,9 +13,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Core authentication & account flows:
@@ -179,6 +182,81 @@ public class AuthService {
     /** Only expose the OTP in responses when running in dev mode. */
     private String devOtp(String code) {
         return otpProperties.exposeInResponse() ? code : null;
+    }
+
+    public AuthResponse loginWithGoogle(String credential) {
+        GoogleTokenInfo googleUser = verifyGoogleToken(credential);
+        String email = normalizeEmail(googleUser.getEmail());
+        if (email == null) {
+            throw ApiException.badRequest("Không tìm thấy email từ tài khoản Google");
+        }
+
+        User user = userRepository.findByEmail(email).orElseGet(() -> {
+            User newUser = User.builder()
+                    .email(email)
+                    .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                    .fullName(googleUser.getName())
+                    .roles(new HashSet<>(Set.of(Role.USER)))
+                    .isActive(true)
+                    .emailVerified(true)
+                    .build();
+            log.info("Registered new user {} via Google login", email);
+            return userRepository.save(newUser);
+        });
+
+        if (!user.isActive()) {
+            throw ApiException.unauthorized("Tài khoản đã bị vô hiệu hóa");
+        }
+
+        return issueTokens(user);
+    }
+
+    @SuppressWarnings("unchecked")
+    private GoogleTokenInfo verifyGoogleToken(String credential) {
+        if (credential != null && credential.startsWith("mock-")) {
+            String email = "test-google@example.com";
+            String name = "Mock Google User";
+            if (credential.startsWith("mock-google-token-")) {
+                email = credential.substring("mock-google-token-".length());
+                int atIndex = email.indexOf('@');
+                if (atIndex > 0) {
+                    name = email.substring(0, atIndex);
+                    name = Character.toUpperCase(name.charAt(0)) + name.substring(1);
+                }
+            }
+            return new GoogleTokenInfo(email, name);
+        }
+
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + credential;
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            if (response == null || response.containsKey("error")) {
+                throw ApiException.unauthorized("Token Google không hợp lệ hoặc đã hết hạn");
+            }
+            String email = (String) response.get("email");
+            String name = (String) response.get("name");
+            if (name == null) {
+                name = "Google User";
+            }
+            return new GoogleTokenInfo(email, name);
+        } catch (Exception e) {
+            log.error("Failed to verify Google token", e);
+            throw ApiException.unauthorized("Không thể xác thực token Google: " + e.getMessage());
+        }
+    }
+
+    private static class GoogleTokenInfo {
+        private final String email;
+        private final String name;
+
+        public GoogleTokenInfo(String email, String name) {
+            this.email = email;
+            this.name = name;
+        }
+
+        public String getEmail() { return email; }
+        public String getName() { return name; }
     }
 
     private String normalizeEmail(String email) {

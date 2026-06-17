@@ -4,6 +4,7 @@ import Logo from '@/components/common/Logo'
 import AuthBranding from './components/AuthBranding'
 import LoginForm from './components/LoginForm'
 import RegisterForm from './components/RegisterForm'
+import SocialButtons from './components/SocialButtons'
 
 /**
  * Trang xác thực dùng chung cho Login & Register.
