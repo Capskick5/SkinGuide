@@ -213,19 +213,6 @@ public class AuthService {
 
     @SuppressWarnings("unchecked")
     private GoogleTokenInfo verifyGoogleToken(String credential) {
-        if (credential != null && credential.startsWith("mock-")) {
-            String email = "test-google@example.com";
-            String name = "Mock Google User";
-            if (credential.startsWith("mock-google-token-")) {
-                email = credential.substring("mock-google-token-".length());
-                int atIndex = email.indexOf('@');
-                if (atIndex > 0) {
-                    name = email.substring(0, atIndex);
-                    name = Character.toUpperCase(name.charAt(0)) + name.substring(1);
-                }
-            }
-            return new GoogleTokenInfo(email, name);
-        }
 
         try {
             RestTemplate restTemplate = new RestTemplate();
