@@ -81,6 +81,15 @@ export const authApi = {
   },
 
   /**
+   * Đăng nhập hoặc đăng ký bằng Google.
+   * @param {string} credential 
+   * @returns {Promise<AuthResponse>}
+   */
+  loginWithGoogle(credential) {
+    return httpClient.post('/auth/google', { credential }, { auth: false })
+  },
+
+  /**
    * Làm mới access token.
    * @param {string} refreshToken 
    * @returns {Promise<AuthResponse>}
