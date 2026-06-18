@@ -35,11 +35,10 @@ export default function AnalysisResultPage() {
 
   // Xử lý dữ liệu AI trả về
   const skinType = result.skin_type === 'Dry' ? 'Da khô' : result.skin_type === 'Oily' ? 'Da dầu' : 'Da thường'
-  const acneCount = result.acne_count
   
-  // Tính điểm tổng thể (Mô phỏng đơn giản)
+  // Tính điểm tổng thể (Chỉ dựa vào Siêu AI 7 Lớp)
   const topIssueConf = result.ultimate_analysis?.[0]?.confidence || 0
-  const overallScore = Math.max(10, 100 - Math.round(topIssueConf * 0.5) - (acneCount * 2))
+  const overallScore = Math.max(10, 100 - Math.round(topIssueConf * 0.8))
 
   // Map ultimate_analysis sang CONDITIONS
   const CONDITIONS = result.ultimate_analysis.map(item => {
@@ -69,9 +68,6 @@ export default function AnalysisResultPage() {
           <span className="px-4 py-2 bg-primary-light text-tertiary rounded-full text-label-md font-bold">
             {skinType}
           </span>
-          <span className="px-4 py-2 bg-error/10 text-error rounded-full text-label-md font-bold">
-            Phát hiện {acneCount} nốt mụn
-          </span>
         </div>
       </div>
 
@@ -85,29 +81,7 @@ export default function AnalysisResultPage() {
                 src={originalImage} 
                 alt="Scan" 
                 className="w-full h-auto object-contain block"
-                onLoad={(e) => setImgDims({ w: e.target.naturalWidth, h: e.target.naturalHeight })}
               />
-              
-              {/* Draw Bounding Boxes from YOLO */}
-              {result.data && result.data.map((boxData, idx) => {
-                const [xmin, ymin, xmax, ymax] = boxData.box;
-                const left = (xmin / imgDims.w) * 100;
-                const top = (ymin / imgDims.h) * 100;
-                const width = ((xmax - xmin) / imgDims.w) * 100;
-                const height = ((ymax - ymin) / imgDims.h) * 100;
-                
-                return (
-                  <div 
-                    key={idx}
-                    className="absolute border-[2px] border-error pointer-events-none group"
-                    style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%` }}
-                  >
-                    <span className="absolute -top-6 left-0 bg-error text-white text-[10px] px-1 py-[2px] font-bold rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                      Mụn {(boxData.confidence * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                )
-              })}
             </div>
 
             <div className="flex items-center justify-between w-full bg-surface-soft p-4 rounded-xl border border-border-pink">
