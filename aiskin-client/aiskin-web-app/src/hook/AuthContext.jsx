@@ -84,6 +84,11 @@ export function AuthProvider({ children }) {
     [applyAuthResponse],
   )
 
+  const loginWithGoogle = useCallback(
+    async (credential) => applyAuthResponse(await authApi.loginWithGoogle(credential)),
+    [applyAuthResponse],
+  )
+
   const register = useCallback(
     async ({ email, password }) => applyAuthResponse(await authApi.register({ email, password })),
     [applyAuthResponse],
@@ -120,12 +125,13 @@ export function AuthProvider({ children }) {
       isAuthenticated: !!user,
       loading,
       login,
+      loginWithGoogle,
       register,
       logout,
       updateProfile,
       changePassword,
     }),
-    [user, loading, login, register, logout, updateProfile, changePassword],
+    [user, loading, login, loginWithGoogle, register, logout, updateProfile, changePassword],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
