@@ -8,6 +8,8 @@ import PhonePairing from '@/page/scan/components/PhonePairing'
 import ReceivedImages from '@/page/scan/components/ReceivedImages'
 import usePairingSession from '@/page/scan/hooks/usePairingSession'
 import SuggestionCard from './components/SuggestionCard'
+import { analyzeSkin } from '@/api/scanApi'
+import { Spin, message } from 'antd'
 
 /**
  * Trang "Quét da": 2 cách đưa ảnh khuôn mặt vào hệ thống để AI phân tích.
@@ -22,9 +24,27 @@ const TABS = [
 export default function DashboardPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState('upload')
+  const [isLoading, setIsLoading] = useState(false)
   const pairing = usePairingSession()
 
-  const goAnalyze = () => navigate(PATHS.ANALYSIS)
+  const handleFileSelected = async (file) => {
+    if (!file) return
+    setIsLoading(true)
+    try {
+      const result = await analyzeSkin(file)
+      // Chuyển sang trang kết quả, truyền kèm JSON và URL ảnh gốc
+      navigate(PATHS.ANALYSIS, { 
+        state: { 
+          result, 
+          originalImage: URL.createObjectURL(file) 
+        } 
+      })
+    } catch (error) {
+      message.error(error.message || 'Có lỗi xảy ra khi phân tích ảnh!')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
     <div>
@@ -83,7 +103,9 @@ export default function DashboardPage() {
       ) : (
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <div>
-            <UploadDropzone onFileSelected={goAnalyze} />
+            <Spin spinning={isLoading} tip="AI đang phân tích từng nốt mụn... vùi lòng đợi!">
+              <UploadDropzone onFileSelected={handleFileSelected} />
+            </Spin>
           </div>
           <div>
             <TipsCard />

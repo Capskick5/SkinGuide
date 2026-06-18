@@ -57,7 +57,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Lỗi khi hủy Eureka: {e}")
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="AI Scan Service", version="1.0.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/api/scans/health")
 async def health_check():
