@@ -1,7 +1,6 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException
 import py_eureka_client.eureka_client as eureka_client
 from contextlib import asynccontextmanager
-from app.services.acne_inference import AcneDetector
 from app.services.skin_type_inference import SkinTypeDetector
 from app.services.ultimate_skin_inference import UltimateSkinDetector
 from app.utils.face_cropper import crop_face_from_bytes
@@ -16,18 +15,16 @@ APP_NAME = "ai-scan-service"
 APP_PORT = 5000
 
 # Global AI model instance
-acne_detector = None
 skin_detector = None
 ultimate_detector = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global acne_detector, skin_detector, ultimate_detector
+    global skin_detector, ultimate_detector
     logger.info("Khởi động AI Scan Service...")
     
     # 1. Khởi tạo mô hình AI (Load weight tốn khoảng vài giây)
     try:
-        acne_detector = AcneDetector()
         skin_detector = SkinTypeDetector()
         ultimate_detector = UltimateSkinDetector()
         logger.info("AI Model nạp thành công.")
@@ -71,28 +68,19 @@ app.add_middleware(
 
 @app.get("/api/scans/health")
 async def health_check():
-    return {"status": "ok", "message": "ai-scan-service is running", "ai_loaded": acne_detector is not None and ultimate_detector is not None}
-
-from fastapi.responses import Response
-import cv2
-import numpy as np
+    return {"status": "ok", "message": "ai-scan-service is running", "ai_loaded": skin_detector is not None and ultimate_detector is not None}
 
 @app.post("/api/scans/analyze", tags=["AI Skin Scan"])
-def analyze_acne(image: UploadFile = File(...), visualize: bool = Form(False)):
+def analyze_skin(image: UploadFile = File(...)):
     """
-    Nhận file ảnh từ người dùng, chạy AI YOLOv8 nhận diện mụn.
-    - visualize=False (Mặc định): Trả về JSON tọa độ (Dành cho App).
-    - visualize=True: Trả về trực tiếp bức ảnh đã vẽ khung đỏ (Dành cho Test/Báo cáo).
+    Nhận file ảnh từ người dùng, chạy các mô hình AI để đánh giá tổng quan tình trạng da.
     """
-    if acne_detector is None or skin_detector is None or ultimate_detector is None:
+    if skin_detector is None or ultimate_detector is None:
         raise HTTPException(status_code=503, detail="AI Model chưa được nạp sẵn sàng.")
         
     try:
         # Đọc mảng byte của file ảnh gốc
         bytes_data = image.file.read()
-        
-        # Gọi mô hình nhận diện mụn (YOLOv8 dùng ảnh gốc để đếm mụn và lấy tọa độ chính xác)
-        results = acne_detector.predict(bytes_data, confidence_threshold=0.05)
         
         # Áp dụng Face Cropping để cắt rác hậu cảnh trước khi đưa cho các mô hình ResNet50
         cropped_bytes_data = crop_face_from_bytes(bytes_data)
@@ -103,28 +91,12 @@ def analyze_acne(image: UploadFile = File(...), visualize: bool = Form(False)):
         # Gọi Siêu AI 7 Lớp phân tích top 3 vấn đề (Dùng ảnh đã cắt)
         ultimate_analysis = ultimate_detector.predict(cropped_bytes_data, top_k=3)
         
-        if not visualize:
-            return {
-                "status": "success",
-                "message": "Phân tích thành công",
-                "skin_type": skin_type,
-                "ultimate_analysis": ultimate_analysis,
-                "acne_count": len(results),
-                "data": results
-            }
-        else:
-            # Chế độ trực quan: Vẽ khung lên ảnh và trả về file ảnh
-            np_arr = np.frombuffer(bytes_data, np.uint8)
-            img_draw = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-            
-            for r in results:
-                xmin, ymin, xmax, ymax = r['box']
-                cv2.rectangle(img_draw, (xmin, ymin), (xmax, ymax), (0, 0, 255), 2)
-                text = f"{r['confidence']*100:.0f}%"
-                cv2.putText(img_draw, text, (xmin, ymin - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
-                
-            _, encoded_img = cv2.imencode('.jpg', img_draw)
-            return Response(content=encoded_img.tobytes(), media_type="image/jpeg")
+        return {
+            "status": "success",
+            "message": "Phân tích thành công",
+            "skin_type": skin_type,
+            "ultimate_analysis": ultimate_analysis
+        }
 
     except Exception as e:
         logger.error(f"Lỗi trong quá trình predict: {e}")
