@@ -49,8 +49,8 @@ export default function AdminLayout() {
                     [
                       'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
                       isActive
-                        ? 'bg-pink-500/15 text-pink-400'
-                        : 'text-gray-300 hover:bg-gray-800 hover:text-white',
+                        ? 'bg-pink-500/20 !text-white shadow-sm'
+                        : '!text-white hover:bg-gray-800',
                     ].join(' ')
                   }
                 >
@@ -70,14 +70,14 @@ export default function AdminLayout() {
         <div className="p-3 border-t border-gray-700/50 space-y-1">
           <NavLink
             to={PATHS.DASHBOARD}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition-all"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white hover:bg-gray-800 hover:text-white transition-all"
           >
             <Icon name="arrow_back" className="text-xl" />
             <span>Về trang người dùng</span>
           </NavLink>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-300 hover:bg-red-500/15 hover:text-red-400 transition-all"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white hover:bg-red-500/15 hover:text-red-400 transition-all"
           >
             <Icon name="logout" className="text-xl" />
             <span>Đăng xuất</span>
