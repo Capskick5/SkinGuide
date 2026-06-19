@@ -9,6 +9,9 @@ export const productApi = {
   async listProducts() {
     return request('/products')
   },
+  async listActiveProducts() {
+    return request('/products/active')
+  },
   async getProduct(id) {
     return request(`/products/${id}`)
   },
@@ -29,6 +32,9 @@ export const productApi = {
   async listBrands() {
     return request('/brands')
   },
+  async listActiveBrands() {
+    return request('/brands/active')
+  },
   async getBrand(id) {
     return request(`/brands/${id}`)
   },
@@ -45,6 +51,9 @@ export const productApi = {
   // ---------- Categories ----------
   async listCategories() {
     return request('/categories')
+  },
+  async listActiveCategories() {
+    return request('/categories/active')
   },
   async getCategory(id) {
     return request(`/categories/${id}`)
