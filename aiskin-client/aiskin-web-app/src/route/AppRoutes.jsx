@@ -20,6 +20,7 @@ import NotFoundPage from '@/page/misc/NotFoundPage'
 // Admin pages
 import AdminDashboardPage from '@/page/admin/AdminDashboardPage'
 import AdminUsersPage from '@/page/admin/AdminUsersPage'
+import RolePermissionPage from '@/page/admin/RolePermissionPage'
 import AdminProductsPage from '@/page/admin/AdminProductsPage'
 import AdminBrandsPage from '@/page/admin/AdminBrandsPage'
 import AdminCategoriesPage from '@/page/admin/AdminCategoriesPage'
@@ -61,6 +62,7 @@ export default function AppRoutes() {
           <Route element={<AdminLayout />}>
             <Route path={PATHS.ADMIN_DASHBOARD} element={<AdminDashboardPage />} />
             <Route path={PATHS.ADMIN_USERS} element={<AdminUsersPage />} />
+            <Route path={PATHS.ADMIN_ROLES} element={<RolePermissionPage />} />
             <Route path={PATHS.ADMIN_PRODUCTS} element={<AdminProductsPage />} />
             <Route path={PATHS.ADMIN_BRANDS} element={<AdminBrandsPage />} />
             <Route path={PATHS.ADMIN_CATEGORIES} element={<AdminCategoriesPage />} />

@@ -11,16 +11,25 @@ spring:
               uri: lb://user-service
               predicates:
                 - Path=/api/auth/**
+                
             # User endpoints (protected downstream): /api/users/**
             - id: user-service-users
               uri: lb://user-service
               predicates:
                 - Path=/api/users/**
-            # Admin endpoints: /api/admin/users/**
+
+            # Admin endpoints: /api/admin/users/**, roles, permissions
             - id: user-service-admin-users
               uri: lb://user-service
               predicates:
-                - Path=/api/admin/users/**
+                - Path=/api/admin/users/**,/api/admin/roles/**,/api/admin/permissions/**
+
+            # System endpoints cho user-service
+            - id: user-service-system
+              uri: lb://user-service
+              predicates:
+                - Path=/api/users/system/**
+
             # Expose user-service OpenAPI doc through the gateway for Swagger aggregation
             - id: user-service-api-docs
               uri: lb://user-service
@@ -29,11 +38,11 @@ spring:
               filters:
                 - RewritePath=/api-docs/user-service/(?<segment>.*), /$\{segment}
 
-            # Product service endpoints: /api/products/**, /api/brands/**, /api/categories/**, /api/ingredients/**
+            # Product service endpoints
             - id: product-service
               uri: lb://product-service
               predicates:
-                - Path=/api/products/**,/api/brands/**,/api/categories/**,/api/ingredients/**
+                - Path=/api/products/**,/api/brands/**,/api/categories/**,/api/ingredients/**,/api/products/system/**
 
             # Expose product-service OpenAPI doc through the gateway
             - id: product-service-api-docs
@@ -43,13 +52,27 @@ spring:
               filters:
                 - RewritePath=/api-docs/product-service/(?<segment>.*), /$\{segment}
 
+            # AI Scan service endpoints: /api/scans/**
+            - id: ai-scan-service
+              uri: lb://ai-scan-service
+              predicates:
+                - Path=/api/scans/**
+
+            # Expose ai-scan-service OpenAPI doc through the gateway
+            - id: ai-scan-service-api-docs
+              uri: lb://ai-scan-service
+              predicates:
+                - Path=/api-docs/ai-scan-service/**
+              filters:
+                - RewritePath=/api-docs/ai-scan-service/(?<segment>.*), /$\{segment}
+
 server:
   port: 8080
 
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://127.0.0.1:8761/eureka/
   instance:
     prefer-ip-address: true
 
@@ -63,6 +86,8 @@ springdoc:
         url: /api-docs/user-service/v3/api-docs
       - name: product-service
         url: /api-docs/product-service/v3/api-docs
+      - name: ai-scan-service
+        url: /api-docs/ai-scan-service/openapi.json
 
 # Surface gateway routes for local debugging
 management:

@@ -12,6 +12,9 @@ server:
 
 app:
   upload-dir: ${UPLOAD_DIR:L:/MSS301/Uploads}
+  jwt:
+    secret: ${JWT_SECRET:Y2hhbmdlLW1lLXRoaXMtaXMtYS1kZXYtb25seS1zZWNyZXQta2V5LTEyMzQ1Ng==}
+    issuer: aiskin-user-service
 
 eureka:
   client:
