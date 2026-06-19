@@ -68,6 +68,7 @@ export function toProductCard(product, brandMap, categoryMap) {
   const ingredientNames = (product.ingredients || [])
     .map((ingredient) => ingredient.name)
     .filter(Boolean)
+  const priceValue = Number(product.price) || 0
 
   return {
     id: product.id,
@@ -76,6 +77,7 @@ export function toProductCard(product, brandMap, categoryMap) {
     name: product.name,
     category: category?.name || product.categoryId || 'Không rõ danh mục',
     categoryId: product.categoryId,
+    priceValue,
     price: money(product.price),
     ingredients: ingredientNames,
     reason: product.description || 'Sản phẩm chăm sóc da từ Product Service.',

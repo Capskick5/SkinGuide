@@ -52,9 +52,13 @@ export default function ProductDetailPage() {
 
   const brandMap = useMemo(() => mapById(brands), [brands])
   const categoryMap = useMemo(() => mapById(categories), [categories])
+
   const imageSrc = resolveImageUrl(product?.imageUrl || product?.images?.[0])
   const brandName = brandMap.get(product?.brandId)?.name || product?.brandId || 'Không rõ thương hiệu'
   const categoryName = categoryMap.get(product?.categoryId)?.name || product?.categoryId || 'Không rõ danh mục'
+  const ingredientCount = product?.ingredients?.length || 0
+  const concernCount = product?.targetConcerns?.length || 0
+  const skinTypeCount = product?.targetSkinTypes?.length || 0
 
   return (
     <div>
@@ -92,7 +96,7 @@ export default function ProductDetailPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[420px_minmax(0,1fr)] gap-6">
-          <div className="rounded-2xl overflow-hidden border border-border-pink bg-surface-container-lowest">
+          <div className="lg:sticky lg:top-6 h-fit rounded-2xl overflow-hidden border border-border-pink bg-surface-container-lowest">
             <div className="relative aspect-[4/5] bg-primary-light">
               {imageSrc ? (
                 <img src={imageSrc} alt={product.name} className="h-full w-full object-cover" />
@@ -102,6 +106,12 @@ export default function ProductDetailPage() {
                 </div>
               )}
             </div>
+
+            <div className="grid grid-cols-3 gap-px bg-border-pink">
+              <MiniStat label="Mối quan tâm" value={concernCount} />
+              <MiniStat label="Loại da" value={skinTypeCount} />
+              <MiniStat label="Thành phần" value={ingredientCount} />
+            </div>
           </div>
 
           <div className="space-y-6">
@@ -109,27 +119,40 @@ export default function ProductDetailPage() {
               <div className="flex flex-wrap gap-2 mb-4">
                 <span className="px-3 py-1 rounded-full bg-primary-light text-tertiary text-caption">{brandName}</span>
                 <span className="px-3 py-1 rounded-full bg-primary-light text-tertiary text-caption">{categoryName}</span>
-                <span className="px-3 py-1 rounded-full bg-surface-soft text-on-surface-variant text-caption">{product.slug}</span>
+                <span className="px-3 py-1 rounded-full bg-surface-soft text-on-surface-variant text-caption">
+                  {product.slug}
+                </span>
+                <span
+                  className={[
+                    'px-3 py-1 rounded-full text-caption',
+                    product.isActive ? 'bg-success/10 text-success' : 'bg-surface-soft text-on-surface-variant',
+                  ].join(' ')}
+                >
+                  {product.isActive ? 'Đang hoạt động' : 'Không hoạt động'}
+                </span>
               </div>
 
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
                   <h2 className="text-title-lg text-on-surface font-semibold">{product.name}</h2>
                   <div className="mt-3 rounded-xl border border-border-pink bg-surface-container-lowest px-4 py-3">
                     <p className="text-caption text-on-surface-variant mb-1">Mô tả</p>
-                    <p className="text-body-md text-on-surface leading-6">{product.description || 'Không có mô tả.'}</p>
+                    <p className="text-body-md text-on-surface leading-6 whitespace-pre-line">
+                      {product.description || 'Không có mô tả.'}
+                    </p>
                   </div>
                 </div>
-                <div className="text-right shrink-0">
+
+                <div className="shrink-0 rounded-xl border border-border-pink bg-surface-container-lowest px-4 py-3 min-w-[180px]">
                   <p className="text-caption text-on-surface-variant">Giá</p>
                   <p className="text-title-lg text-on-surface font-semibold">{money(product.price)}</p>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <InfoRow label="Trạng thái" value={product.isActive ? 'Đang hoạt động' : 'Không hoạt động'} />
-              <InfoRow label="ID" value={product.id || '-'} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InfoRow label="Thương hiệu" value={brandName} />
+              <InfoRow label="Danh mục" value={categoryName} />
             </div>
 
             <Section title="Mối quan tâm">
@@ -142,13 +165,13 @@ export default function ProductDetailPage() {
 
             <Section title="Thành phần">
               {product.ingredients?.length > 0 ? (
-                <div className="space-y-3">
+                <div className="grid gap-3">
                   {product.ingredients.map((ingredient) => (
                     <div
                       key={ingredient.ingredientId || ingredient.name}
                       className="rounded-xl border border-border-pink px-4 py-3 bg-surface-container-lowest"
                     >
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <p className="font-medium text-on-surface">{ingredient.name}</p>
                           <p className="text-caption text-on-surface-variant">{ingredient.ingredientId}</p>
@@ -210,6 +233,15 @@ function InfoRow({ label, value }) {
     <div className="rounded-xl border border-border-pink px-4 py-3 bg-surface-container-lowest">
       <p className="text-caption text-on-surface-variant mb-1">{label}</p>
       <p className="text-body-md text-on-surface">{value}</p>
+    </div>
+  )
+}
+
+function MiniStat({ label, value }) {
+  return (
+    <div className="bg-surface-container-lowest px-4 py-3 text-center">
+      <p className="text-title-md font-semibold text-on-surface">{value}</p>
+      <p className="text-caption text-on-surface-variant">{label}</p>
     </div>
   )
 }

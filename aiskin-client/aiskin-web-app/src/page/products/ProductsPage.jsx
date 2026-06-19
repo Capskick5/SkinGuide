@@ -5,6 +5,8 @@ import ProductCard from './components/ProductCard'
 import { mapById, toArray, toProductCard } from './productUtils'
 
 const CATEGORY_ALL = 'all'
+const PAGE_SIZE = 12
+
 const SEARCH_FIELDS = [
   { value: 'all', label: 'Tất cả' },
   { value: 'name', label: 'Tên sản phẩm' },
@@ -15,14 +17,45 @@ const SEARCH_FIELDS = [
   { value: 'concern', label: 'Mối quan tâm' },
 ]
 
+const SORT_OPTIONS = [
+  { value: 'relevance', label: 'Độ phù hợp' },
+  { value: 'name-asc', label: 'Tên A-Z' },
+  { value: 'name-desc', label: 'Tên Z-A' },
+  { value: 'price-asc', label: 'Giá thấp đến cao' },
+  { value: 'price-desc', label: 'Giá cao đến thấp' },
+]
+
 function normalize(value) {
   return String(value || '').toLowerCase()
+}
+
+function getVisiblePages(currentPage, totalPages) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  const pages = []
+  const start = Math.max(2, currentPage - 2)
+  const end = Math.min(totalPages - 1, currentPage + 2)
+
+  pages.push(1)
+  if (start > 2) pages.push('...')
+
+  for (let page = start; page <= end; page += 1) {
+    pages.push(page)
+  }
+
+  if (end < totalPages - 1) pages.push('...')
+  pages.push(totalPages)
+  return pages
 }
 
 export default function ProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState(CATEGORY_ALL)
   const [searchField, setSearchField] = useState('all')
+  const [sortBy, setSortBy] = useState('relevance')
   const [query, setQuery] = useState('')
+  const [page, setPage] = useState(1)
   const [moreOpen, setMoreOpen] = useState(false)
   const [products, setProducts] = useState([])
   const [brands, setBrands] = useState([])
@@ -99,14 +132,11 @@ export default function ProductsPage() {
     [categoryFilter, filters],
   )
 
-  const cards = useMemo(() => {
+  const filteredCards = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
-    const selectedCategory = categoryFilter === CATEGORY_ALL
-      ? null
-      : categories.find((category) => category.id === categoryFilter)
 
     return products
-      .filter((product) => categoryFilter === CATEGORY_ALL || product.categoryId === selectedCategory?.id)
+      .filter((product) => categoryFilter === CATEGORY_ALL || product.categoryId === categoryFilter)
       .map((product) => toProductCard(product, brandMap, categoryMap))
       .filter((product) => {
         if (!normalizedQuery) return true
@@ -114,7 +144,41 @@ export default function ProductsPage() {
         if (searchField === 'all') return blob.all.includes(normalizedQuery)
         return normalize(blob[searchField]).includes(normalizedQuery)
       })
-  }, [brandMap, categoryMap, categoryFilter, categories, products, query, searchField])
+  }, [brandMap, categoryMap, categoryFilter, products, query, searchField])
+
+  const sortedCards = useMemo(() => {
+    const items = [...filteredCards]
+
+    switch (sortBy) {
+      case 'name-asc':
+        items.sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+        break
+      case 'name-desc':
+        items.sort((a, b) => b.name.localeCompare(a.name, 'vi'))
+        break
+      case 'price-asc':
+        items.sort((a, b) => a.priceValue - b.priceValue)
+        break
+      case 'price-desc':
+        items.sort((a, b) => b.priceValue - a.priceValue)
+        break
+      default:
+        break
+    }
+
+    return items
+  }, [filteredCards, sortBy])
+
+  const totalPages = Math.max(1, Math.ceil(sortedCards.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pageCards = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE
+    return sortedCards.slice(start, start + PAGE_SIZE)
+  }, [currentPage, sortedCards])
+  const pageStart = sortedCards.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
+  const pageEnd = Math.min(currentPage * PAGE_SIZE, sortedCards.length)
+
+  const visiblePages = useMemo(() => getVisiblePages(currentPage, totalPages), [currentPage, totalPages])
 
   return (
     <div>
@@ -126,25 +190,45 @@ export default function ProductsPage() {
       </div>
 
       <div className="flex flex-col gap-3 mb-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_240px] gap-3">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_220px_220px] gap-3">
           <div className="relative">
             <Icon name="search" className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/70 text-lg" />
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setPage(1)
+                setQuery(e.target.value)
+              }}
               placeholder="Tìm sản phẩm..."
               className="w-full h-11 pl-11 pr-4 rounded-xl border border-border-pink bg-surface-container-lowest text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
             />
           </div>
           <select
             value={searchField}
-            onChange={(e) => setSearchField(e.target.value)}
+            onChange={(e) => {
+              setPage(1)
+              setSearchField(e.target.value)
+            }}
             className="h-11 px-3 rounded-xl border border-border-pink bg-surface-container-lowest text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
           >
             {SEARCH_FIELDS.map((field) => (
               <option key={field.value} value={field.value}>
                 {field.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => {
+              setPage(1)
+              setSortBy(e.target.value)
+            }}
+            className="h-11 px-3 rounded-xl border border-border-pink bg-surface-container-lowest text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -155,7 +239,10 @@ export default function ProductsPage() {
             <button
               key={item.id}
               type="button"
-              onClick={() => setCategoryFilter(item.id)}
+              onClick={() => {
+                setPage(1)
+                setCategoryFilter(item.id)
+              }}
               className={[
                 'px-4 py-2 rounded-full text-label-md transition-all',
                 categoryFilter === item.id
@@ -201,6 +288,7 @@ export default function ProductsPage() {
                         key={item.id}
                         type="button"
                         onClick={() => {
+                          setPage(1)
                           setCategoryFilter(item.id)
                           setMoreOpen(false)
                         }}
@@ -222,11 +310,18 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 bg-primary-light/60 border border-border-pink rounded-xl px-4 py-3 mb-6">
-        <Icon name="insights" className="text-primary" />
-        <p className="text-body-md text-on-surface-variant">
-          Đang hiển thị <span className="font-medium text-on-surface">{cards.length}</span> sản phẩm.
-        </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-primary-light/60 border border-border-pink rounded-xl px-4 py-3 mb-6">
+        <div className="flex items-center gap-3">
+          <Icon name="insights" className="text-primary" />
+          <p className="text-body-md text-on-surface-variant">
+            Đang hiển thị <span className="font-medium text-on-surface">{sortedCards.length}</span> sản phẩm.
+          </p>
+        </div>
+        {sortedCards.length > 0 ? (
+          <p className="text-caption text-on-surface-variant">
+            {pageStart}-{pageEnd} / {sortedCards.length} mục
+          </p>
+        ) : null}
       </div>
 
       {loading ? (
@@ -237,16 +332,70 @@ export default function ProductsPage() {
         <div className="border border-error/20 bg-error/5 rounded-xl px-4 py-5 text-body-md text-on-surface-variant">
           {error}
         </div>
-      ) : cards.length === 0 ? (
+      ) : sortedCards.length === 0 ? (
         <div className="border border-border-pink bg-surface-container-lowest rounded-xl px-4 py-8 text-center text-body-md text-on-surface-variant">
           Chưa có sản phẩm phù hợp.
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-          {cards.map((product) => (
-            <ProductCard key={product.id} {...product} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+            {pageCards.map((product) => (
+              <ProductCard key={product.id} {...product} />
+            ))}
+          </div>
+
+          {totalPages > 1 ? (
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-caption text-on-surface-variant">
+                Trang <span className="font-medium text-on-surface">{currentPage}</span> / {totalPages}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((value) => Math.max(1, value - 1))}
+                  disabled={currentPage === 1}
+                  className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-border-pink bg-surface-container-lowest text-body-md text-on-surface-variant disabled:opacity-40 disabled:cursor-not-allowed hover:text-primary"
+                >
+                  <Icon name="chevron_left" className="text-base" />
+                  Trước
+                </button>
+
+                {visiblePages.map((item, index) =>
+                  item === '...' ? (
+                    <span key={`dots-${index}`} className="px-2 text-on-surface-variant">
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setPage(item)}
+                      className={[
+                        'min-w-10 h-10 px-3 rounded-xl border text-body-md transition-colors',
+                        item === currentPage
+                          ? 'gradient-bg text-white border-transparent shadow-sm'
+                          : 'border-border-pink bg-surface-container-lowest text-on-surface-variant hover:text-primary',
+                      ].join(' ')}
+                    >
+                      {item}
+                    </button>
+                  ),
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
+                  disabled={currentPage === totalPages}
+                  className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-border-pink bg-surface-container-lowest text-body-md text-on-surface-variant disabled:opacity-40 disabled:cursor-not-allowed hover:text-primary"
+                >
+                  Sau
+                  <Icon name="chevron_right" className="text-base" />
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </>
       )}
     </div>
   )
