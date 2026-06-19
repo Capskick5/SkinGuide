@@ -8,6 +8,7 @@ import mss.productservice.dto.response.ProductResponse;
 import mss.productservice.service.ProductService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -70,18 +71,21 @@ public class ProductController {
     }
 
     @PostMapping
+    @PreAuthorize("hasPermission('/api/products', 'POST')")
     public ResponseEntity<ApiResponse<ProductResponse>> createProduct(@Valid @RequestBody ProductRequest request) {
         ProductResponse created = productService.createProduct(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Product created", created));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission('/api/products/{id}', 'PUT')")
     public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(@PathVariable String id,
                                                                        @Valid @RequestBody ProductRequest request) {
         return ResponseEntity.ok(ApiResponse.ok("Product updated", productService.updateProduct(id, request)));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission('/api/products/{id}', 'DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable String id) {
         productService.deleteProduct(id);
         return ResponseEntity.ok(ApiResponse.ok("Product deleted", null));

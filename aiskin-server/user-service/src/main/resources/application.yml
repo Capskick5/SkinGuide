@@ -3,7 +3,7 @@ spring:
     name: user-service
   # Spring Boot 4.0: connection props moved to spring.mongodb.*
   mongodb:
-    uri: ${MONGODB_URI:mongodb+srv://alicek23004_db_user:AK020304MongO@cluster0.9z2ysfm.mongodb.net/aiskin_user?retryWrites=true&w=majority}
+    uri: ${MONGODB_URI:mongodb+srv://hoannaa2011_db_user:nonoru04@user-service.hil3ccd.mongodb.net/aiskin_user?retryWrites=true&w=majority}
   data:
     mongodb:
       # Spring Data-specific behaviour stays under spring.data.mongodb

@@ -3,7 +3,7 @@ package mss.userservice.service;
 import mss.userservice.config.OtpProperties;
 import mss.userservice.dto.*;
 import mss.userservice.exception.ApiException;
-import mss.userservice.model.Role;
+
 import mss.userservice.model.User;
 import mss.userservice.repository.UserRepository;
 import mss.userservice.security.JwtService;
@@ -64,7 +64,7 @@ public class AuthService {
                 .email(email)
                 .password(passwordEncoder.encode(request.password()))
                 .fullName(request.fullName())
-                .roles(new HashSet<>(Set.of(Role.USER)))
+                .roles(new HashSet<>(Set.of("USER")))
                 .isActive(true)
                 .emailVerified(false)
                 .build();
@@ -196,7 +196,7 @@ public class AuthService {
                     .email(email)
                     .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                     .fullName(googleUser.getName())
-                    .roles(new HashSet<>(Set.of(Role.USER)))
+                    .roles(new HashSet<>(Set.of("USER")))
                     .isActive(true)
                     .emailVerified(true)
                     .build();
