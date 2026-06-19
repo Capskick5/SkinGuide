@@ -30,17 +30,10 @@ skin_detector = None
 ultimate_detector = None
 db = None
 
-security = HTTPBearer()
+from app.security import verify_token, has_permission
 
-def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    try:
-        # Giải mã token không cần verify signature để dễ test, lấy userId (sub)
-        payload = jwt.decode(token, options={"verify_signature": False})
-        return payload.get("sub", "unknown_user")
-    except Exception as e:
-        logger.error(f"JWT Error: {e}")
-        return "unknown_user"
+def get_current_user_id(payload: dict = Depends(verify_token)):
+    return payload.get("sub", "unknown_user")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -99,11 +92,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/api/scans/health")
-async def health_check():
-    return {"status": "ok", "message": "ai-scan-service is running", "ai_loaded": skin_detector is not None and ultimate_detector is not None}
-
-@app.post("/api/scans/analyze", tags=["AI Skin Scan"])
+@app.post("/api/scans/analyze", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/analyze", "POST"))])
 def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
     """
     Nhận file ảnh từ người dùng, chạy các mô hình AI để đánh giá tổng quan tình trạng da, lưu lịch sử quét.
@@ -167,7 +156,7 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
         logger.error(f"Lỗi trong quá trình predict: {e}")
         raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ")
 
-@app.get("/api/scans/history", tags=["AI Skin Scan"])
+@app.get("/api/scans/history", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/history", "GET"))])
 def get_scan_history(user_id: str = Depends(get_current_user_id)):
     """
     Lấy danh sách lịch sử quét da của user hiện tại.
@@ -196,7 +185,7 @@ def get_scan_history(user_id: str = Depends(get_current_user_id)):
 
 from bson.objectid import ObjectId
 
-@app.delete("/api/scans/history/{scan_id}", tags=["AI Skin Scan"])
+@app.delete("/api/scans/history/{scan_id}", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/history/{scan_id}", "DELETE"))])
 def delete_scan_history(scan_id: str, user_id: str = Depends(get_current_user_id)):
     """
     Xóa 1 bản quét lịch sử của user hiện tại.
@@ -226,6 +215,18 @@ def delete_scan_history(scan_id: str, user_id: str = Depends(get_current_user_id
     except Exception as e:
         logger.error(f"Lỗi khi xóa lịch sử quét: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/scans/system/endpoints", tags=["System"])
+def get_endpoints():
+    endpoints = []
+    for route in app.routes:
+        if hasattr(route, "methods") and hasattr(route, "path"):
+            for method in route.methods:
+                endpoints.append({
+                    "method": method,
+                    "path": route.path
+                })
+    return endpoints
 
 if __name__ == "__main__":
     import uvicorn

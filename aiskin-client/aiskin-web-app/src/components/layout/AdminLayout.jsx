@@ -6,6 +6,7 @@ import { useAuth } from '@/hook/useAuth'
 const ADMIN_NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', path: PATHS.ADMIN_DASHBOARD },
   { key: 'users', label: 'Người dùng', icon: 'group', path: PATHS.ADMIN_USERS },
+  { key: 'roles', label: 'Phân quyền', icon: 'admin_panel_settings', path: PATHS.ADMIN_ROLES },
   { key: 'products', label: 'Sản phẩm', icon: 'inventory_2', path: PATHS.ADMIN_PRODUCTS },
   { key: 'brands', label: 'Thương hiệu', icon: 'storefront', path: PATHS.ADMIN_BRANDS },
   { key: 'categories', label: 'Danh mục', icon: 'category', path: PATHS.ADMIN_CATEGORIES },
