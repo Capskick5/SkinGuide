@@ -1,7 +1,8 @@
+import { Link } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 
 export default function ProductCard({
-  id,
+  slug,
   brand,
   name,
   category,
@@ -11,7 +12,6 @@ export default function ProductCard({
   ingredients = [],
   reason,
   imageUrl,
-  onViewDetails,
 }) {
   const canRenderImage = imageUrl && (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('/'))
 
@@ -64,13 +64,12 @@ export default function ProductCard({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onViewDetails?.(id)}
-            className="flex-1 py-2.5 rounded-full gradient-bg text-white text-label-md hover:opacity-90 transition-opacity"
+          <Link
+            to={`/products/${slug}`}
+            className="flex-1 py-2.5 rounded-full bg-primary text-white text-label-md font-semibold hover:bg-tertiary transition-colors text-center shadow-[0_8px_24px_rgba(103,80,228,0.18)]"
           >
             Xem chi tiết
-          </button>
+          </Link>
           <button
             type="button"
             className="w-10 h-10 rounded-full border border-border-pink flex items-center justify-center text-on-surface-variant hover:text-primary hover:border-primary transition-colors"
