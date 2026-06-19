@@ -1,4 +1,4 @@
-package mss.userservice.security;
+package mss.productservice.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -17,10 +17,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Reads the Bearer token, validates it, and populates the SecurityContext
- * with the user's id (principal) and role authorities.
- */
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
@@ -44,11 +40,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     List<SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
                     
-                    // Add Roles
                     jwtService.extractRoles(claims).forEach(r -> 
                             authorities.add(new SimpleGrantedAuthority("ROLE_" + r)));
                             
-                    // Add Permissions
                     Object permsRaw = claims.get("permissions");
                     if (permsRaw instanceof List<?> list) {
                         list.forEach(p -> authorities.add(new SimpleGrantedAuthority(p.toString())));
@@ -59,7 +53,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }
             } catch (JwtException ex) {
-                // Invalid/expired token -> leave context unauthenticated; entry point handles 401
                 SecurityContextHolder.clearContext();
             }
         }

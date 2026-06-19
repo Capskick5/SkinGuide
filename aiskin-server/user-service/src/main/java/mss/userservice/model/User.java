@@ -40,9 +40,9 @@ public class User {
     /** Display name (optional at register, can be updated later). */
     private String fullName;
 
-    /** RBAC roles. Defaults to USER. */
+    /** RBAC roles. Defaults to "USER". */
     @Builder.Default
-    private Set<Role> roles = new HashSet<>(Set.of(Role.USER));
+    private Set<String> roles = new HashSet<>(Set.of("USER"));
 
     /** Default true. false = soft deleted / disabled. */
     @Builder.Default
