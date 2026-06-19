@@ -1,0 +1,17 @@
+# Virtual Environment
+venv/
+__pycache__/
+*.pyc
+
+# ML Models and weights
+models/
+*.pt
+*.pth
+*.onnx
+
+# Datasets
+datasets/
+
+# Logs
+logs/
+*.log
