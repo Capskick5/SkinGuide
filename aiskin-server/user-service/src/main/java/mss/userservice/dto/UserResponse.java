@@ -1,6 +1,6 @@
 package mss.userservice.dto;
 
-import mss.userservice.model.Role;
+
 import mss.userservice.model.SkinProfile;
 import mss.userservice.model.User;
 
@@ -27,8 +27,7 @@ public record UserResponse(
                 user.getId(),
                 user.getEmail(),
                 user.getFullName(),
-                user.getRoles() == null ? Set.of()
-                        : user.getRoles().stream().map(Role::name).collect(Collectors.toSet()),
+                user.getRoles() == null ? Set.of() : user.getRoles(),
                 user.isActive(),
                 user.isEmailVerified(),
                 user.getSkinProfile(),

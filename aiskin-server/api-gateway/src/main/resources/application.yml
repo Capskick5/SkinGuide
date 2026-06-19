@@ -18,11 +18,17 @@ spring:
               predicates:
                 - Path=/api/users/**
 
-            # Admin endpoints: /api/admin/users/**
+            # Admin endpoints: /api/admin/users/**, roles, permissions
             - id: user-service-admin-users
               uri: lb://user-service
               predicates:
-                - Path=/api/admin/users/**
+                - Path=/api/admin/users/**,/api/admin/roles/**,/api/admin/permissions/**
+
+            # System endpoints cho user-service
+            - id: user-service-system
+              uri: lb://user-service
+              predicates:
+                - Path=/api/users/system/**
 
             # Expose user-service OpenAPI doc through the gateway for Swagger aggregation
             - id: user-service-api-docs
@@ -32,11 +38,11 @@ spring:
               filters:
                 - RewritePath=/api-docs/user-service/(?<segment>.*), /$\{segment}
 
-            # Product service endpoints: /api/products/**, /api/brands/**, /api/categories/**, /api/ingredients/**
+            # Product service endpoints
             - id: product-service
               uri: lb://product-service
               predicates:
-                - Path=/api/products/**,/api/brands/**,/api/categories/**,/api/ingredients/**
+                - Path=/api/products/**,/api/brands/**,/api/categories/**,/api/ingredients/**,/api/products/system/**
 
             # Expose product-service OpenAPI doc through the gateway
             - id: product-service-api-docs
