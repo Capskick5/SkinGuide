@@ -18,10 +18,44 @@ export async function analyzeSkin(file) {
   })
   
   if (!res.ok) {
-    const err = await res.text()
-    throw new Error(err || 'Phân tích thất bại')
+    let errMsg = 'Phân tích thất bại'
+    try {
+      const errorData = await res.json()
+      errMsg = errorData.detail || errorData.message || errMsg
+    } catch {
+      const errText = await res.text()
+      errMsg = errText || errMsg
+    }
+    throw new Error(errMsg)
   }
   
+  return res.json()
+}
+
+export async function deleteScanHistory(scanId) {
+  const token = tokenStorage.getAccessToken()
+  const headers = {}
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const res = await fetch(`http://localhost:5000/api/scans/history/${scanId}`, {
+    method: 'DELETE',
+    headers,
+  })
+
+  if (!res.ok) {
+    let errMsg = 'Không thể xóa bản quét này'
+    try {
+      const errorData = await res.json()
+      errMsg = errorData.detail || errorData.message || errMsg
+    } catch {
+      const errText = await res.text()
+      errMsg = errText || errMsg
+    }
+    throw new Error(errMsg)
+  }
+
   return res.json()
 }
 
@@ -38,8 +72,15 @@ export async function getScanHistory() {
   })
 
   if (!res.ok) {
-    const err = await res.text()
-    throw new Error(err || 'Không thể tải lịch sử quét')
+    let errMsg = 'Không thể tải lịch sử quét'
+    try {
+      const errorData = await res.json()
+      errMsg = errorData.detail || errorData.message || errMsg
+    } catch {
+      const errText = await res.text()
+      errMsg = errText || errMsg
+    }
+    throw new Error(errMsg)
   }
 
   return res.json()
