@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { PATHS } from '@/route/paths'
-import { getScanHistory } from '@/api/scanApi'
-import { Spin, message } from 'antd'
+import { getScanHistory, deleteScanHistory } from '@/api/scanApi'
+import { Spin, message, Popconfirm } from 'antd'
 
 const CONDITION_METADATA = {
   Acne: 'Mụn',
@@ -34,6 +34,21 @@ export default function HistoryPage() {
     }
     fetchHistory()
   }, [])
+
+  const handleDelete = async (e, record) => {
+    if (e) e.stopPropagation() // Ngăn không cho click vào cha (ViewDetail)
+    
+    try {
+      setLoading(true)
+      await deleteScanHistory(record._id)
+      setHistory(prev => prev.filter(h => h._id !== record._id))
+      message.success("Đã xóa bản quét thành công")
+    } catch (error) {
+      message.error(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleViewDetail = (record) => {
     // Chuyển đổi format để AnalysisResultPage hiểu được
@@ -106,11 +121,31 @@ export default function HistoryPage() {
                       ))}
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="flex flex-col items-end gap-2 text-right">
                     <p className="text-headline-md font-bold text-primary leading-none">{score}</p>
-                    <button type="button" className="text-caption text-primary hover:text-tertiary transition-colors">
-                      Xem chi tiết
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <Popconfirm
+                        title="Xóa lịch sử quét"
+                        description="Bạn có chắc chắn muốn xóa bản quét này không?"
+                        onConfirm={(e) => handleDelete(e, h)}
+                        onCancel={(e) => e.stopPropagation()}
+                        okText="Xóa"
+                        cancelText="Hủy"
+                        okButtonProps={{ danger: true }}
+                      >
+                        <button 
+                          type="button" 
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-error/70 hover:text-error hover:bg-error/10 p-1.5 rounded-full transition-colors flex items-center justify-center"
+                          title="Xóa bản quét"
+                        >
+                          <Icon name="delete" className="text-[18px]" />
+                        </button>
+                      </Popconfirm>
+                      <button type="button" className="text-caption text-primary hover:text-tertiary transition-colors">
+                        Xem chi tiết
+                      </button>
+                    </div>
                   </div>
                 </div>
               )

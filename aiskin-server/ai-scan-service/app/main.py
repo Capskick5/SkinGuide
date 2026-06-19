@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from app.services.skin_type_inference import SkinTypeDetector
 from app.services.ultimate_skin_inference import UltimateSkinDetector
 from app.utils.face_cropper import crop_face_from_bytes
+from app.formulas.routine_builder import generate_routine
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -134,13 +135,18 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
         # Gọi Siêu AI 7 Lớp phân tích top 3 vấn đề (Dùng ảnh đã cắt)
         ultimate_analysis = ultimate_detector.predict(cropped_bytes_data, top_k=3)
         
-        # 3. Lưu lịch sử vào MongoDB
+        # 3. Tạo Lộ trình chuyên sâu (Rule-based Formula Engine)
+        routine, top_ingredients = generate_routine(skin_type, ultimate_analysis)
+        
+        # 4. Lưu lịch sử vào MongoDB
         if db is not None:
             scan_record = {
                 "userId": user_id,
                 "imageUrl": image_url,
                 "skinType": skin_type,
                 "ultimateAnalysis": ultimate_analysis,
+                "recommendedRoutine": routine,
+                "topIngredients": top_ingredients,
                 "createdAt": datetime.now(timezone.utc)
             }
             db.scan_histories.insert_one(scan_record)
@@ -150,12 +156,16 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
             "message": "Phân tích thành công",
             "skin_type": skin_type,
             "ultimate_analysis": ultimate_analysis,
-            "image_url": image_url
+            "image_url": image_url,
+            "recommended_routine": routine,
+            "top_ingredients": top_ingredients
         }
 
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.error(f"Lỗi trong quá trình predict: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ")
 
 @app.get("/api/scans/history", tags=["AI Skin Scan"])
 def get_scan_history(user_id: str = Depends(get_current_user_id)):
@@ -170,6 +180,10 @@ def get_scan_history(user_id: str = Depends(get_current_user_id)):
         histories = []
         for record in cursor:
             record["_id"] = str(record["_id"])
+            # PyMongo trả về datetime dạng Naive (nhưng thực tế là giờ UTC)
+            # Cần gắn thêm tzinfo để FastAPI trả về chuỗi ISO có đuôi 'Z', từ đó Frontend dịch ra GMT+7 đúng
+            if "createdAt" in record and isinstance(record["createdAt"], datetime):
+                record["createdAt"] = record["createdAt"].replace(tzinfo=timezone.utc)
             histories.append(record)
             
         return {
@@ -178,6 +192,39 @@ def get_scan_history(user_id: str = Depends(get_current_user_id)):
         }
     except Exception as e:
         logger.error(f"Lỗi khi lấy lịch sử quét: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+from bson.objectid import ObjectId
+
+@app.delete("/api/scans/history/{scan_id}", tags=["AI Skin Scan"])
+def delete_scan_history(scan_id: str, user_id: str = Depends(get_current_user_id)):
+    """
+    Xóa 1 bản quét lịch sử của user hiện tại.
+    """
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database chưa được kết nối.")
+        
+    try:
+        if not ObjectId.is_valid(scan_id):
+            raise HTTPException(status_code=400, detail="ID bản quét không hợp lệ.")
+            
+        record = db.scan_histories.find_one({"_id": ObjectId(scan_id)})
+        if not record:
+            raise HTTPException(status_code=404, detail="Không tìm thấy bản quét.")
+            
+        if record.get("userId") != user_id:
+            raise HTTPException(status_code=403, detail="Bạn không có quyền xóa bản quét này.")
+            
+        db.scan_histories.delete_one({"_id": ObjectId(scan_id)})
+        
+        return {
+            "status": "success",
+            "message": "Đã xóa bản quét thành công"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Lỗi khi xóa lịch sử quét: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

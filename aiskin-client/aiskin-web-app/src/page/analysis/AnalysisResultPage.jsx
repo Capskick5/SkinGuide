@@ -117,7 +117,13 @@ export default function AnalysisResultPage() {
             </button>
             <button
               type="button"
-              onClick={() => navigate(PATHS.ROUTINE)}
+              onClick={() => navigate(PATHS.ROUTINE, { 
+                state: { 
+                  routine: result.recommended_routine, 
+                  topIngredients: result.top_ingredients,
+                  skinType: skinType
+                } 
+              })}
               className="flex-1 gradient-bg text-white py-3 rounded-full text-label-md shadow-sm hover:opacity-90 transition-opacity flex justify-center items-center gap-2"
             >
               Xem lộ trình gợi ý <Icon name="arrow_forward" />
