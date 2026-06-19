@@ -15,6 +15,9 @@ export const productApi = {
   async getProduct(id) {
     return request(`/products/${id}`)
   },
+  async getProductBySlug(slug) {
+    return request(`/products/slug/${encodeURIComponent(slug)}`)
+  },
   async createProduct(data) {
     return request('/products', { method: 'POST', body: data })
   },

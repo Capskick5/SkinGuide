@@ -18,7 +18,7 @@ export default function AdminIngredientsPage() {
     setLoading(true)
     try {
       const res = await productApi.listIngredients()
-      setIngredients(res.data || [])
+      setIngredients(Array.isArray(res) ? res : [])
     } catch {
       message.error('Không tải được danh sách thành phần')
     } finally {
@@ -26,7 +26,11 @@ export default function AdminIngredientsPage() {
     }
   }, [])
 
-  useEffect(() => { fetchIngredients() }, [fetchIngredients])
+  useEffect(() => {
+    void (async () => {
+      await fetchIngredients()
+    })()
+  }, [fetchIngredients])
 
   const openCreate = () => {
     setEditing(null)

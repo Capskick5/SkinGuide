@@ -15,7 +15,7 @@ export default function AdminCategoriesPage() {
     setLoading(true)
     try {
       const res = await productApi.listCategories()
-      setCategories(res.data || [])
+      setCategories(Array.isArray(res) ? res : [])
     } catch {
       message.error('Không tải được danh sách danh mục')
     } finally {
@@ -23,7 +23,11 @@ export default function AdminCategoriesPage() {
     }
   }, [])
 
-  useEffect(() => { fetchCategories() }, [fetchCategories])
+  useEffect(() => {
+    void (async () => {
+      await fetchCategories()
+    })()
+  }, [fetchCategories])
 
   const openCreate = () => {
     setEditing(null)

@@ -15,7 +15,7 @@ export default function AdminBrandsPage() {
     setLoading(true)
     try {
       const res = await productApi.listBrands()
-      setBrands(res.data || [])
+      setBrands(Array.isArray(res) ? res : [])
     } catch {
       message.error('Không tải được danh sách thương hiệu')
     } finally {
@@ -23,7 +23,11 @@ export default function AdminBrandsPage() {
     }
   }, [])
 
-  useEffect(() => { fetchBrands() }, [fetchBrands])
+  useEffect(() => {
+    void (async () => {
+      await fetchBrands()
+    })()
+  }, [fetchBrands])
 
   const openCreate = () => {
     setEditing(null)
