@@ -156,6 +156,35 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
         logger.error(f"Lỗi trong quá trình predict: {e}")
         raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ")
 
+import base64
+
+@app.post("/api/scans/validate", tags=["AI Skin Scan"])
+def validate_skin_image(image: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
+    """
+    API Tiền xử lý: Chỉ kiểm định chất lượng ảnh (độ sáng, độ mờ), cắt khuôn mặt và làm sáng ảnh (CLAHE).
+    Nếu lỗi sẽ trả về 400. Nếu thành công sẽ trả về ảnh đã xử lý dưới dạng Base64.
+    """
+    try:
+        bytes_data = image.file.read()
+        
+        # Áp dụng Face Cropping để kiểm tra và lấy ảnh đã xử lý (Cắt mặt + CLAHE)
+        processed_bytes_data = crop_face_from_bytes(bytes_data)
+        
+        # Mã hóa Base64 để trả về cho Frontend hiển thị Preview
+        b64_image = base64.b64encode(processed_bytes_data).decode('utf-8')
+        
+        return {
+            "status": "success",
+            "message": "Ảnh hợp lệ, sẵn sàng để phân tích.",
+            "processed_image_b64": f"data:image/jpeg;base64,{b64_image}"
+        }
+
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logger.error(f"Lỗi trong quá trình kiểm định ảnh: {e}")
+        raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ")
+
 @app.get("/api/scans/history", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/history", "GET"))])
 def get_scan_history(user_id: str = Depends(get_current_user_id)):
     """
