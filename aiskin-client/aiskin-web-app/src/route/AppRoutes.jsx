@@ -11,6 +11,8 @@ import DashboardPage from '@/page/dashboard/DashboardPage'
 import AnalysisResultPage from '@/page/analysis/AnalysisResultPage'
 import RoutinePage from '@/page/routine/RoutinePage'
 import ProductsPage from '@/page/products/ProductsPage'
+import FavoriteProductsPage from '@/page/products/FavoriteProductsPage'
+import CompareProductsPage from '@/page/products/CompareProductsPage'
 import ProductDetailPage from '@/page/products/ProductDetailPage'
 import HistoryPage from '@/page/history/HistoryPage'
 import ProgressPage from '@/page/progress/ProgressPage'
@@ -49,6 +51,8 @@ export default function AppRoutes() {
             <Route path={PATHS.ANALYSIS} element={<AnalysisResultPage />} />
             <Route path={PATHS.ROUTINE} element={<RoutinePage />} />
             <Route path={PATHS.PRODUCTS} element={<ProductsPage />} />
+            <Route path={PATHS.PRODUCT_FAVORITES} element={<FavoriteProductsPage />} />
+            <Route path={PATHS.PRODUCT_COMPARE} element={<CompareProductsPage />} />
             <Route path={PATHS.PRODUCT_DETAIL} element={<ProductDetailPage />} />
             <Route path={PATHS.HISTORY} element={<HistoryPage />} />
             <Route path={PATHS.PROGRESS} element={<ProgressPage />} />

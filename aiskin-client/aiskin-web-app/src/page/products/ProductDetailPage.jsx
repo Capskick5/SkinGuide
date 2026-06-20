@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { productApi } from '@/api/productApi'
 import { mapById, resolveImageUrl, toArray } from './productUtils'
+import ProductCollectionButtons from './components/ProductCollectionButtons'
+import { useComparedProducts, useFavoriteProducts } from './productCollections'
 
 function money(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '-'
@@ -16,6 +18,8 @@ export default function ProductDetailPage() {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const favorites = useFavoriteProducts()
+  const compared = useComparedProducts()
 
   useEffect(() => {
     let alive = true
@@ -147,6 +151,32 @@ export default function ProductDetailPage() {
                   <p className="text-caption text-on-surface-variant">Giá</p>
                   <p className="text-title-lg text-on-surface font-semibold">{money(product.price)}</p>
                 </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <ProductCollectionButtons
+                  compact={false}
+                  favoriteLabel="Yêu thích"
+                  compareLabel="So sánh"
+                  isFavorite={favorites.hasId(product.id)}
+                  isCompared={compared.hasId(product.id)}
+                  onFavoriteToggle={() => favorites.toggle(product.id)}
+                  onCompareToggle={() => compared.toggle(product.id)}
+                />
+                <Link
+                  to="/products/favorites"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary"
+                >
+                  <Icon name="favorite" filled className="text-base" />
+                  Danh sách yêu thích ({favorites.count})
+                </Link>
+                <Link
+                  to="/products/compare"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary"
+                >
+                  <Icon name="compare_arrows" className="text-base" />
+                  So sánh ({compared.count})
+                </Link>
               </div>
             </div>
 
