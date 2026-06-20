@@ -124,30 +124,26 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
         # Gọi Siêu AI 7 Lớp phân tích top 3 vấn đề (Dùng ảnh đã cắt)
         ultimate_analysis = ultimate_detector.predict(cropped_bytes_data, top_k=3)
         
-        # 3. Tạo Lộ trình chuyên sâu (Rule-based Formula Engine)
-        routine, top_ingredients = generate_routine(skin_type, ultimate_analysis)
+        # 3. Lưu lịch sử vào MongoDB (Chỉ lưu kết quả Scan)
+        scan_id = str(uuid.uuid4())
+        now_utc = datetime.now(timezone.utc)
         
-        # 4. Lưu lịch sử vào MongoDB
+        scan_record = {
+            "_id": scan_id,
+            "userId": user_id,
+            "imageUrl": image_url,
+            "skinType": {"predicted": skin_type, "probability": 0.85},
+            "facialZones": ultimate_analysis,
+            "analyzedAt": now_utc
+        }
+        
         if db is not None:
-            scan_record = {
-                "userId": user_id,
-                "imageUrl": image_url,
-                "skinType": skin_type,
-                "ultimateAnalysis": ultimate_analysis,
-                "recommendedRoutine": routine,
-                "topIngredients": top_ingredients,
-                "createdAt": datetime.now(timezone.utc)
-            }
-            db.scan_histories.insert_one(scan_record)
+            db.ai_scan_results.insert_one(scan_record)
         
         return {
             "status": "success",
-            "message": "Phân tích thành công",
-            "skin_type": skin_type,
-            "ultimate_analysis": ultimate_analysis,
-            "image_url": image_url,
-            "recommended_routine": routine,
-            "top_ingredients": top_ingredients
+            "message": "Phân tích da thành công",
+            "scan_result": scan_record
         }
 
     except ValueError as ve:
@@ -185,23 +181,106 @@ def validate_skin_image(image: UploadFile = File(...), user_id: str = Depends(ge
         logger.error(f"Lỗi trong quá trình kiểm định ảnh: {e}")
         raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ")
 
-@app.get("/api/scans/history", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/history", "GET"))])
-def get_scan_history(user_id: str = Depends(get_current_user_id)):
+@app.post("/api/scans/{scan_id}/routine", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/routine", "POST"))])
+def generate_scan_routine(scan_id: str, user_id: str = Depends(get_current_user_id)):
     """
-    Lấy danh sách lịch sử quét da của user hiện tại.
+    API để sinh lộ trình dựa trên một kết quả Scan đã có trong hệ thống.
+    Chỉ khi nào người dùng có nhu cầu thì mới gọi API này để tạo Lộ trình.
     """
     if db is None:
         raise HTTPException(status_code=503, detail="Database chưa được kết nối.")
         
     try:
-        cursor = db.scan_histories.find({"userId": user_id}).sort("createdAt", -1).limit(50)
+        # 1. Tìm bản quét tương ứng
+        scan_record = db.ai_scan_results.find_one({"_id": scan_id, "userId": user_id})
+        if not scan_record:
+            raise HTTPException(status_code=404, detail="Không tìm thấy bản quét hoặc bạn không có quyền truy cập.")
+            
+        # Kiểm tra xem routine đã tồn tại chưa
+        existing_routine = db.skincare_routines.find_one({"scanId": scan_id})
+        if existing_routine:
+            existing_routine["_id"] = str(existing_routine["_id"])
+            return {
+                "status": "success",
+                "message": "Lộ trình đã tồn tại",
+                "routine_result": existing_routine
+            }
+            
+        # 2. Xây dựng lại List điều kiện
+        ultimate_analysis = scan_record.get("facialZones", {})
+        skin_type = scan_record.get("skinType", {}).get("predicted", "Normal")
+        
+        flat_conditions = []
+        if "t_zone" in ultimate_analysis and "issues" in ultimate_analysis["t_zone"]:
+            flat_conditions.extend(ultimate_analysis["t_zone"]["issues"])
+        if "u_zone" in ultimate_analysis and "issues" in ultimate_analysis["u_zone"]:
+            flat_conditions.extend(ultimate_analysis["u_zone"]["issues"])
+            
+        # 3. Tạo Lộ trình
+        routine, top_ingredients = generate_routine(skin_type, flat_conditions)
+        
+        # Lấy tối đa 2 vấn đề nổi cộm làm Focus Areas
+        focus_areas = list(set([c["name"] for c in flat_conditions if c.get("name") != "Healthy"]))[:2]
+        if not focus_areas: focus_areas = ["Duy trì làn da khỏe mạnh"]
+        
+        routine_id = str(uuid.uuid4())
+        now_utc = datetime.now(timezone.utc)
+        
+        routine_record = {
+            "_id": routine_id,
+            "scanId": scan_id,
+            "userId": user_id,
+            "focusAreas": focus_areas,
+            "topIngredients": top_ingredients,
+            "routine": routine,
+            "generatedAt": now_utc
+        }
+        
+        db.skincare_routines.insert_one(routine_record)
+        
+        return {
+            "status": "success",
+            "message": "Đã tạo lộ trình chăm sóc da thành công",
+            "routine_result": routine_record
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Lỗi khi tạo routine: {e}")
+        raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ khi tạo lộ trình.")
+
+@app.get("/api/scans/history", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/history", "GET"))])
+def get_scan_history(user_id: str = Depends(get_current_user_id)):
+    """
+    Lấy danh sách lịch sử quét da của user hiện tại (chỉ lấy scan_results).
+    """
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database chưa được kết nối.")
+        
+    try:
+        cursor = db.ai_scan_results.find({"userId": user_id}).sort("analyzedAt", -1).limit(50)
         histories = []
         for record in cursor:
             record["_id"] = str(record["_id"])
-            # PyMongo trả về datetime dạng Naive (nhưng thực tế là giờ UTC)
-            # Cần gắn thêm tzinfo để FastAPI trả về chuỗi ISO có đuôi 'Z', từ đó Frontend dịch ra GMT+7 đúng
-            if "createdAt" in record and isinstance(record["createdAt"], datetime):
-                record["createdAt"] = record["createdAt"].replace(tzinfo=timezone.utc)
+            if "analyzedAt" in record and isinstance(record["analyzedAt"], datetime):
+                record["analyzedAt"] = record["analyzedAt"].replace(tzinfo=timezone.utc)
+            else:
+                # Tương thích ngược với dữ liệu cũ (createdAt)
+                if "createdAt" in record and isinstance(record["createdAt"], datetime):
+                    record["createdAt"] = record["createdAt"].replace(tzinfo=timezone.utc)
+                    record["analyzedAt"] = record["createdAt"]
+            
+            # Fetch routine corresponding to this scan
+            routine_record = db.skincare_routines.find_one({"scanId": record["_id"]})
+            if routine_record:
+                record["recommendedRoutine"] = routine_record.get("routine")
+                record["topIngredients"] = routine_record.get("topIngredients")
+                record["focusAreas"] = routine_record.get("focusAreas")
+            else:
+                # Nếu không có (có thể là data cũ nằm chung 1 collection), lấy trực tiếp
+                pass
+                
             histories.append(record)
             
         return {
@@ -217,23 +296,27 @@ from bson.objectid import ObjectId
 @app.delete("/api/scans/history/{scan_id}", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/history/{scan_id}", "DELETE"))])
 def delete_scan_history(scan_id: str, user_id: str = Depends(get_current_user_id)):
     """
-    Xóa 1 bản quét lịch sử của user hiện tại.
+    Xóa 1 bản quét lịch sử và routine tương ứng.
     """
     if db is None:
         raise HTTPException(status_code=503, detail="Database chưa được kết nối.")
         
     try:
-        if not ObjectId.is_valid(scan_id):
-            raise HTTPException(status_code=400, detail="ID bản quét không hợp lệ.")
-            
-        record = db.scan_histories.find_one({"_id": ObjectId(scan_id)})
+        record = db.ai_scan_results.find_one({"_id": scan_id})
         if not record:
+            # Thuật toán cũ dùng ObjectId, tương thích ngược
+            if ObjectId.is_valid(scan_id):
+                record = db.scan_histories.find_one({"_id": ObjectId(scan_id)})
+                if record and record.get("userId") == user_id:
+                    db.scan_histories.delete_one({"_id": ObjectId(scan_id)})
+                    return {"status": "success"}
             raise HTTPException(status_code=404, detail="Không tìm thấy bản quét.")
             
         if record.get("userId") != user_id:
             raise HTTPException(status_code=403, detail="Bạn không có quyền xóa bản quét này.")
             
-        db.scan_histories.delete_one({"_id": ObjectId(scan_id)})
+        db.ai_scan_results.delete_one({"_id": scan_id})
+        db.skincare_routines.delete_many({"scanId": scan_id})
         
         return {
             "status": "success",

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import RoutineStep from './components/RoutineStep'
 import { PATHS } from '@/route/paths'
-import { getScanHistory } from '@/api/scanApi'
+import { getScanHistory, generateRoutine } from '@/api/scanApi'
 
 const translateIssue = (issue) => {
   const dict = {
@@ -104,10 +104,12 @@ export default function RoutinePage() {
 
   const [aiRoutine, setAiRoutine] = useState(location.state?.routine || null)
   const [topIngredients, setTopIngredients] = useState(location.state?.topIngredients || [])
+  const [focusAreas, setFocusAreas] = useState(location.state?.focusAreas || [])
   const [skinType, setSkinType] = useState(location.state?.skinType || '')
   
   const [translatedDescriptions, setTranslatedDescriptions] = useState({})
   const [isLoading, setIsLoading] = useState(true)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -117,10 +119,19 @@ export default function RoutinePage() {
         if (res.data && res.data.length > 0) {
           setHistoryList(res.data)
           
-          if (!location.state?.routine) {
-            handleSelectScan(res.data[0])
+          if (location.state?.scanId) {
+            const targetScan = res.data.find(h => h._id === location.state.scanId)
+            if (targetScan) {
+              handleSelectScan(targetScan)
+              if (location.state?.needsGeneration && !targetScan.recommendedRoutine) {
+                // Auto generate if coming from scan page
+                handleGenerateRoutine(targetScan._id)
+              }
+            } else {
+              handleSelectScan(res.data[0])
+            }
           } else {
-            setSelectedScanId(res.data[0]._id)
+            handleSelectScan(res.data[0])
           }
         }
       } catch (err) {
@@ -132,6 +143,29 @@ export default function RoutinePage() {
 
     fetchHistory()
   }, []) 
+
+  const handleGenerateRoutine = async (scanId) => {
+    setIsGenerating(true)
+    setError(null)
+    try {
+      const res = await generateRoutine(scanId)
+      if (res.status === 'success') {
+        // Tải lại lịch sử để cập nhật lộ trình mới
+        const histRes = await getScanHistory()
+        if (histRes.data) {
+          setHistoryList(histRes.data)
+          const updatedScan = histRes.data.find(h => h._id === scanId)
+          if (updatedScan) {
+            handleSelectScan(updatedScan)
+          }
+        }
+      }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
 
   // Dịch description tiếng Anh sang tiếng Việt thông qua Google Translate API (Client-side)
   useEffect(() => {
@@ -176,6 +210,7 @@ export default function RoutinePage() {
     setSelectedScanId(scan._id)
     setAiRoutine(scan.recommendedRoutine || null)
     setTopIngredients(scan.topIngredients || [])
+    setFocusAreas(scan.focusAreas || [])
     const typeLabel = scan.skinType === 'Dry' ? 'Da khô' : scan.skinType === 'Oily' ? 'Da dầu' : 'Da thường'
     setSkinType(typeLabel)
   }
@@ -253,7 +288,7 @@ export default function RoutinePage() {
               <div className="text-left">
                 <p className="text-caption text-on-surface-variant leading-none mb-1">Lịch sử quét</p>
                 <p className="text-label-md text-on-surface font-semibold leading-none">
-                  {selectedScanId ? formatDate(historyList.find(h => h._id === selectedScanId)?.createdAt) : 'Chọn bản quét'}
+                  {selectedScanId ? formatDate(historyList.find(h => h._id === selectedScanId)?.analyzedAt) : 'Chọn bản quét'}
                 </p>
               </div>
               <Icon name={isDropdownOpen ? 'expand_less' : 'expand_more'} className="text-on-surface-variant ml-2" />
@@ -282,10 +317,10 @@ export default function RoutinePage() {
                             setIsDropdownOpen(false);
                           }}>
                             <p className={`text-label-md font-semibold ${isSelected ? 'text-primary' : 'text-on-surface'}`}>
-                              {formatDate(h.createdAt)}
+                              {formatDate(h.analyzedAt)}
                             </p>
                             <p className="text-caption text-on-surface-variant">
-                              {h.skinType === 'Dry' ? 'Da khô' : h.skinType === 'Oily' ? 'Da dầu' : 'Da thường'}
+                              {h.skinType?.predicted ? (h.skinType.predicted === 'Dry' ? 'Da khô' : h.skinType.predicted === 'Oily' ? 'Da dầu' : 'Da thường') : (h.skinType === 'Dry' ? 'Da khô' : h.skinType === 'Oily' ? 'Da dầu' : 'Da thường')}
                             </p>
                           </div>
                           {isSelected && <Icon name="check_circle" className="text-primary text-sm shrink-0" />}
@@ -302,19 +337,41 @@ export default function RoutinePage() {
 
       {!aiRoutine ? (
         <div className="flex flex-col items-center justify-center text-center py-10">
-          <p className="text-body-md text-on-surface-variant">
-            Bản quét này quá cũ và chưa có thông tin lộ trình. Vui lòng quét lại da.
+          <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4">
+            <Icon name="auto_awesome" className="text-4xl" />
+          </div>
+          <p className="text-body-md text-on-surface-variant max-w-sm mb-6">
+            Bản quét này chưa có lộ trình chăm sóc da. Nhấn nút bên dưới để AI tổng hợp dữ liệu và tạo lộ trình chuyên sâu cho bạn.
           </p>
           <button
-            onClick={() => navigate(PATHS.SCAN)}
-            className="mt-4 px-6 py-2 rounded-full border-2 border-primary text-primary hover:bg-surface-soft transition-colors font-medium"
+            onClick={() => handleGenerateRoutine(selectedScanId)}
+            disabled={isGenerating}
+            className={`px-8 py-3 rounded-full text-white font-medium shadow-md transition-all flex items-center justify-center gap-2 ${isGenerating ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-blue-500 hover:shadow-lg'}`}
           >
-            Quét lại da
+            {isGenerating ? (
+              <><div className="animate-spin mr-2"><Icon name="refresh" /></div> Đang tạo lộ trình...</>
+            ) : (
+              <>Tạo lộ trình ngay <Icon name="arrow_forward" /></>
+            )}
           </button>
         </div>
       ) : (
         <div className="flex flex-col gap-6">
           
+          {/* Focus Areas Box */}
+          {focusAreas.length > 0 && (
+            <div className="bg-primary/10 rounded-2xl p-4 border border-border-pink">
+              <h3 className="text-label-lg font-bold text-primary mb-2">🎯 Mục tiêu ưu tiên trị liệu</h3>
+              <div className="flex flex-wrap gap-2">
+                {focusAreas.map((area, idx) => (
+                  <span key={idx} className="px-3 py-1 bg-white text-on-surface rounded-full text-label-md border border-border-pink shadow-sm">
+                    {translateIssue(area)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Controls row */}
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-surface-container-lowest p-2 rounded-full border border-border-pink shadow-sm">
             {/* Toggle */}
