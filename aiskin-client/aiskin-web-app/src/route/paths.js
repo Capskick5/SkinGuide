@@ -15,6 +15,8 @@ export const PATHS = {
   ANALYSIS: '/analysis',
   ROUTINE: '/routine',
   PRODUCTS: '/products',
+  PRODUCT_FAVORITES: '/products/favorites',
+  PRODUCT_COMPARE: '/products/compare',
   PRODUCT_DETAIL: '/products/:slug',
   HISTORY: '/history',
   PROGRESS: '/progress',

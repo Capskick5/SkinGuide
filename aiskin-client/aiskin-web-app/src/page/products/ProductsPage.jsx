@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { productApi } from '@/api/productApi'
 import ProductCard from './components/ProductCard'
 import { mapById, toArray, toProductCard } from './productUtils'
+import { useComparedProducts, useFavoriteProducts } from './productCollections'
 
 const CATEGORY_ALL = 'all'
 const PAGE_SIZE = 12
@@ -63,6 +65,8 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const moreMenuRef = useRef(null)
+  const favorites = useFavoriteProducts()
+  const compared = useComparedProducts()
 
   useEffect(() => {
     let alive = true
@@ -183,10 +187,30 @@ export default function ProductsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-headline-lg text-on-surface mb-2">Gợi ý sản phẩm</h1>
-        <p className="text-body-md text-on-surface-variant">
-          Tìm theo tên, slug, thương hiệu, danh mục, thành phần hoặc mối quan tâm.
-        </p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-headline-lg text-on-surface mb-2">Gợi ý sản phẩm</h1>
+            <p className="text-body-md text-on-surface-variant">
+              Tìm theo tên, slug, thương hiệu, danh mục, thành phần hoặc mối quan tâm.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Link
+            to="/products/favorites"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary"
+          >
+            <Icon name="favorite" filled className="text-base" />
+            Yêu thích ({favorites.count})
+          </Link>
+          <Link
+            to="/products/compare"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary"
+          >
+            <Icon name="compare_arrows" className="text-base" />
+            So sánh ({compared.count})
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 mb-6">
@@ -340,7 +364,14 @@ export default function ProductsPage() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
             {pageCards.map((product) => (
-              <ProductCard key={product.id} {...product} />
+              <ProductCard
+                key={product.id}
+                {...product}
+                isFavorite={favorites.hasId(product.id)}
+                isCompared={compared.hasId(product.id)}
+                onFavoriteToggle={() => favorites.toggle(product.id)}
+                onCompareToggle={() => compared.toggle(product.id)}
+              />
             ))}
           </div>
 
@@ -397,6 +428,42 @@ export default function ProductsPage() {
           ) : null}
         </>
       )}
+
+      {compared.count > 0 ? (
+        <div className="fixed bottom-4 left-1/2 z-30 w-[min(58rem,calc(100vw-1.5rem))] -translate-x-1/2 rounded-2xl border border-border-pink bg-surface-container-lowest shadow-[0_16px_50px_rgba(103,80,228,0.16)] px-4 py-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="w-10 h-10 rounded-full bg-primary-light text-primary flex items-center justify-center">
+                <Icon name="compare_arrows" />
+              </span>
+              <div>
+                <p className="text-body-md font-medium text-on-surface">
+                  Đã chọn {compared.count} sản phẩm để so sánh
+                </p>
+                <p className="text-caption text-on-surface-variant">
+                  Tối đa 3 sản phẩm, chọn thêm sẽ tự thay mục cũ nhất.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={compared.clear}
+                className="px-4 py-2 rounded-full border border-border-pink text-label-md text-on-surface-variant hover:text-primary"
+              >
+                Xóa hết
+              </button>
+              <Link
+                to="/products/compare"
+                className="px-4 py-2 rounded-full bg-primary text-white text-label-md font-semibold hover:bg-tertiary transition-colors"
+              >
+                Mở so sánh
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

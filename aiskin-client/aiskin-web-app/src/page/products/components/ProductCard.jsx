@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
+import ProductCollectionButtons from './ProductCollectionButtons'
 
 export default function ProductCard({
   slug,
@@ -12,6 +13,10 @@ export default function ProductCard({
   ingredients = [],
   reason,
   imageUrl,
+  isFavorite = false,
+  isCompared = false,
+  onFavoriteToggle,
+  onCompareToggle,
 }) {
   const canRenderImage = imageUrl && (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('/'))
 
@@ -63,21 +68,20 @@ export default function ProductCard({
           ) : null}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            to={`/products/${slug}`}
-            className="flex-1 py-2.5 rounded-full bg-primary text-white text-label-md font-semibold hover:bg-tertiary transition-colors text-center shadow-[0_8px_24px_rgba(103,80,228,0.18)]"
-          >
-            Xem chi tiết
-          </Link>
-          <button
-            type="button"
-            className="w-10 h-10 rounded-full border border-border-pink flex items-center justify-center text-on-surface-variant hover:text-primary hover:border-primary transition-colors"
-            aria-label="Lưu"
-          >
-            <Icon name="favorite" className="text-xl" />
-          </button>
-        </div>
+        <Link
+          to={`/products/${slug}`}
+          className="w-full py-2.5 rounded-full bg-primary text-white text-label-md font-semibold hover:bg-tertiary transition-colors text-center shadow-[0_8px_24px_rgba(103,80,228,0.18)] mb-3"
+        >
+          Xem chi tiết
+        </Link>
+
+        <ProductCollectionButtons
+          compact
+          isFavorite={isFavorite}
+          isCompared={isCompared}
+          onFavoriteToggle={onFavoriteToggle}
+          onCompareToggle={onCompareToggle}
+        />
       </div>
     </div>
   )
