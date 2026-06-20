@@ -1,5 +1,36 @@
 import tokenStorage from './tokenStorage'
 
+export async function validateSkin(file) {
+  const formData = new FormData()
+  formData.append('image', file)
+  
+  const token = tokenStorage.getAccessToken()
+  const headers = {}
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+  
+  const res = await fetch('http://localhost:5000/api/scans/validate', {
+    method: 'POST',
+    headers,
+    body: formData,
+  })
+  
+  if (!res.ok) {
+    let errMsg = 'Ảnh không hợp lệ'
+    try {
+      const errorData = await res.json()
+      errMsg = errorData.detail || errorData.message || errMsg
+    } catch {
+      const errText = await res.text()
+      errMsg = errText || errMsg
+    }
+    throw new Error(errMsg)
+  }
+  
+  return res.json()
+}
+
 export async function analyzeSkin(file) {
   const formData = new FormData()
   formData.append('image', file)
