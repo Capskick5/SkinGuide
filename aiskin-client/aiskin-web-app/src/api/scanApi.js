@@ -116,3 +116,30 @@ export async function getScanHistory() {
 
   return res.json()
 }
+
+export async function generateRoutine(scanId) {
+  const token = tokenStorage.getAccessToken()
+  const headers = {}
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const res = await fetch(`http://localhost:5000/api/scans/${scanId}/routine`, {
+    method: 'POST',
+    headers,
+  })
+
+  if (!res.ok) {
+    let errMsg = 'Không thể tạo lộ trình'
+    try {
+      const errorData = await res.json()
+      errMsg = errorData.detail || errorData.message || errMsg
+    } catch {
+      const errText = await res.text()
+      errMsg = errText || errMsg
+    }
+    throw new Error(errMsg)
+  }
+
+  return res.json()
+}

@@ -31,24 +31,39 @@ export default function AnalysisResultPage() {
     }
   }, [result, originalImage, navigate])
 
-  if (!result) return null
+  if (!result || !result.scan_result) return null
+
+  const scanResult = result.scan_result
+  const [activeZone, setActiveZone] = useState('t_zone')
 
   // Xử lý dữ liệu AI trả về
-  const skinType = result.skin_type === 'Dry' ? 'Da khô' : result.skin_type === 'Oily' ? 'Da dầu' : 'Da thường'
+  const skinType = scanResult.skinType?.predicted === 'Dry' ? 'Da khô' : scanResult.skinType?.predicted === 'Oily' ? 'Da dầu' : 'Da thường'
   
-  // Tính điểm tổng thể (Chỉ dựa vào Siêu AI 7 Lớp)
-  const topIssueConf = result.ultimate_analysis?.[0]?.confidence || 0
-  const overallScore = Math.max(10, 100 - Math.round(topIssueConf * 0.8))
+  const zones = scanResult.facialZones || { t_zone: { issues: [] }, u_zone: { issues: [] } }
+  const currentIssues = zones[activeZone]?.issues || []
+  
+  // Tính điểm tổng thể (Lấy issue nặng nhất của cả 2 vùng)
+  const maxScoreT = zones.t_zone?.issues?.[0]?.severityScore || 1
+  const maxScoreU = zones.u_zone?.issues?.[0]?.severityScore || 1
+  const maxSeverity = Math.max(maxScoreT, maxScoreU)
+  const overallScore = maxSeverity === 4 ? 40 : maxSeverity === 3 ? 60 : maxSeverity === 2 ? 80 : 95
 
-  // Map ultimate_analysis sang CONDITIONS
-  const CONDITIONS = result.ultimate_analysis.map(item => {
-    const meta = CONDITION_METADATA[item.issue] || CONDITION_METADATA.Healthy
+  // Map issues sang CONDITIONS
+  const CONDITIONS = currentIssues.map(item => {
+    const meta = CONDITION_METADATA[item.name] || CONDITION_METADATA.Healthy
+    
+    // Đổi màu sắc severity
+    let severityColor = 'optimal'
+    if (item.severity === 'Severe') severityColor = 'high'
+    else if (item.severity === 'Moderate') severityColor = 'moderate'
+    else if (item.severity === 'Mild') severityColor = 'low'
+    
     return {
       icon: meta.icon,
       title: meta.label,
-      severityLabel: `${item.confidence.toFixed(1)}%`,
-      severity: item.confidence > 50 ? 'high' : item.confidence > 20 ? 'moderate' : 'optimal',
-      level: Math.round(item.confidence),
+      severityLabel: item.severity === 'Clear' ? 'An toàn' : `${item.severity} (${item.probability * 100}%)`,
+      severity: severityColor,
+      level: item.severityScore * 25, // 1->25, 2->50, 3->75, 4->100
       description: meta.desc
     }
   })
@@ -100,13 +115,31 @@ export default function AnalysisResultPage() {
           
           <div className="bg-primary/10 p-4 rounded-xl border border-primary/20 mb-2">
             <p className="text-body-sm text-on-surface">
-              <strong>💡 Hướng dẫn đọc thông số:</strong> Số phần trăm (%) hiển thị bên phải các mục dưới đây là <strong>Độ tự tin (Khả năng chắc chắn) của Trí Tuệ Nhân Tạo</strong> khi chẩn đoán. Tỷ lệ % càng cao đồng nghĩa với việc AI càng tin chắc vùng da đó đang gặp tổn thương, và bạn nên ưu tiên điều trị vấn đề đó trước tiên.
+              <strong>💡 Hướng dẫn đọc:</strong> AI đã tự động chia khuôn mặt bạn thành 2 vùng (T-Zone và U-Zone). Mức độ nghiêm trọng được chia làm 4 cấp: Clear (An toàn), Mild (Nhẹ), Moderate (Vừa), Severe (Nặng).
             </p>
           </div>
 
-          {CONDITIONS.map((c, i) => (
+          {/* Tabs T-Zone / U-Zone */}
+          <div className="flex gap-2 mb-4 bg-surface-container-low p-1 rounded-full border border-border-pink">
+            <button 
+              onClick={() => setActiveZone('t_zone')}
+              className={`flex-1 py-2 rounded-full text-label-md font-bold transition-all ${activeZone === 't_zone' ? 'bg-primary text-white shadow-md' : 'text-on-surface-variant hover:text-primary'}`}
+            >
+              Vùng chữ T (Trán, Mũi)
+            </button>
+            <button 
+              onClick={() => setActiveZone('u_zone')}
+              className={`flex-1 py-2 rounded-full text-label-md font-bold transition-all ${activeZone === 'u_zone' ? 'bg-primary text-white shadow-md' : 'text-on-surface-variant hover:text-primary'}`}
+            >
+              Vùng chữ U (Má, Cằm)
+            </button>
+          </div>
+
+          {CONDITIONS.length > 0 ? CONDITIONS.map((c, i) => (
             <ConditionCard key={i} {...c} />
-          ))}
+          )) : (
+            <div className="p-4 text-center text-on-surface-variant">Không phát hiện vấn đề nghiêm trọng nào ở vùng này.</div>
+          )}
 
           <div className="mt-4 flex flex-col sm:flex-row gap-4">
             <button
@@ -119,9 +152,9 @@ export default function AnalysisResultPage() {
               type="button"
               onClick={() => navigate(PATHS.ROUTINE, { 
                 state: { 
-                  routine: result.recommended_routine, 
-                  topIngredients: result.top_ingredients,
-                  skinType: skinType
+                  scanId: scanResult._id,
+                  skinType: skinType,
+                  needsGeneration: true
                 } 
               })}
               className="flex-1 gradient-bg text-white py-3 rounded-full text-label-md shadow-sm hover:opacity-90 transition-opacity flex justify-center items-center gap-2"

@@ -50,25 +50,51 @@ export default function HistoryPage() {
     }
   }
 
-  const handleViewDetail = (record) => {
-    // Chuyển đổi format để AnalysisResultPage hiểu được
-    const analysisResult = {
-      skin_type: record.skinType,
-      ultimate_analysis: record.ultimateAnalysis,
+  const handleViewRoutine = (record) => {
+    navigate(PATHS.ROUTINE, {
+      state: {
+        scanId: record._id,
+        needsGeneration: false
+      }
+    })
+  }
+
+  const handleViewAnalysis = (e, record) => {
+    e.stopPropagation() // Ngăn click nhầm vào thẻ cha (chuyển sang lộ trình)
+    
+    // Tạo cấu trúc giả lập giống với data mà API Analyze trả về
+    const mockResult = {
+      scan_result: record
     }
     
     navigate(PATHS.ANALYSIS, {
       state: {
-        result: analysisResult,
+        result: mockResult,
         originalImage: record.imageUrl
       }
     })
   }
 
-  // Hàm helper tính điểm tương tự như AnalysisResultPage
-  const calculateScore = (ultimateAnalysis) => {
-    const topIssueConf = ultimateAnalysis?.[0]?.confidence || 0
-    return Math.max(10, 100 - Math.round(topIssueConf * 0.8))
+  // Hàm helper tính điểm
+  const calculateScore = (zones) => {
+    if (!zones) return 95
+    const maxScoreT = zones.t_zone?.issues?.[0]?.severityScore || 1
+    const maxScoreU = zones.u_zone?.issues?.[0]?.severityScore || 1
+    const maxSeverity = Math.max(maxScoreT, maxScoreU)
+    return maxSeverity === 4 ? 40 : maxSeverity === 3 ? 60 : maxSeverity === 2 ? 80 : 95
+  }
+
+  // Trích xuất vấn đề
+  const getTopIssues = (zones) => {
+    if (!zones) return []
+    const flatIssues = []
+    if (zones.t_zone?.issues) flatIssues.push(...zones.t_zone.issues)
+    if (zones.u_zone?.issues) flatIssues.push(...zones.u_zone.issues)
+    
+    return Array.from(new Set(flatIssues.map(i => i.name)))
+      .filter(name => name !== 'Healthy')
+      .slice(0, 2)
+      .map(name => CONDITION_METADATA[name] || name)
   }
 
   // Hàm format ngày
@@ -94,22 +120,26 @@ export default function HistoryPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {history.map((h) => {
-              const score = calculateScore(h.ultimateAnalysis)
-              const skinTypeLabel = h.skinType === 'Dry' ? 'Da khô' : h.skinType === 'Oily' ? 'Da dầu' : 'Da thường'
-              const topIssues = h.ultimateAnalysis.slice(0, 2).map(i => CONDITION_METADATA[i.issue] || 'Khác')
+              const score = calculateScore(h.facialZones)
+              
+              const skinTypeObj = h.skinType || {}
+              const skinTypeStr = skinTypeObj.predicted || h.skinType
+              const skinTypeLabel = skinTypeStr === 'Dry' ? 'Da khô' : skinTypeStr === 'Oily' ? 'Da dầu' : 'Da thường'
+              
+              const topIssues = getTopIssues(h.facialZones)
               const tags = [skinTypeLabel, ...topIssues]
 
               return (
                 <div
                   key={h._id}
                   className="bg-surface-container-lowest border border-border-pink rounded-xl p-4 flex items-center gap-4 hover:border-primary transition-colors cursor-pointer"
-                  onClick={() => handleViewDetail(h)}
+                  onClick={() => handleViewRoutine(h)}
                 >
                   <div className="w-14 h-14 rounded-xl bg-primary-light overflow-hidden shrink-0 border border-border-pink">
                     <img src={h.imageUrl} alt="Scan thumb" className="w-full h-full object-cover" />
                   </div>
                   <div className="grow">
-                    <p className="text-label-md text-on-surface">{formatDate(h.createdAt)}</p>
+                    <p className="text-label-md text-on-surface">{formatDate(h.analyzedAt)}</p>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {tags.map((t, idx) => (
                         <span
@@ -142,8 +172,16 @@ export default function HistoryPage() {
                           <Icon name="delete" className="text-[18px]" />
                         </button>
                       </Popconfirm>
-                      <button type="button" className="text-caption text-primary hover:text-tertiary transition-colors">
-                        Xem chi tiết
+                      <button 
+                        type="button" 
+                        onClick={(e) => handleViewAnalysis(e, h)}
+                        className="text-caption text-primary hover:text-tertiary transition-colors flex items-center gap-1"
+                      >
+                        <Icon name="analytics" className="text-[14px]"/> Xem phân tích AI
+                      </button>
+                      <span className="text-border-pink">|</span>
+                      <button type="button" className="text-caption text-primary hover:text-tertiary transition-colors flex items-center gap-1">
+                        Xem lộ trình <Icon name="arrow_forward" className="text-[14px]"/>
                       </button>
                     </div>
                   </div>
