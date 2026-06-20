@@ -91,6 +91,13 @@
   --text-body-md: 16px;
   --text-body-md--line-height: 24px;
 
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 20px;
+
+  --text-headline-sm: 20px;
+  --text-headline-sm--line-height: 28px;
+  --text-headline-sm--font-weight: 600;
+
   --text-label-md: 14px;
   --text-label-md--line-height: 20px;
   --text-label-md--font-weight: 500;
@@ -106,6 +113,14 @@
   --spacing-sidebar: 104px;
   --spacing-gutter: 24px;
   --spacing-container-max: 1200px;
+
+  /* ---- Animations ---- */
+  --animate-bounce-gentle: bounce-gentle 2s ease-in-out infinite;
+
+  @keyframes bounce-gentle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
 }
 
 /* Material Symbols icon font base */

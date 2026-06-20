@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import TopNav from './TopNav'
 import MobileNav from './MobileNav'
+import CartDrawer from '@/components/cart/CartDrawer'
 
 /**
  * Layout chung (phong cách QuillBot):
@@ -26,6 +27,10 @@ export default function AppLayout() {
       </main>
 
       <MobileNav />
+
+      {/* Cart drawer – global, luôn sẵn sàng */}
+      <CartDrawer />
     </div>
   )
 }
+

@@ -2,6 +2,8 @@ import '@ant-design/v5-patch-for-react-19'
 import { ConfigProvider, App as AntApp } from 'antd'
 import AppRoutes from '@/route/AppRoutes'
 import { AuthProvider } from '@/hook/AuthContext'
+import { CartProvider } from '@/context/CartContext'
+import { CartDrawerProvider } from '@/context/CartDrawerContext'
 
 /**
  * Root component.
@@ -27,7 +29,11 @@ export default function App() {
     <ConfigProvider theme={antdTheme}>
       <AntApp>
         <AuthProvider>
-          <AppRoutes />
+          <CartProvider>
+            <CartDrawerProvider>
+              <AppRoutes />
+            </CartDrawerProvider>
+          </CartProvider>
         </AuthProvider>
       </AntApp>
     </ConfigProvider>

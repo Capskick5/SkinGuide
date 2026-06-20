@@ -61,6 +61,8 @@ export default function AuthPage({ mode = 'login' }) {
 
           {isLogin ? <LoginForm /> : <RegisterForm />}
 
+          <SocialButtons />
+
           <p className="mt-8 text-center text-body-md text-on-surface-variant">
             {isLogin ? 'Chưa có tài khoản? ' : 'Đã có tài khoản? '}
             <button

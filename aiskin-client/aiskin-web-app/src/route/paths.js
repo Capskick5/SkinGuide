@@ -17,6 +17,7 @@ export const PATHS = {
   PRODUCTS: '/products',
   HISTORY: '/history',
   PROGRESS: '/progress',
+  CHECKOUT: '/checkout',
 
   // Tài khoản
   PROFILE: '/profile',

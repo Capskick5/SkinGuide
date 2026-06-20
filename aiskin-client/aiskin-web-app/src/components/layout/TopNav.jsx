@@ -1,5 +1,6 @@
 import Icon from '@/components/common/Icon'
 import UserMenu from './UserMenu'
+import CartButton from '@/components/cart/CartButton'
 
 /**
  * Thanh header trên cùng (desktop) - cùng màu shell (hồng), căn phải.
@@ -8,6 +9,9 @@ import UserMenu from './UserMenu'
 export default function TopNav() {
   return (
     <header className="hidden md:flex bg-nav fixed top-0 left-sidebar right-0 z-40 justify-end items-center px-6 h-[52px] gap-2">
+      {/* Cart button with badge */}
+      <CartButton />
+
       <button
         type="button"
         className="w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/60 transition-colors rounded-full"
@@ -28,3 +32,4 @@ export default function TopNav() {
     </header>
   )
 }
+

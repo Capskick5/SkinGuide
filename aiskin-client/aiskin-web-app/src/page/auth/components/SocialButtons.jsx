@@ -5,7 +5,7 @@ import { useEffect } from 'react'
 import { PATHS } from '@/route/paths'
 
 /**
- * Nút đăng nhập bằng mạng xã hội (Google, Apple).
+ * Nút đăng nhập bằng mạng xã hội (Google).
  */
 export default function SocialButtons() {
   const { loginWithGoogle } = useAuth()
@@ -78,7 +78,7 @@ export default function SocialButtons() {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-4">
+      <div className="mt-6">
         <button
           type="button"
           onClick={onGoogleClick}
@@ -91,15 +91,6 @@ export default function SocialButtons() {
             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
           </svg>
           Google
-        </button>
-        <button
-          type="button"
-          className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl border border-border-pink bg-white text-on-surface text-label-md hover:bg-surface-soft transition-colors shadow-sm"
-        >
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.04 2.26-.82 3.59-.72 1.37.07 2.39.63 3.1 1.54-2.64 1.48-2.2 5.25.43 6.32-.67 1.81-1.46 3.48-2.2 4.03zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-          </svg>
-          Apple
         </button>
       </div>
     </div>
