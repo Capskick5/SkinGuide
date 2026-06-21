@@ -3,21 +3,21 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import RoutineStep from './components/RoutineStep'
 import { PATHS } from '@/route/paths'
-import { getScanHistory, generateRoutine } from '@/api/scanApi'
+import { getScanHistory, generateRoutine, generateRecommendations } from '@/api/scanApi'
 
 const translateIssue = (issue) => {
   const dict = {
-    'Acne': 'trị mụn',
-    'Blackheads': 'giảm mụn đầu đen',
-    'Pigmentation': 'mờ thâm nám',
-    'Enlarged Pores': 'thu nhỏ lỗ chân lông',
-    'Wrinkles': 'chống lão hóa',
-    'Redness': 'làm dịu mẩn đỏ',
-    'Oily': 'kiềm dầu',
-    'Dry and dehydrated skin': 'cấp ẩm sâu',
-    'Combination': 'cân bằng da',
-    'Normal': 'duy trì da khỏe',
-    'Sensitive': 'phục hồi da'
+    'Acne': 'Trị mụn',
+    'Blackheads': 'Giảm mụn đầu đen',
+    'Pigmentation': 'Mờ thâm nám',
+    'Enlarged Pores': 'Thu nhỏ lỗ chân lông',
+    'Wrinkles': 'Chống lão hóa',
+    'Redness': 'Làm dịu mẩn đỏ',
+    'Oily': 'Kiềm dầu',
+    'Dry and dehydrated skin': 'Cấp ẩm sâu',
+    'Combination': 'Cân bằng da',
+    'Normal': 'Duy trì da khỏe',
+    'Sensitive': 'Phục hồi da'
   }
   return dict[issue] || issue
 }
@@ -52,7 +52,7 @@ const mapAiRoutineToSteps = (aiRoutineArray) => {
   return aiRoutineArray.map((item, index) => {
     let icon = 'spa'
     let colorTheme = 'primary'
-    
+
     if (item.step === 'cleanser' || item.step === 'makeup_remover') {
       icon = 'wash'
       colorTheme = 'blue'
@@ -76,7 +76,7 @@ const mapAiRoutineToSteps = (aiRoutineArray) => {
     let title = item.name
     let freq = 'Hằng ngày'
     if (item.step === 'exfoliant') freq = '2-3 lần/tuần'
-    
+
     if (item.recommended_ingredients && item.recommended_ingredients.length > 0) {
       title += ` (ưu tiên chứa: ${item.recommended_ingredients.join(', ')})`
     }
@@ -100,16 +100,19 @@ export default function RoutinePage() {
 
   const [historyList, setHistoryList] = useState([])
   const [selectedScanId, setSelectedScanId] = useState('')
+  const [selectedRoutineId, setSelectedRoutineId] = useState('')
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   const [aiRoutine, setAiRoutine] = useState(location.state?.routine || null)
   const [topIngredients, setTopIngredients] = useState(location.state?.topIngredients || [])
   const [focusAreas, setFocusAreas] = useState(location.state?.focusAreas || [])
   const [skinType, setSkinType] = useState(location.state?.skinType || '')
-  
+  const [productRecommendations, setProductRecommendations] = useState(location.state?.productRecommendations || [])
+
   const [translatedDescriptions, setTranslatedDescriptions] = useState({})
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isGeneratingRecs, setIsGeneratingRecs] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -118,7 +121,7 @@ export default function RoutinePage() {
         const res = await getScanHistory()
         if (res.data && res.data.length > 0) {
           setHistoryList(res.data)
-          
+
           if (location.state?.scanId) {
             const targetScan = res.data.find(h => h._id === location.state.scanId)
             if (targetScan) {
@@ -142,7 +145,7 @@ export default function RoutinePage() {
     }
 
     fetchHistory()
-  }, []) 
+  }, [])
 
   const handleGenerateRoutine = async (scanId) => {
     setIsGenerating(true)
@@ -164,6 +167,28 @@ export default function RoutinePage() {
       setError(err.message)
     } finally {
       setIsGenerating(false)
+    }
+  }
+
+  const handleGenerateRecommendations = async () => {
+    if (!selectedRoutineId) return
+    setIsGeneratingRecs(true)
+    setError(null)
+    try {
+      const scan = historyList.find(h => h._id === selectedScanId)
+      const res = await generateRecommendations(selectedRoutineId, scan?.userId || '')
+      if (res.status === 'success') {
+        setProductRecommendations(res.data)
+        const updatedHistory = historyList.map(h => {
+          if (h._id === selectedScanId) return { ...h, productRecommendations: res.data }
+          return h
+        })
+        setHistoryList(updatedHistory)
+      }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setIsGeneratingRecs(false)
     }
   }
 
@@ -211,6 +236,8 @@ export default function RoutinePage() {
     setAiRoutine(scan.recommendedRoutine || null)
     setTopIngredients(scan.topIngredients || [])
     setFocusAreas(scan.focusAreas || [])
+    setProductRecommendations(scan.productRecommendations || [])
+    setSelectedRoutineId(scan.routineId || '')
     const typeLabel = scan.skinType === 'Dry' ? 'Da khô' : scan.skinType === 'Oily' ? 'Da dầu' : 'Da thường'
     setSkinType(typeLabel)
   }
@@ -275,10 +302,10 @@ export default function RoutinePage() {
             Cá nhân hóa cho <span className="font-semibold text-primary">{skinType}</span> · Lộ trình chuyên sâu 4–6 tuần
           </p>
         </div>
-        
+
         {historyList.length > 0 && (
           <div className="relative z-10">
-            <button 
+            <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="flex items-center gap-3 bg-surface-container-lowest px-5 py-2.5 rounded-full border border-border-pink hover:border-primary hover:shadow-ambient-pink transition-all cursor-pointer"
             >
@@ -357,7 +384,7 @@ export default function RoutinePage() {
         </div>
       ) : (
         <div className="flex flex-col gap-6">
-          
+
           {/* Focus Areas Box */}
           {focusAreas.length > 0 && (
             <div className="bg-primary/10 rounded-2xl p-4 border border-border-pink">
@@ -402,7 +429,7 @@ export default function RoutinePage() {
                 onClick={() => navigate(PATHS.PRODUCTS)}
                 className="flex-1 md:flex-none px-5 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 text-white text-label-md font-semibold shadow-sm hover:opacity-90 transition-all flex justify-center items-center gap-2 whitespace-nowrap"
               >
-                Gợi ý mỹ phẩm <Icon name="shopping_bag" className="text-[16px]" />
+                Cửa hàng <Icon name="shopping_bag" className="text-[16px]" />
               </button>
               <button
                 type="button"
@@ -414,14 +441,48 @@ export default function RoutinePage() {
             </div>
           </div>
 
+          {/* Prompt Generate Recommendations */}
+          {productRecommendations.length === 0 && (
+            <div className="bg-surface-container-lowest border border-border-pink rounded-xl p-6 text-center shadow-sm">
+              <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                <Icon name="science" className="text-3xl" />
+              </div>
+              <h3 className="text-title-md text-on-surface mb-2 font-bold">Chưa có Gợi ý Mỹ phẩm</h3>
+              <p className="text-body-md text-on-surface-variant mb-6 max-w-lg mx-auto">
+                Hãy để AI phân tích sâu hơn kho dữ liệu mỹ phẩm và tìm ra các sản phẩm xịn xò, phù hợp nhất với loại da của bạn trong Lộ trình này.
+              </p>
+              <button
+                onClick={handleGenerateRecommendations}
+                disabled={isGeneratingRecs}
+                className={`px-8 py-2.5 rounded-full text-white font-medium shadow-md transition-all flex items-center justify-center gap-2 mx-auto ${isGeneratingRecs ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-blue-500 hover:shadow-lg'}`}
+              >
+                {isGeneratingRecs ? (
+                  <><div className="animate-spin mr-2"><Icon name="refresh" /></div> Đang AI phân tích...</>
+                ) : (
+                  <><Icon name="auto_awesome" /> Tạo gợi ý mỹ phẩm bằng AI</>
+                )}
+              </button>
+            </div>
+          )}
+
           {/* Routine Steps */}
           <div className="mt-4 px-2 md:px-6">
             {steps.length === 0 ? (
               <p className="text-center text-on-surface-variant py-8">Chưa có bước nào trong buổi này.</p>
             ) : (
-              steps.map((s, i) => (
-                <RoutineStep key={s.step} {...s} isLast={i === steps.length - 1} time={time} />
-              ))
+              steps.map((s, i) => {
+                const stepRecs = productRecommendations.find(r => r.step === s.category)
+                const products = stepRecs ? stepRecs.products : []
+                return (
+                  <RoutineStep
+                    key={s.step}
+                    {...s}
+                    isLast={i === steps.length - 1}
+                    time={time}
+                    recommendedProducts={products}
+                  />
+                )
+              })
             )}
           </div>
 
@@ -435,12 +496,12 @@ export default function RoutinePage() {
               <p className="text-body-sm text-indigo-600/80 mb-6 font-medium">
                 Các hoạt chất tối ưu nhất được AI bác sĩ lựa chọn dựa trên 7 lớp phân tích da của bạn:
               </p>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {topIngredients.map((ing, idx) => {
                   // Dùng bản dịch trực tiếp, nếu chưa dịch xong thì dùng description gốc hoặc fallback
-                  const description = translatedDescriptions[ing.name] 
-                                      || getIngredientDescription(ing);
+                  const description = translatedDescriptions[ing.name]
+                    || getIngredientDescription(ing);
                   return (
                     <div key={idx} className="bg-white p-5 rounded-[10px] border border-indigo-100 hover:border-indigo-300 transition-colors shadow-sm flex flex-col justify-between group">
                       <div className="flex justify-between items-start mb-4 gap-2">
