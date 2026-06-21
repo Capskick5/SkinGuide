@@ -66,6 +66,20 @@ spring:
               filters:
                 - RewritePath=/api-docs/ai-scan-service/(?<segment>.*), /$\{segment}
 
+            # Recommendation service endpoints
+            - id: recommendation-service
+              uri: lb://recommendation-service
+              predicates:
+                - Path=/api/v1/recommend/**
+
+            # Expose recommendation-service OpenAPI doc through the gateway
+            - id: recommendation-service-api-docs
+              uri: lb://recommendation-service
+              predicates:
+                - Path=/api-docs/recommendation-service/**
+              filters:
+                - RewritePath=/api-docs/recommendation-service/(?<segment>.*), /$\{segment}
+
 server:
   port: 8080
 
@@ -88,6 +102,8 @@ springdoc:
         url: /api-docs/product-service/v3/api-docs
       - name: ai-scan-service
         url: /api-docs/ai-scan-service/openapi.json
+      - name: recommendation-service
+        url: /api-docs/recommendation-service/openapi.json
 
 # Surface gateway routes for local debugging
 management:

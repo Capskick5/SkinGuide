@@ -3,11 +3,14 @@ import uuid
 import jwt
 from datetime import datetime, timezone
 from pymongo import MongoClient
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import py_eureka_client.eureka_client as eureka_client
 from contextlib import asynccontextmanager
+import json
+import asyncio
+import requests
 from app.services.skin_type_inference import SkinTypeDetector
 from app.services.ultimate_skin_inference import UltimateSkinDetector
 from app.utils.face_cropper import crop_face_from_bytes
@@ -29,11 +32,14 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 skin_detector = None
 ultimate_detector = None
 db = None
+RECOMMENDATION_SERVICE_URL = os.getenv("RECOMMENDATION_SERVICE_URL", "http://localhost:5001")
 
 from app.security import verify_token, has_permission
 
 def get_current_user_id(payload: dict = Depends(verify_token)):
     return payload.get("sub", "unknown_user")
+
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -181,8 +187,10 @@ def validate_skin_image(image: UploadFile = File(...), user_id: str = Depends(ge
         logger.error(f"Lỗi trong quá trình kiểm định ảnh: {e}")
         raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ")
 
+
+
 @app.post("/api/scans/{scan_id}/routine", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/routine", "POST"))])
-def generate_scan_routine(scan_id: str, user_id: str = Depends(get_current_user_id)):
+def generate_scan_routine(scan_id: str, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user_id)):
     """
     API để sinh lộ trình dựa trên một kết quả Scan đã có trong hệ thống.
     Chỉ khi nào người dùng có nhu cầu thì mới gọi API này để tạo Lộ trình.
@@ -277,6 +285,17 @@ def get_scan_history(user_id: str = Depends(get_current_user_id)):
                 record["recommendedRoutine"] = routine_record.get("routine")
                 record["topIngredients"] = routine_record.get("topIngredients")
                 record["focusAreas"] = routine_record.get("focusAreas")
+                record["routineId"] = str(routine_record.get("_id"))
+                
+                # Gọi API đồng bộ (API Composition) sang Recommendation Service
+                try:
+                    res = requests.get(f"{RECOMMENDATION_SERVICE_URL}/api/v1/recommend/routine/{record['routineId']}", timeout=2)
+                    if res.status_code == 200:
+                        rec_data = res.json()
+                        if rec_data.get("status") == "success" and rec_data.get("data"):
+                            record["productRecommendations"] = rec_data.get("data")
+                except Exception as ex:
+                    logger.warning(f"Lỗi khi gọi recommendation-service cho routine {record['routineId']}: {ex}")
             else:
                 # Nếu không có (có thể là data cũ nằm chung 1 collection), lấy trực tiếp
                 pass
