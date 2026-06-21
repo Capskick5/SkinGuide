@@ -1,0 +1,16 @@
+{
+  "morning": [
+    { "step": "cleanser", "name": "Sữa rửa mặt", "required": true, "reason": "Làm sạch bã nhờn và dưỡng chất còn sót lại sau đêm." },
+    { "step": "toner", "name": "Toner / Nước hoa hồng", "required": false, "reason": "Cân bằng độ pH và cấp ẩm nhẹ nhàng." },
+    { "step": "serum", "name": "Serum đặc trị", "required": true, "depends_on_condition": true, "reason": "Cung cấp dưỡng chất sâu giải quyết vấn đề da." },
+    { "step": "moisturizer", "name": "Kem dưỡng ẩm", "required": true, "reason": "Khóa ẩm và bảo vệ hàng rào bảo vệ da." },
+    { "step": "sunscreen", "name": "Kem chống nắng", "required": true, "reason": "Bảo vệ da khỏi tác hại của tia UV." }
+  ],
+  "evening": [
+    { "step": "makeup_remover", "name": "Tẩy trang", "required": true, "reason": "Loại bỏ lớp trang điểm, kem chống nắng và bụi bẩn." },
+    { "step": "cleanser", "name": "Sữa rửa mặt", "required": true, "reason": "Double cleansing giúp da sạch sâu hoàn toàn." },
+    { "step": "exfoliant", "name": "Tẩy tế bào chết", "required": false, "depends_on_condition": true, "reason": "Loại bỏ lớp sừng chết, giúp da sáng mịn và hấp thu dưỡng chất tốt hơn (2-3 lần/tuần)." },
+    { "step": "treatment", "name": "Đặc trị chuyên sâu", "required": true, "depends_on_condition": true, "reason": "Tập trung điều trị các vấn đề da cụ thể." },
+    { "step": "moisturizer", "name": "Kem dưỡng phục hồi", "required": true, "reason": "Cung cấp dưỡng chất và phục hồi da qua đêm." }
+  ]
+}

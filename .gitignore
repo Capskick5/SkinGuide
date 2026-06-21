@@ -92,4 +92,6 @@ Thumbs.db
 # Documentation / Misc
 .history/
 
-aiskin-server/ai-scan-service
+# Ignore uploaded images in ai-scan-service
+aiskin-server/ai-scan-service/uploads/
+
