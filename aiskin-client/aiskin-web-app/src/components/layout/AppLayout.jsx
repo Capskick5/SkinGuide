@@ -3,6 +3,7 @@ import Sidebar from './Sidebar'
 import TopNav from './TopNav'
 import MobileNav from './MobileNav'
 import CartDrawer from '@/components/cart/CartDrawer'
+import ChatbotWidget from '@/components/chatbot/ChatbotWidget'
 
 /**
  * Layout chung (phong cách QuillBot):
@@ -30,6 +31,9 @@ export default function AppLayout() {
 
       {/* Cart drawer – global, luôn sẵn sàng */}
       <CartDrawer />
+
+      {/* AI Chatbot widget – nổi góc dưới phải */}
+      <ChatbotWidget />
     </div>
   )
 }

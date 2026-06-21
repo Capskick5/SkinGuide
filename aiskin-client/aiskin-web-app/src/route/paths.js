@@ -4,6 +4,9 @@
  * Dùng: import { PATHS } from '@/route/paths'
  */
 export const PATHS = {
+  // Public
+  LANDING: '/welcome',
+
   // Auth
   LOGIN: '/login',
   REGISTER: '/register',
@@ -12,10 +15,13 @@ export const PATHS = {
   // App (yêu cầu đăng nhập)
   DASHBOARD: '/',
   SCAN: '/scan',
+  SKIN_QUIZ: '/skin-quiz',
   ANALYSIS: '/analysis',
   ROUTINE: '/routine',
   PRODUCTS: '/products',
+  PRODUCT_DETAIL: '/products/:id',
   HISTORY: '/history',
+  HISTORY_DETAIL: '/history/:id',
   PROGRESS: '/progress',
   CHECKOUT: '/checkout',
 

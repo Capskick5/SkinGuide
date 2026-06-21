@@ -9,8 +9,29 @@ export const productApi = {
   async listProducts() {
     return request('/products')
   },
+  async getActiveProducts() {
+    return request('/products/active')
+  },
   async getProduct(id) {
     return request(`/products/${id}`)
+  },
+  async getProductBySlug(slug) {
+    return request(`/products/slug/${slug}`)
+  },
+  async getProductsByBrand(brandId) {
+    return request(`/products/brand/${brandId}`)
+  },
+  async getProductsByCategory(categoryId) {
+    return request(`/products/category/${categoryId}`)
+  },
+  async getProductsBySkinType(type) {
+    return request(`/products/skin-type?type=${encodeURIComponent(type)}`)
+  },
+  async getProductsByConcern(concern) {
+    return request(`/products/concern?concern=${encodeURIComponent(concern)}`)
+  },
+  async getProductsByIngredient(ingredientId) {
+    return request(`/products/ingredient/${ingredientId}`)
   },
   async createProduct(data) {
     return request('/products', { method: 'POST', body: data })
@@ -66,6 +87,21 @@ export const productApi = {
   async getIngredient(id) {
     return request(`/ingredients/${id}`)
   },
+  async getIngredientBySlug(slug) {
+    return request(`/ingredients/slug/${slug}`)
+  },
+  async searchIngredients(keyword) {
+    return request(`/ingredients/search?keyword=${encodeURIComponent(keyword)}`)
+  },
+  async getIngredientsByConcern(concern) {
+    return request(`/ingredients/by-concern?concern=${encodeURIComponent(concern)}`)
+  },
+  async getIngredientsByBenefit(benefit) {
+    return request(`/ingredients/by-benefit?benefit=${encodeURIComponent(benefit)}`)
+  },
+  async getSafeIngredients(maxEwgScore = 3) {
+    return request(`/ingredients/safe?maxEwgScore=${maxEwgScore}`)
+  },
   async createIngredient(data) {
     return request('/ingredients', { method: 'POST', body: data })
   },
@@ -76,3 +112,4 @@ export const productApi = {
     return request(`/ingredients/${id}`, { method: 'DELETE' })
   },
 }
+
