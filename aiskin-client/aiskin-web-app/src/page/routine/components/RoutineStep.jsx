@@ -13,7 +13,7 @@ const COLOR_MAP = {
   primary: { bg: 'bg-primary/10', text: 'text-primary', border: 'border-border-pink/50' }
 }
 
-export default function RoutineStep({ step, icon, category, title, instruction, frequency, isLast, colorTheme = 'primary', time = 'morning' }) {
+export default function RoutineStep({ step, icon, category, title, instruction, frequency, isLast, colorTheme = 'primary', time = 'morning', recommendedProducts = [] }) {
   const theme = COLOR_MAP[colorTheme] || COLOR_MAP.primary
   const markerStyle = 'bg-black shadow-[0_2px_10px_rgba(0,0,0,0.15)]'
 
@@ -46,6 +46,47 @@ export default function RoutineStep({ step, icon, category, title, instruction, 
         <p className="text-body-sm text-on-surface-variant mt-3 leading-relaxed border-l-2 pl-3 ml-1" style={{ borderLeftColor: 'currentColor', color: 'inherit' }}>
           <span className="text-on-surface-variant">{instruction}</span>
         </p>
+
+        {/* Sản phẩm gợi ý từ AI */}
+        {recommendedProducts && recommendedProducts.length > 0 && (
+          <div className="mt-5 pt-4 border-t border-dashed border-gray-200">
+            <h5 className="text-[12px] uppercase font-bold text-gray-500 mb-3">AI Đề xuất sản phẩm cho bước này</h5>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {recommendedProducts.map((prod, idx) => {
+                const seed = encodeURIComponent(prod.brand || prod.name || 'skincare');
+                const imgUrl = `https://images.unsplash.com/photo-1620916566398-39f1143ab7be?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80&seed=${seed}`;
+                const matchPercent = prod.match_score ? (prod.match_score * 100).toFixed(0) : null;
+                
+                return (
+                  <div key={idx} className="bg-white border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                    <div className="h-28 w-full bg-gray-100 relative">
+                      <img src={imgUrl} alt="product" className="w-full h-full object-cover mix-blend-multiply opacity-90" />
+                      {matchPercent && (
+                        <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                          Phù hợp {matchPercent}%
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3 flex-1 flex flex-col justify-between">
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase mb-0.5 truncate">{prod.brand || 'No Brand'}</p>
+                        <h6 className="text-[13px] font-semibold text-gray-800 line-clamp-2 leading-tight mb-2">{prod.name}</h6>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-green-600 mb-1">{prod.price || 'Liên hệ'}</p>
+                        {prod.ingredients && (
+                          <p className="text-[10px] text-gray-500 line-clamp-1" title={prod.ingredients}>
+                            <span className="font-semibold text-gray-600">Gồm:</span> {prod.ingredients}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

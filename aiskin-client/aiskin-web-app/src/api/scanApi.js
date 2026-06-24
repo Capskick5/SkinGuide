@@ -143,3 +143,34 @@ export async function generateRoutine(scanId) {
 
   return res.json()
 }
+
+export async function generateRecommendations(routineId, userId) {
+  const token = tokenStorage.getAccessToken()
+  const headers = {
+    'Content-Type': 'application/json'
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  // Gọi trực tiếp đến Recommendation Service ở cổng 5001 để tránh lỗi CORS của API Gateway
+  const res = await fetch(`http://localhost:5001/api/v1/recommend/routine/${routineId}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ user_id: userId })
+  })
+
+  if (!res.ok) {
+    let errMsg = 'Không thể tạo gợi ý mỹ phẩm'
+    try {
+      const errorData = await res.json()
+      errMsg = errorData.detail || errorData.message || errMsg
+    } catch {
+      const errText = await res.text()
+      errMsg = errText || errMsg
+    }
+    throw new Error(errMsg)
+  }
+
+  return res.json()
+}
