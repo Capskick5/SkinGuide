@@ -24,6 +24,7 @@ public class SecurityConfig {
             // "/api/v1/categories/**",
             // "/api/v1/brands/**",
             // "/api/v1/ingredients/**",
+            "/api/products/import/**"
     };
 
     private final JwtAuthFilter jwtAuthFilter;

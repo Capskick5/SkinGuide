@@ -22,7 +22,9 @@ public class ProductResponse {
     private String imageUrl;
     private List<String> images;
     private String brandId;
+    private String brandName;
     private String categoryId;
+    private String categoryName;
     private List<String> targetConcerns;
     private List<String> targetSkinTypes;
     private List<String> keyIngredientIds;

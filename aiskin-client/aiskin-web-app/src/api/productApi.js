@@ -30,6 +30,17 @@ export const productApi = {
   async searchProducts(keyword) {
     return request(`/products/search?keyword=${encodeURIComponent(keyword)}`)
   },
+  async searchAdvancedProducts({ query = '', searchField = 'all', categoryId = '', isActive = '', sortBy = '', page = 1, size = 12 }) {
+    const params = new URLSearchParams()
+    if (query) params.append('query', query)
+    if (searchField) params.append('searchField', searchField)
+    if (categoryId) params.append('categoryId', categoryId)
+    if (isActive !== '') params.append('isActive', isActive)
+    if (sortBy) params.append('sortBy', sortBy)
+    params.append('page', page)
+    params.append('size', size)
+    return request(`/products/search/advanced?${params.toString()}`)
+  },
 
   // ---------- Brands ----------
   async listBrands() {

@@ -65,26 +65,21 @@ export function makeSearchBlob(product, brandName, categoryName) {
 export function toProductCard(product, brandMap, categoryMap) {
   const brand = brandMap.get(product.brandId)
   const category = categoryMap.get(product.categoryId)
-  const ingredientNames = (product.ingredients || [])
-    .map((ingredient) => ingredient.name)
-    .filter(Boolean)
   const priceValue = Number(product.price) || 0
 
   return {
     id: product.id,
     slug: product.slug,
-    brand: brand?.name || product.brandId || 'Không rõ thương hiệu',
+    brand: product.brandName || brand?.name || product.brandId || 'Không rõ thương hiệu',
     name: product.name,
-    category: category?.name || product.categoryId || 'Không rõ danh mục',
+    category: product.categoryName || category?.name || product.categoryId || 'Không rõ danh mục',
     categoryId: product.categoryId,
     priceValue,
     price: money(product.price),
-    ingredients: ingredientNames,
-    reason: product.description || 'Sản phẩm chăm sóc da từ Product Service.',
     imageUrl: resolveImageUrl(product.imageUrl),
     targetConcerns: product.targetConcerns || [],
     targetSkinTypes: product.targetSkinTypes || [],
     keyIngredientIds: product.keyIngredientIds || [],
-    searchBlob: makeSearchBlob(product, brand?.name || '', category?.name || ''),
+    searchBlob: makeSearchBlob(product, product.brandName || brand?.name || '', product.categoryName || category?.name || ''),
   }
 }
