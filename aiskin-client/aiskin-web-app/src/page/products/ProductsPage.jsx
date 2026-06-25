@@ -58,6 +58,9 @@ export default function ProductsPage() {
   const [sortBy, setSortBy] = useState('relevance')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalElements, setTotalElements] = useState(0)
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [moreOpen, setMoreOpen] = useState(false)
   const [products, setProducts] = useState([])
   const [brands, setBrands] = useState([])
@@ -68,38 +71,63 @@ export default function ProductsPage() {
   const favorites = useFavoriteProducts()
   const compared = useComparedProducts()
 
+  // 1. Chỉ load danh mục và thương hiệu 1 lần lúc đầu
   useEffect(() => {
     let alive = true
-
     void (async () => {
-      setLoading(true)
-      setError('')
-
       try {
-        const [productRes, brandRes, categoryRes] = await Promise.all([
-          productApi.listActiveProducts(),
+        const [brandRes, categoryRes] = await Promise.all([
           productApi.listActiveBrands(),
           productApi.listActiveCategories(),
         ])
-
         if (!alive) return
-
-        setProducts(toArray(productRes))
         setBrands(toArray(brandRes))
         setCategories(toArray(categoryRes))
       } catch (err) {
+        console.error('Không tải được danh mục/thương hiệu', err)
+      }
+    })()
+    return () => { alive = false }
+  }, [])
+
+  // 2. Debounce query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  // 3. Load sản phẩm theo phân trang/bộ lọc từ API server
+  useEffect(() => {
+    let alive = true
+    void (async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const res = await productApi.searchAdvancedProducts({
+          query: debouncedQuery,
+          searchField,
+          categoryId: categoryFilter === CATEGORY_ALL ? '' : categoryFilter,
+          isActive: true, // Client chỉ thấy active
+          sortBy,
+          page,
+          size: PAGE_SIZE,
+        })
+        if (!alive) return
+        setProducts(res?.content || [])
+        setTotalPages(res?.totalPages || 1)
+        setTotalElements(res?.totalElements || 0)
+      } catch (err) {
         if (!alive) return
         setProducts([])
-        setError(err?.message || 'Không tải được sản phẩm từ Product Service.')
+        setError(err?.message || 'Không tải được sản phẩm.')
       } finally {
         if (alive) setLoading(false)
       }
     })()
-
-    return () => {
-      alive = false
-    }
-  }, [])
+    return () => { alive = false }
+  }, [debouncedQuery, searchField, categoryFilter, sortBy, page])
 
   useEffect(() => {
     const handlePointerDown = (event) => {
@@ -136,52 +164,13 @@ export default function ProductsPage() {
     [categoryFilter, filters],
   )
 
-  const filteredCards = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
-
-    return products
-      .filter((product) => categoryFilter === CATEGORY_ALL || product.categoryId === categoryFilter)
-      .map((product) => toProductCard(product, brandMap, categoryMap))
-      .filter((product) => {
-        if (!normalizedQuery) return true
-        const blob = product.searchBlob
-        if (searchField === 'all') return blob.all.includes(normalizedQuery)
-        return normalize(blob[searchField]).includes(normalizedQuery)
-      })
-  }, [brandMap, categoryMap, categoryFilter, products, query, searchField])
-
-  const sortedCards = useMemo(() => {
-    const items = [...filteredCards]
-
-    switch (sortBy) {
-      case 'name-asc':
-        items.sort((a, b) => a.name.localeCompare(b.name, 'vi'))
-        break
-      case 'name-desc':
-        items.sort((a, b) => b.name.localeCompare(a.name, 'vi'))
-        break
-      case 'price-asc':
-        items.sort((a, b) => a.priceValue - b.priceValue)
-        break
-      case 'price-desc':
-        items.sort((a, b) => b.priceValue - a.priceValue)
-        break
-      default:
-        break
-    }
-
-    return items
-  }, [filteredCards, sortBy])
-
-  const totalPages = Math.max(1, Math.ceil(sortedCards.length / PAGE_SIZE))
-  const currentPage = Math.min(page, totalPages)
   const pageCards = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE
-    return sortedCards.slice(start, start + PAGE_SIZE)
-  }, [currentPage, sortedCards])
-  const pageStart = sortedCards.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, sortedCards.length)
+    return products.map((product) => toProductCard(product, brandMap, categoryMap))
+  }, [brandMap, categoryMap, products])
 
+  const currentPage = Math.min(page, totalPages)
+  const pageStart = totalElements === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
+  const pageEnd = Math.min(currentPage * PAGE_SIZE, totalElements)
   const visiblePages = useMemo(() => getVisiblePages(currentPage, totalPages), [currentPage, totalPages])
 
   return (
@@ -338,12 +327,12 @@ export default function ProductsPage() {
         <div className="flex items-center gap-3">
           <Icon name="insights" className="text-primary" />
           <p className="text-body-md text-on-surface-variant">
-            Đang hiển thị <span className="font-medium text-on-surface">{sortedCards.length}</span> sản phẩm.
+            Đang hiển thị <span className="font-medium text-on-surface">{totalElements}</span> sản phẩm.
           </p>
         </div>
-        {sortedCards.length > 0 ? (
+        {totalElements > 0 ? (
           <p className="text-caption text-on-surface-variant">
-            {pageStart}-{pageEnd} / {sortedCards.length} mục
+            {pageStart}-{pageEnd} / {totalElements} mục
           </p>
         ) : null}
       </div>
@@ -356,7 +345,7 @@ export default function ProductsPage() {
         <div className="border border-error/20 bg-error/5 rounded-xl px-4 py-5 text-body-md text-on-surface-variant">
           {error}
         </div>
-      ) : sortedCards.length === 0 ? (
+      ) : pageCards.length === 0 ? (
         <div className="border border-border-pink bg-surface-container-lowest rounded-xl px-4 py-8 text-center text-body-md text-on-surface-variant">
           Chưa có sản phẩm phù hợp.
         </div>

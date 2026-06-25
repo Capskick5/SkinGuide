@@ -10,8 +10,6 @@ export default function ProductCard({
   match,
   price,
   rating,
-  ingredients = [],
-  reason,
   imageUrl,
   isFavorite = false,
   isCompared = false,
@@ -39,24 +37,9 @@ export default function ProductCard({
         <p className="text-caption text-on-surface-variant">{brand}</p>
         <h3 className="text-body-lg font-semibold text-on-surface mb-2">{name}</h3>
 
-        <span className="self-start px-3 py-1 bg-primary-light text-tertiary rounded-full text-caption mb-3">
+        <span className="self-start px-3 py-1 bg-primary-light text-tertiary rounded-full text-caption mb-auto">
           {category}
         </span>
-
-        {ingredients.length > 0 ? (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {ingredients.map((ing) => (
-              <span
-                key={ing}
-                className="px-2.5 py-1 bg-surface-soft border border-border-pink/60 rounded-full text-caption text-on-surface-variant"
-              >
-                {ing}
-              </span>
-            ))}
-          </div>
-        ) : null}
-
-        <p className="text-caption text-on-surface-variant mb-4 grow">{reason}</p>
 
         <div className="flex items-center justify-between mb-4">
           <span className="text-body-lg font-semibold text-on-surface">{price}</span>
