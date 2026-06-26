@@ -61,7 +61,7 @@ export default function AnalysisResultPage() {
     return {
       icon: meta.icon,
       title: meta.label,
-      severityLabel: item.severity === 'Clear' ? 'An toàn' : `${item.severity} (${item.probability * 100}%)`,
+      severityLabel: item.severity === 'Clear' ? 'An toàn' : `${item.severity} (${(item.probability * 100).toFixed(2)}%)`,
       severity: severityColor,
       level: item.severityScore * 25, // 1->25, 2->50, 3->75, 4->100
       description: meta.desc
