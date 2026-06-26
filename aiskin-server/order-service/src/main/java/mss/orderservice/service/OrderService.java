@@ -9,6 +9,9 @@ import mss.orderservice.dto.OrderResponse;
 import mss.orderservice.model.Order;
 import mss.orderservice.model.OrderItem;
 import mss.orderservice.repository.OrderRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -159,7 +162,44 @@ public class OrderService {
         });
     }
 
-    public List<Order> getOrdersByCustomerId(String customerId) {
-        return orderRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
+    public Page<Order> getOrdersByCustomerId(String customerId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return orderRepository.findByCustomerIdOrderByCreatedAtDesc(customerId, pageable);
+    }
+
+    public Page<Order> getAllOrders(int page, int size, String status) {
+        Pageable pageable = PageRequest.of(page, size);
+        if (status != null && !status.trim().isEmpty() && !status.equalsIgnoreCase("ALL")) {
+            try {
+                Order.OrderStatus orderStatus = Order.OrderStatus.valueOf(status.toUpperCase());
+                return orderRepository.findByStatusOrderByCreatedAtDesc(orderStatus, pageable);
+            } catch (IllegalArgumentException e) {
+                // Ignore invalid status and return all
+            }
+        }
+        return orderRepository.findAllByOrderByCreatedAtDesc(pageable);
+    }
+
+    public Order updateOrderStatus(String orderId, String newStatus) {
+        return orderRepository.findById(orderId).map(order -> {
+            try {
+                Order.OrderStatus status = Order.OrderStatus.valueOf(newStatus.toUpperCase());
+                order.setStatus(status);
+                
+                // If cancelled, set payment status to FAILED or REFUNDED if needed
+                if (status == Order.OrderStatus.CANCELLED && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
+                    order.setPaymentStatus(Order.PaymentStatus.FAILED);
+                }
+                
+                // If delivered, set payment status to PAID (if COD)
+                if (status == Order.OrderStatus.DELIVERED && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
+                    order.setPaymentStatus(Order.PaymentStatus.PAID);
+                }
+
+                return orderRepository.save(order);
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("Invalid order status: " + newStatus);
+            }
+        }).orElseThrow(() -> new RuntimeException("Order not found with id: " + orderId));
     }
 }
