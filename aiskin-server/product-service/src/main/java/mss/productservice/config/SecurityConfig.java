@@ -24,7 +24,8 @@ public class SecurityConfig {
             // "/api/v1/categories/**",
             // "/api/v1/brands/**",
             // "/api/v1/ingredients/**",
-            "/api/products/import/**"
+            "/api/products/import/**",
+            "/api/products/sync-kafka"
     };
 
     private final JwtAuthFilter jwtAuthFilter;

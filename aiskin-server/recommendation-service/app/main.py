@@ -10,7 +10,9 @@ import os
 import uuid
 from datetime import datetime, timezone
 from pymongo import MongoClient
+import aiohttp
 from .similarity_engine import RecommendationEngine
+from .kafka_consumer import ProductKafkaConsumer
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,6 +27,7 @@ MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://hoannaa2011_db_user:nonoru04@u
 # Global variables
 engine = None
 db = None
+kafka_consumer_task = None
 
 STEP_TO_LABEL = {
     "Tẩy trang": "Cleanser",
@@ -43,7 +46,7 @@ class RoutineRecommendRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global engine, db
+    global engine, db, kafka_consumer_task
     logger.info("Khởi động Recommendation Service...")
     
     # 0. Kết nối MongoDB
@@ -57,10 +60,27 @@ async def lifespan(app: FastAPI):
     # 1. Khởi tạo Hybrid Recommendation Engine
     try:
         engine = RecommendationEngine(DATASET_PATH)
-        logger.info(f"Đã nạp thành công bộ dữ liệu mỹ phẩm với {len(engine.df)} sản phẩm.")
+        # Nạp tức thì (Zero-latency) dữ liệu thật từ MongoDB của Product-Service
+        try:
+            prod_db = client.aiskin_product
+            db_products = list(prod_db.products.find())
+            if db_products:
+                engine.update_data(db_products)
+                logger.info(f"Đã nạp nhanh {len(db_products)} sản phẩm gốc từ MongoDB vào AI Engine.")
+        except Exception as e:
+            logger.error(f"Lỗi khi nạp nhanh từ MongoDB: {e}")
+            
     except Exception as e:
         logger.error(f"Lỗi khi nạp Dataset: {e}")
         
+    # 1.5 Khởi động Kafka Consumer (chỉ để nhận sự kiện Cập nhật/Thêm mới realtime)
+    try:
+        kafka_consumer_task = ProductKafkaConsumer(engine)
+        await kafka_consumer_task.start()
+        logger.info("Kafka Consumer đã sẵn sàng lắng nghe realtime events.")
+    except Exception as e:
+        logger.error(f"Lỗi khi khởi động Kafka Consumer: {e}")
+
     # 2. Đăng ký với Eureka Server
     try:
         await eureka_client.init_async(
@@ -76,6 +96,9 @@ async def lifespan(app: FastAPI):
     yield
     
     # Hủy đăng ký khi tắt app
+    if kafka_consumer_task:
+        await kafka_consumer_task.stop()
+        
     try:
         await eureka_client.stop_async()
         logger.info("Đã hủy đăng ký Eureka thành công!")
@@ -153,6 +176,9 @@ def generate_routine_recommendation(routine_id: str, req: RoutineRecommendReques
             clean_recs = []
             for r in recs:
                 clean_recs.append({
+                    "id": r.get("id"),
+                    "slug": r.get("slug"),
+                    "imageUrl": r.get("imageUrl"),
                     "brand": r.get("brand"),
                     "name": r.get("name"),
                     "price": r.get("price"),
@@ -247,6 +273,9 @@ def get_recommendations(req: RecommendRequest):
         clean_results = []
         for r in results:
             clean_results.append({
+                "id": r.get("id"),
+                "slug": r.get("slug"),
+                "imageUrl": r.get("imageUrl"),
                 "brand": r.get("brand"),
                 "name": r.get("name"),
                 "price": r.get("price"),

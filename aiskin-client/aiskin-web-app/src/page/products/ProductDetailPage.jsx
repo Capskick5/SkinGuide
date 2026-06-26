@@ -3,8 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { productApi } from '@/api/productApi'
 import { mapById, resolveImageUrl, toArray } from './productUtils'
-import ProductCollectionButtons from './components/ProductCollectionButtons'
-import { useComparedProducts, useFavoriteProducts } from './productCollections'
+import { translateCategory, translateDescription, translateName, translateTag } from './translator'
 
 function money(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '-'
@@ -18,8 +17,7 @@ export default function ProductDetailPage() {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const favorites = useFavoriteProducts()
-  const compared = useComparedProducts()
+  const [translatedDesc, setTranslatedDesc] = useState('')
 
   useEffect(() => {
     let alive = true
@@ -40,6 +38,20 @@ export default function ProductDetailPage() {
         setProduct(productRes)
         setBrands(toArray(brandRes))
         setCategories(toArray(categoryRes))
+
+        // Gọi Google Translate API miễn phí để dịch Description
+        if (productRes.description) {
+          try {
+            const gtRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=${encodeURIComponent(productRes.description)}`)
+            const gtData = await gtRes.json()
+            if (alive && gtData && gtData[0]) {
+              const viText = gtData[0].map(item => item[0]).join('')
+              setTranslatedDesc(viText.charAt(0).toUpperCase() + viText.slice(1))
+            }
+          } catch (e) {
+            console.error('Lỗi dịch description:', e)
+          }
+        }
       } catch (err) {
         if (!alive) return
         setProduct(null)
@@ -58,8 +70,11 @@ export default function ProductDetailPage() {
   const categoryMap = useMemo(() => mapById(categories), [categories])
 
   const imageSrc = resolveImageUrl(product?.imageUrl || product?.images?.[0])
-  const brandName = brandMap.get(product?.brandId)?.name || product?.brandId || 'Không rõ thương hiệu'
-  const categoryName = categoryMap.get(product?.categoryId)?.name || product?.categoryId || 'Không rõ danh mục'
+  const brandName = product?.brandName || brandMap.get(product?.brandId)?.name || 'Không rõ thương hiệu'
+  const rawCategoryName = product?.categoryName || categoryMap.get(product?.categoryId)?.name || 'Không rõ danh mục'
+  const categoryName = translateCategory(rawCategoryName)
+  const productName = translateName(product?.name || '')
+  const productDescription = translateDescription(product?.description || 'Không có mô tả.')
   const ingredientCount = product?.ingredients?.length || 0
   const concernCount = product?.targetConcerns?.length || 0
   const skinTypeCount = product?.targetSkinTypes?.length || 0
@@ -138,11 +153,11 @@ export default function ProductDetailPage() {
 
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
-                  <h2 className="text-title-lg text-on-surface font-semibold">{product.name}</h2>
+                  <h2 className="text-title-lg text-on-surface font-semibold">{productName}</h2>
                   <div className="mt-3 rounded-lg border border-border-pink bg-surface-container-lowest px-4 py-3">
                     <p className="text-caption text-on-surface-variant mb-1">Mô tả</p>
                     <p className="text-body-md text-on-surface leading-6 whitespace-pre-line">
-                      {product.description || 'Không có mô tả.'}
+                      {translatedDesc || productDescription}
                     </p>
                   </div>
                 </div>
@@ -152,33 +167,7 @@ export default function ProductDetailPage() {
                   <p className="text-title-lg text-on-surface font-semibold">{money(product.price)}</p>
                 </div>
               </div>
-
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <ProductCollectionButtons
-                  compact={false}
-                  favoriteLabel="Yêu thích"
-                  compareLabel="So sánh"
-                  isFavorite={favorites.hasId(product.id)}
-                  isCompared={compared.hasId(product.id)}
-                  onFavoriteToggle={() => favorites.toggle(product.id)}
-                  onCompareToggle={() => compared.toggle(product.id)}
-                />
-                <Link
-                  to="/products/favorites"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary"
-                >
-                  <Icon name="favorite" filled className="text-base" />
-                  Danh sách yêu thích ({favorites.count})
-                </Link>
-                <Link
-                  to="/products/compare"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary"
-                >
-                  <Icon name="compare_arrows" className="text-base" />
-                  So sánh ({compared.count})
-                </Link>
               </div>
-            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoRow label="Thương hiệu" value={brandName} />
@@ -187,11 +176,11 @@ export default function ProductDetailPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Section title="Mối quan tâm">
-                <TagList items={product.targetConcerns || []} emptyText="Không có dữ liệu" />
+                <TagList items={(product.targetConcerns || []).map(translateTag)} emptyText="Không có dữ liệu" />
               </Section>
 
               <Section title="Loại da phù hợp">
-                <TagList items={product.targetSkinTypes || []} emptyText="Không có dữ liệu" />
+                <TagList items={(product.targetSkinTypes || []).map(translateTag)} emptyText="Không có dữ liệu" />
               </Section>
             </div>
 
