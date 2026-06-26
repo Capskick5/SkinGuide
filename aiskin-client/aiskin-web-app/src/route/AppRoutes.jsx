@@ -18,6 +18,9 @@ import FavoriteProductsPage from '@/page/products/FavoriteProductsPage'
 import CompareProductsPage from '@/page/products/CompareProductsPage'
 import ProductDetailPage from '@/page/products/ProductDetailPage'
 import CartPage from '@/page/cart/CartPage'
+import CheckoutPage from '@/page/cart/CheckoutPage'
+import MomoReturnPage from '@/page/cart/MomoReturnPage'
+import OrdersPage from '@/page/orders/OrdersPage'
 import HistoryPage from '@/page/history/HistoryPage'
 import HistoryDetailPage from '@/page/history/HistoryDetailPage'
 import ProgressPage from '@/page/progress/ProgressPage'
@@ -84,6 +87,11 @@ export default function AppRoutes() {
             <Route path={PATHS.PRODUCT_COMPARE} element={<CompareProductsPage />} />
             <Route path={PATHS.PRODUCT_DETAIL} element={<ProductDetailPage />} />
             <Route path={PATHS.CART} element={<CartPage />} />
+            <Route path={PATHS.CHECKOUT} element={<CheckoutPage />} />
+            <Route path={PATHS.ORDERS} element={<OrdersPage />} />
+            
+            {/* Momo Return */}
+            <Route path={PATHS.MOMO_RETURN} element={<MomoReturnPage />} />
 
             {/* Lịch sử */}
             <Route path={PATHS.HISTORY} element={<HistoryPage />} />
