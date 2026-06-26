@@ -114,7 +114,7 @@ export default function FavoriteProductsPage() {
           <p className="text-body-md text-on-surface-variant">Chưa có sản phẩm yêu thích nào.</p>
           <Link
             to="/products"
-            className="inline-flex items-center gap-2 mt-5 px-4 py-2 rounded-full bg-primary text-white text-label-md font-semibold hover:bg-tertiary"
+            className="inline-flex items-center gap-2 mt-5 px-4 py-2 rounded-full bg-white text-primary border border-primary text-label-md font-semibold hover:bg-primary-light"
           >
             Khám phá sản phẩm
           </Link>

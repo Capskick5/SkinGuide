@@ -208,6 +208,7 @@ export default function ProductDetailPage() {
                   Xem giỏ hàng
                 </Link>
               </div>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoRow label="Thương hiệu" value={brandName} />
