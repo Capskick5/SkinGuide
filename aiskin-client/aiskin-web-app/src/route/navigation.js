@@ -10,7 +10,6 @@ export const NAV_ITEMS = [
   { key: 'routine', label: 'Lộ trình', icon: 'calendar_today', path: PATHS.ROUTINE },
   { key: 'products', label: 'Sản phẩm', icon: 'shopping_bag', path: PATHS.PRODUCTS },
   { key: 'history', label: 'Lịch sử', icon: 'history', path: PATHS.HISTORY },
-  { key: 'progress', label: 'Tiến trình', icon: 'trending_up', path: PATHS.PROGRESS },
 ]
 
 /** Các mục hiển thị trên bottom nav của mobile (rút gọn) */

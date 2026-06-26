@@ -4,7 +4,7 @@ import Icon from '@/components/common/Icon'
 import { productApi } from '@/api/productApi'
 import ProductCard from './components/ProductCard'
 import { mapById, toArray, toProductCard } from './productUtils'
-import { useComparedProducts, useFavoriteProducts } from './productCollections'
+import { translateCategory } from './translator'
 
 const CATEGORY_ALL = 'all'
 const PAGE_SIZE = 12
@@ -58,130 +58,87 @@ export default function ProductsPage() {
   const [sortBy, setSortBy] = useState('relevance')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
-  const [moreOpen, setMoreOpen] = useState(false)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalElements, setTotalElements] = useState(0)
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [products, setProducts] = useState([])
   const [brands, setBrands] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const moreMenuRef = useRef(null)
-  const favorites = useFavoriteProducts()
-  const compared = useComparedProducts()
 
+  // 1. Chỉ load danh mục và thương hiệu 1 lần lúc đầu
   useEffect(() => {
     let alive = true
-
     void (async () => {
-      setLoading(true)
-      setError('')
-
       try {
-        const [productRes, brandRes, categoryRes] = await Promise.all([
-          productApi.listActiveProducts(),
+        const [brandRes, categoryRes] = await Promise.all([
           productApi.listActiveBrands(),
           productApi.listActiveCategories(),
         ])
-
         if (!alive) return
-
-        setProducts(toArray(productRes))
         setBrands(toArray(brandRes))
         setCategories(toArray(categoryRes))
       } catch (err) {
+        console.error('Không tải được danh mục/thương hiệu', err)
+      }
+    })()
+    return () => { alive = false }
+  }, [])
+
+  // 2. Debounce query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  // 3. Load sản phẩm theo phân trang/bộ lọc từ API server
+  useEffect(() => {
+    let alive = true
+    void (async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const res = await productApi.searchAdvancedProducts({
+          query: debouncedQuery,
+          searchField,
+          categoryId: categoryFilter === CATEGORY_ALL ? '' : categoryFilter,
+          isActive: true, // Client chỉ thấy active
+          sortBy,
+          page,
+          size: PAGE_SIZE,
+        })
+        if (!alive) return
+        setProducts(res?.content || [])
+        setTotalPages(res?.totalPages || 1)
+        setTotalElements(res?.totalElements || 0)
+      } catch (err) {
         if (!alive) return
         setProducts([])
-        setError(err?.message || 'Không tải được sản phẩm từ Product Service.')
+        setError(err?.message || 'Không tải được sản phẩm.')
       } finally {
         if (alive) setLoading(false)
       }
     })()
-
-    return () => {
-      alive = false
-    }
-  }, [])
-
-  useEffect(() => {
-    const handlePointerDown = (event) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
-        setMoreOpen(false)
-      }
-    }
-
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setMoreOpen(false)
-      }
-    }
-
-    document.addEventListener('pointerdown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [])
+    return () => { alive = false }
+  }, [debouncedQuery, searchField, categoryFilter, sortBy, page])
 
   const brandMap = useMemo(() => mapById(brands), [brands])
   const categoryMap = useMemo(() => mapById(categories), [categories])
   const filters = useMemo(
-    () => [{ id: CATEGORY_ALL, name: 'Tất cả' }, ...categories],
+    () => [{ id: CATEGORY_ALL, name: 'Tất cả' }, ...categories.map(c => ({ ...c, name: translateCategory(c.name) }))],
     [categories],
   )
-  const visibleFilters = useMemo(() => filters.slice(0, 8), [filters])
-  const hiddenFilters = useMemo(() => filters.slice(8), [filters])
-  const activeFilterName = useMemo(
-    () => filters.find((item) => item.id === categoryFilter)?.name || 'Tất cả',
-    [categoryFilter, filters],
-  )
 
-  const filteredCards = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
-
-    return products
-      .filter((product) => categoryFilter === CATEGORY_ALL || product.categoryId === categoryFilter)
-      .map((product) => toProductCard(product, brandMap, categoryMap))
-      .filter((product) => {
-        if (!normalizedQuery) return true
-        const blob = product.searchBlob
-        if (searchField === 'all') return blob.all.includes(normalizedQuery)
-        return normalize(blob[searchField]).includes(normalizedQuery)
-      })
-  }, [brandMap, categoryMap, categoryFilter, products, query, searchField])
-
-  const sortedCards = useMemo(() => {
-    const items = [...filteredCards]
-
-    switch (sortBy) {
-      case 'name-asc':
-        items.sort((a, b) => a.name.localeCompare(b.name, 'vi'))
-        break
-      case 'name-desc':
-        items.sort((a, b) => b.name.localeCompare(a.name, 'vi'))
-        break
-      case 'price-asc':
-        items.sort((a, b) => a.priceValue - b.priceValue)
-        break
-      case 'price-desc':
-        items.sort((a, b) => b.priceValue - a.priceValue)
-        break
-      default:
-        break
-    }
-
-    return items
-  }, [filteredCards, sortBy])
-
-  const totalPages = Math.max(1, Math.ceil(sortedCards.length / PAGE_SIZE))
-  const currentPage = Math.min(page, totalPages)
   const pageCards = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE
-    return sortedCards.slice(start, start + PAGE_SIZE)
-  }, [currentPage, sortedCards])
-  const pageStart = sortedCards.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, sortedCards.length)
+    return products.map((product) => toProductCard(product, brandMap, categoryMap))
+  }, [brandMap, categoryMap, products])
 
+  const currentPage = Math.min(page, totalPages)
+  const pageStart = totalElements === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
+  const pageEnd = Math.min(currentPage * PAGE_SIZE, totalElements)
   const visiblePages = useMemo(() => getVisiblePages(currentPage, totalPages), [currentPage, totalPages])
 
   return (
@@ -189,27 +146,11 @@ export default function ProductsPage() {
       <div className="mb-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-headline-lg text-on-surface mb-2">Gợi ý sản phẩm</h1>
+            <h1 className="text-headline-lg text-on-surface mb-2">Shop sản phẩm skincare</h1>
             <p className="text-body-md text-on-surface-variant">
               Tìm theo tên, slug, thương hiệu, danh mục, thành phần hoặc mối quan tâm.
             </p>
           </div>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <Link
-            to="/products/favorites"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary"
-          >
-            <Icon name="favorite" filled className="text-base" />
-            Yêu thích ({favorites.count})
-          </Link>
-          <Link
-            to="/products/compare"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary"
-          >
-            <Icon name="compare_arrows" className="text-base" />
-            So sánh ({compared.count})
-          </Link>
         </div>
       </div>
 
@@ -259,7 +200,7 @@ export default function ProductsPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 items-start">
-          {visibleFilters.map((item) => (
+          {filters.map((item) => (
             <button
               key={item.id}
               type="button"
@@ -277,60 +218,6 @@ export default function ProductsPage() {
               {item.name}
             </button>
           ))}
-
-          {hiddenFilters.length > 0 ? (
-            <div className="relative" ref={moreMenuRef}>
-              <button
-                type="button"
-                onClick={() => setMoreOpen((open) => !open)}
-                className={[
-                  'px-4 py-2 rounded-full text-label-md transition-all inline-flex items-center gap-2',
-                  hiddenFilters.some((item) => item.id === categoryFilter)
-                    ? 'gradient-bg text-white shadow-sm'
-                    : 'bg-surface-container-lowest border border-border-pink text-on-surface-variant hover:text-primary',
-                ].join(' ')}
-              >
-                {hiddenFilters.some((item) => item.id === categoryFilter) ? activeFilterName : `Khác (${hiddenFilters.length})`}
-                <Icon name={moreOpen ? 'expand_less' : 'expand_more'} className="text-base" />
-              </button>
-
-              {moreOpen ? (
-                <div className="absolute left-0 top-[calc(100%+10px)] z-20 w-[min(34rem,calc(100vw-2rem))] rounded-2xl border border-border-pink bg-surface-container-lowest shadow-xl p-3">
-                  <div className="flex items-center justify-between px-1 pb-2">
-                    <p className="text-caption text-on-surface-variant">Danh mục đầy đủ</p>
-                    <button
-                      type="button"
-                      onClick={() => setMoreOpen(false)}
-                      className="text-caption text-on-surface-variant hover:text-primary"
-                    >
-                      Đóng
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-72 overflow-auto pr-1">
-                    {hiddenFilters.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          setPage(1)
-                          setCategoryFilter(item.id)
-                          setMoreOpen(false)
-                        }}
-                        className={[
-                          'px-3 py-2 rounded-xl text-left text-label-md transition-all border',
-                          categoryFilter === item.id
-                            ? 'gradient-bg text-white border-transparent shadow-sm'
-                            : 'border-border-pink text-on-surface-variant hover:text-primary hover:bg-primary-light/40',
-                        ].join(' ')}
-                      >
-                        {item.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </div>
 
@@ -338,12 +225,12 @@ export default function ProductsPage() {
         <div className="flex items-center gap-3">
           <Icon name="insights" className="text-primary" />
           <p className="text-body-md text-on-surface-variant">
-            Đang hiển thị <span className="font-medium text-on-surface">{sortedCards.length}</span> sản phẩm.
+            Đang hiển thị <span className="font-medium text-on-surface">{totalElements}</span> sản phẩm.
           </p>
         </div>
-        {sortedCards.length > 0 ? (
+        {totalElements > 0 ? (
           <p className="text-caption text-on-surface-variant">
-            {pageStart}-{pageEnd} / {sortedCards.length} mục
+            {pageStart}-{pageEnd} / {totalElements} mục
           </p>
         ) : null}
       </div>
@@ -356,7 +243,7 @@ export default function ProductsPage() {
         <div className="border border-error/20 bg-error/5 rounded-xl px-4 py-5 text-body-md text-on-surface-variant">
           {error}
         </div>
-      ) : sortedCards.length === 0 ? (
+      ) : pageCards.length === 0 ? (
         <div className="border border-border-pink bg-surface-container-lowest rounded-xl px-4 py-8 text-center text-body-md text-on-surface-variant">
           Chưa có sản phẩm phù hợp.
         </div>
@@ -364,14 +251,7 @@ export default function ProductsPage() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
             {pageCards.map((product) => (
-              <ProductCard
-                key={product.id}
-                {...product}
-                isFavorite={favorites.hasId(product.id)}
-                isCompared={compared.hasId(product.id)}
-                onFavoriteToggle={() => favorites.toggle(product.id)}
-                onCompareToggle={() => compared.toggle(product.id)}
-              />
+              <ProductCard key={product.id} {...product} />
             ))}
           </div>
 
@@ -428,42 +308,6 @@ export default function ProductsPage() {
           ) : null}
         </>
       )}
-
-      {compared.count > 0 ? (
-        <div className="fixed bottom-4 left-1/2 z-30 w-[min(58rem,calc(100vw-1.5rem))] -translate-x-1/2 rounded-2xl border border-border-pink bg-surface-container-lowest shadow-[0_16px_50px_rgba(103,80,228,0.16)] px-4 py-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <span className="w-10 h-10 rounded-full bg-primary-light text-primary flex items-center justify-center">
-                <Icon name="compare_arrows" />
-              </span>
-              <div>
-                <p className="text-body-md font-medium text-on-surface">
-                  Đã chọn {compared.count} sản phẩm để so sánh
-                </p>
-                <p className="text-caption text-on-surface-variant">
-                  Tối đa 3 sản phẩm, chọn thêm sẽ tự thay mục cũ nhất.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={compared.clear}
-                className="px-4 py-2 rounded-full border border-border-pink text-label-md text-on-surface-variant hover:text-primary"
-              >
-                Xóa hết
-              </button>
-              <Link
-                to="/products/compare"
-                className="px-4 py-2 rounded-full bg-primary text-white text-label-md font-semibold hover:bg-tertiary transition-colors"
-              >
-                Mở so sánh
-              </Link>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }
