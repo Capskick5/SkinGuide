@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: order-service
+  mongodb:
+    uri: ${MONGODB_URI:mongodb+srv://hoannaa2011_db_user:nonoru04@user-service.hil3ccd.mongodb.net/aiskin_order?retryWrites=true&w=majority}
+  data:
+    mongodb:
+      auto-index-creation: true
+
+server:
+  port: 8083
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://127.0.0.1:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+logging:
+  level:
+    mss.orderservice: DEBUG
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+  api-docs:
+    path: /v3/api-docs
+
+momo:
+  endpoint: https://test-payment.momo.vn/v2/gateway/api/create
+  partnerCode: MOCK_PARTNER_CODE
+  accessKey: MOCK_ACCESS_KEY
+  secretKey: MOCK_SECRET_KEY
+  returnUrl: http://localhost:5173/payment/momo-return
+  notifyUrl: https://your-ngrok-domain.ngrok.io/api/orders/payment/momo-ipn
