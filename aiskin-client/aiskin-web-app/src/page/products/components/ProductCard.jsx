@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
-import ProductCollectionButtons from './ProductCollectionButtons'
 
 export default function ProductCard({
   slug,
@@ -10,13 +9,8 @@ export default function ProductCard({
   match,
   price,
   rating,
-  ingredients = [],
-  reason,
   imageUrl,
-  isFavorite = false,
-  isCompared = false,
-  onFavoriteToggle,
-  onCompareToggle,
+  targetConcerns = [],
 }) {
   const canRenderImage = imageUrl && (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('/'))
 
@@ -39,26 +33,26 @@ export default function ProductCard({
         <p className="text-caption text-on-surface-variant">{brand}</p>
         <h3 className="text-body-lg font-semibold text-on-surface mb-2">{name}</h3>
 
-        <span className="self-start px-3 py-1 bg-primary-light text-tertiary rounded-full text-caption mb-3">
+        <span className="self-start px-3 py-1 bg-primary-light text-tertiary rounded-full text-caption mb-2">
           {category}
         </span>
 
-        {ingredients.length > 0 ? (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {ingredients.map((ing) => (
-              <span
-                key={ing}
-                className="px-2.5 py-1 bg-surface-soft border border-border-pink/60 rounded-full text-caption text-on-surface-variant"
-              >
-                {ing}
+        {targetConcerns?.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-auto">
+            {targetConcerns.slice(0, 2).map((concern, i) => (
+              <span key={i} className="px-2 py-0.5 bg-surface-soft text-on-surface-variant rounded-md text-[10px]">
+                {concern}
               </span>
             ))}
+            {targetConcerns.length > 2 && (
+              <span className="px-2 py-0.5 bg-surface-soft text-on-surface-variant rounded-md text-[10px]">
+                +{targetConcerns.length - 2}
+              </span>
+            )}
           </div>
-        ) : null}
+        )}
 
-        <p className="text-caption text-on-surface-variant mb-4 grow">{reason}</p>
-
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mt-auto mb-4">
           <span className="text-body-lg font-semibold text-on-surface">{price}</span>
           {rating ? (
             <span className="flex items-center gap-1 text-label-md text-on-surface-variant">
@@ -70,18 +64,10 @@ export default function ProductCard({
 
         <Link
           to={`/products/${slug}`}
-          className="w-full py-2.5 rounded-full bg-primary text-white text-label-md font-semibold hover:bg-tertiary transition-colors text-center shadow-[0_8px_24px_rgba(103,80,228,0.18)] mb-3"
+          className="w-full py-2.5 rounded-full bg-primary text-white text-label-md font-semibold hover:bg-tertiary transition-colors text-center shadow-[0_8px_24px_rgba(103,80,228,0.18)]"
         >
           Xem chi tiết
         </Link>
-
-        <ProductCollectionButtons
-          compact
-          isFavorite={isFavorite}
-          isCompared={isCompared}
-          onFavoriteToggle={onFavoriteToggle}
-          onCompareToggle={onCompareToggle}
-        />
       </div>
     </div>
   )

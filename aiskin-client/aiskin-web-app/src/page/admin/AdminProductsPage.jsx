@@ -71,37 +71,69 @@ export default function AdminProductsPage() {
   const [ingredients, setIngredients] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [searchField, setSearchField] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalElements, setTotalElements] = useState(0)
 
   const fetchData = useCallback(async () => {
-    setLoading(true)
     try {
-      const [prodRes, brandRes, catRes, ingRes] = await Promise.all([
-        productApi.listProducts(),
+      const [brandRes, catRes, ingRes] = await Promise.all([
         productApi.listBrands(),
         productApi.listCategories(),
         productApi.listIngredients(),
       ])
-      setProducts(toArray(prodRes))
       setBrands(toArray(brandRes))
       setCategories(toArray(catRes))
       setIngredients(toArray(ingRes))
     } catch {
-      message.error('Không tải được dữ liệu')
-    } finally {
-      setLoading(false)
+      message.error('Không tải được dữ liệu cấu hình')
     }
   }, [])
 
+  const fetchProducts = useCallback(async () => {
+    setLoading(true)
+    try {
+      let isActiveParam = ''
+      if (statusFilter === 'active') isActiveParam = true
+      else if (statusFilter === 'inactive') isActiveParam = false
+
+      const res = await productApi.searchAdvancedProducts({
+        query: debouncedSearch,
+        searchField,
+        isActive: isActiveParam,
+        page,
+        size: 15,
+      })
+      setProducts(res?.content || [])
+      setTotalPages(res?.totalPages || 1)
+      setTotalElements(res?.totalElements || 0)
+    } catch {
+      message.error('Không tải được danh sách sản phẩm')
+    } finally {
+      setLoading(false)
+    }
+  }, [debouncedSearch, searchField, statusFilter, page])
+
   useEffect(() => {
-    void (async () => {
-      await fetchData()
-    })()
+    void fetchData()
   }, [fetchData])
+
+  useEffect(() => {
+    void fetchProducts()
+  }, [fetchProducts])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [search])
 
   const brandMap = useMemo(() => new Map(brands.map((item) => [item.id, item])), [brands])
   const categoryMap = useMemo(() => new Map(categories.map((item) => [item.id, item])), [categories])
@@ -152,7 +184,7 @@ export default function AdminProductsPage() {
         message.success('Tạo sản phẩm thành công')
       }
       setShowForm(false)
-      fetchData()
+      fetchProducts()
     } catch {
       message.error('Thao tác thất bại')
     }
@@ -169,7 +201,7 @@ export default function AdminProductsPage() {
         try {
           await productApi.deleteProduct(product.id)
           message.success('Đã xóa sản phẩm')
-          fetchData()
+          fetchProducts()
         } catch {
           message.error('Xóa thất bại')
         }
@@ -177,46 +209,14 @@ export default function AdminProductsPage() {
     })
   }
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-
-    return products
-      .filter((product) => {
-        if (statusFilter === 'active' && !product.isActive) return false
-        if (statusFilter === 'inactive' && product.isActive) return false
-        return true
-      })
-      .filter((product) => {
-        if (!q) return true
-
-        const brandName = brandMap.get(product.brandId)?.name || ''
-        const categoryName = categoryMap.get(product.categoryId)?.name || ''
-        const blob = makeSearchBlob(product, brandName, categoryName)
-
-        if (searchField === 'all') return blob.includes(q)
-        if (searchField === 'brand') return normalize(brandName).includes(q)
-        if (searchField === 'category') return normalize(categoryName).includes(q)
-        if (searchField === 'ingredient') {
-          const ingredientNames = (product.ingredients || []).map((ingredient) => ingredient.name).join(' ')
-          const ingredientIds = (product.ingredients || []).map((ingredient) => ingredient.ingredientId).join(' ')
-          const keyIngredientIds = (product.keyIngredientIds || []).join(' ')
-          return normalize([ingredientNames, ingredientIds, keyIngredientIds].join(' ')).includes(q)
-        }
-        if (searchField === 'concern') {
-          return normalize([(product.targetConcerns || []).join(' '), product.description].join(' ')).includes(q)
-        }
-        return normalize(product[searchField]).includes(q)
-      })
-  }, [brandMap, categoryMap, products, search, searchField, statusFilter])
-
-  const activeCount = filtered.filter((product) => product.isActive).length
+  const filtered = products
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Quản lý sản phẩm</h1>
-          <p className="text-sm text-gray-500 mt-1">{filtered.length} sản phẩm, {activeCount} đang hoạt động</p>
+          <p className="text-sm text-gray-500 mt-1">{totalElements} sản phẩm</p>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
@@ -227,13 +227,19 @@ export default function AdminProductsPage() {
                 type="text"
                 placeholder="Tìm sản phẩm..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setPage(1)
+                  setSearch(e.target.value)
+                }}
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/30 focus:border-pink-400"
               />
             </div>
             <select
               value={searchField}
-              onChange={(e) => setSearchField(e.target.value)}
+              onChange={(e) => {
+                setPage(1)
+                setSearchField(e.target.value)
+              }}
               className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/30 focus:border-pink-400"
             >
               {SEARCH_FIELDS.map((field) => (
@@ -246,7 +252,10 @@ export default function AdminProductsPage() {
 
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setPage(1)
+              setStatusFilter(e.target.value)
+            }}
             className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/30 focus:border-pink-400"
           >
             <option value="all">Tất cả</option>
@@ -347,6 +356,30 @@ export default function AdminProductsPage() {
                 )}
               </tbody>
             </table>
+            
+            {totalPages > 1 && (
+              <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
+                <p className="text-sm text-gray-500">
+                  Trang <span className="font-medium">{page}</span> / {totalPages}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Trước
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

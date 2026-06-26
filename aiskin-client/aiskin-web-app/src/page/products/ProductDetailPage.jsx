@@ -3,8 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { productApi } from '@/api/productApi'
 import { mapById, resolveImageUrl, toArray } from './productUtils'
-import ProductCollectionButtons from './components/ProductCollectionButtons'
-import { useComparedProducts, useFavoriteProducts } from './productCollections'
+import { translateCategory, translateDescription, translateName, translateTag } from './translator'
 
 function money(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '-'
@@ -18,8 +17,7 @@ export default function ProductDetailPage() {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const favorites = useFavoriteProducts()
-  const compared = useComparedProducts()
+  const [translatedDesc, setTranslatedDesc] = useState('')
 
   useEffect(() => {
     let alive = true
@@ -40,6 +38,20 @@ export default function ProductDetailPage() {
         setProduct(productRes)
         setBrands(toArray(brandRes))
         setCategories(toArray(categoryRes))
+
+        // Gọi Google Translate API miễn phí để dịch Description
+        if (productRes.description) {
+          try {
+            const gtRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=${encodeURIComponent(productRes.description)}`)
+            const gtData = await gtRes.json()
+            if (alive && gtData && gtData[0]) {
+              const viText = gtData[0].map(item => item[0]).join('')
+              setTranslatedDesc(viText.charAt(0).toUpperCase() + viText.slice(1))
+            }
+          } catch (e) {
+            console.error('Lỗi dịch description:', e)
+          }
+        }
       } catch (err) {
         if (!alive) return
         setProduct(null)
@@ -58,8 +70,11 @@ export default function ProductDetailPage() {
   const categoryMap = useMemo(() => mapById(categories), [categories])
 
   const imageSrc = resolveImageUrl(product?.imageUrl || product?.images?.[0])
-  const brandName = brandMap.get(product?.brandId)?.name || product?.brandId || 'Không rõ thương hiệu'
-  const categoryName = categoryMap.get(product?.categoryId)?.name || product?.categoryId || 'Không rõ danh mục'
+  const brandName = product?.brandName || brandMap.get(product?.brandId)?.name || 'Không rõ thương hiệu'
+  const rawCategoryName = product?.categoryName || categoryMap.get(product?.categoryId)?.name || 'Không rõ danh mục'
+  const categoryName = translateCategory(rawCategoryName)
+  const productName = translateName(product?.name || '')
+  const productDescription = translateDescription(product?.description || 'Không có mô tả.')
   const ingredientCount = product?.ingredients?.length || 0
   const concernCount = product?.targetConcerns?.length || 0
   const skinTypeCount = product?.targetSkinTypes?.length || 0
@@ -79,7 +94,7 @@ export default function ProductDetailPage() {
         </div>
         <Link
           to="/products"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border-pink bg-surface-container-lowest text-body-md text-on-surface-variant hover:text-primary"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border-pink bg-surface-container-lowest text-body-md text-on-surface-variant hover:text-primary"
         >
           <Icon name="arrow_back" className="text-lg" />
           Quay lại
@@ -91,16 +106,16 @@ export default function ProductDetailPage() {
           <div className="animate-spin w-8 h-8 border-3 border-primary border-t-transparent rounded-full" />
         </div>
       ) : error ? (
-        <div className="border border-error/20 bg-error/5 rounded-xl px-4 py-5 text-body-md text-on-surface-variant">
+        <div className="border border-error/20 bg-error/5 rounded-lg px-4 py-5 text-body-md text-on-surface-variant">
           {error}
         </div>
       ) : !product ? (
-        <div className="border border-border-pink bg-surface-container-lowest rounded-xl px-4 py-8 text-center text-body-md text-on-surface-variant">
+        <div className="border border-border-pink bg-surface-container-lowest rounded-lg px-4 py-8 text-center text-body-md text-on-surface-variant">
           Không tìm thấy sản phẩm.
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[420px_minmax(0,1fr)] gap-6">
-          <div className="lg:sticky lg:top-6 h-fit rounded-2xl overflow-hidden border border-border-pink bg-surface-container-lowest">
+          <div className="lg:sticky lg:top-6 h-fit rounded-xl overflow-hidden border border-border-pink bg-surface-container-lowest">
             <div className="relative aspect-[4/5] bg-primary-light">
               {imageSrc ? (
                 <img src={imageSrc} alt={product.name} className="h-full w-full object-cover" />
@@ -138,89 +153,57 @@ export default function ProductDetailPage() {
 
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
-                  <h2 className="text-title-lg text-on-surface font-semibold">{product.name}</h2>
-                  <div className="mt-3 rounded-xl border border-border-pink bg-surface-container-lowest px-4 py-3">
+                  <h2 className="text-title-lg text-on-surface font-semibold">{productName}</h2>
+                  <div className="mt-3 rounded-lg border border-border-pink bg-surface-container-lowest px-4 py-3">
                     <p className="text-caption text-on-surface-variant mb-1">Mô tả</p>
                     <p className="text-body-md text-on-surface leading-6 whitespace-pre-line">
-                      {product.description || 'Không có mô tả.'}
+                      {translatedDesc || productDescription}
                     </p>
                   </div>
                 </div>
 
-                <div className="shrink-0 rounded-xl border border-border-pink bg-surface-container-lowest px-4 py-3 min-w-[180px]">
+                <div className="shrink-0 rounded-lg border border-border-pink bg-surface-container-lowest px-4 py-3 min-w-[180px]">
                   <p className="text-caption text-on-surface-variant">Giá</p>
                   <p className="text-title-lg text-on-surface font-semibold">{money(product.price)}</p>
                 </div>
               </div>
-
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <ProductCollectionButtons
-                  compact={false}
-                  favoriteLabel="Yêu thích"
-                  compareLabel="So sánh"
-                  isFavorite={favorites.hasId(product.id)}
-                  isCompared={compared.hasId(product.id)}
-                  onFavoriteToggle={() => favorites.toggle(product.id)}
-                  onCompareToggle={() => compared.toggle(product.id)}
-                />
-                <Link
-                  to="/products/favorites"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary"
-                >
-                  <Icon name="favorite" filled className="text-base" />
-                  Danh sách yêu thích ({favorites.count})
-                </Link>
-                <Link
-                  to="/products/compare"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary"
-                >
-                  <Icon name="compare_arrows" className="text-base" />
-                  So sánh ({compared.count})
-                </Link>
               </div>
-            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoRow label="Thương hiệu" value={brandName} />
               <InfoRow label="Danh mục" value={categoryName} />
             </div>
 
-            <Section title="Mối quan tâm">
-              <TagList items={product.targetConcerns || []} emptyText="Không có dữ liệu" />
-            </Section>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Section title="Mối quan tâm">
+                <TagList items={(product.targetConcerns || []).map(translateTag)} emptyText="Không có dữ liệu" />
+              </Section>
 
-            <Section title="Loại da phù hợp">
-              <TagList items={product.targetSkinTypes || []} emptyText="Không có dữ liệu" />
-            </Section>
+              <Section title="Loại da phù hợp">
+                <TagList items={(product.targetSkinTypes || []).map(translateTag)} emptyText="Không có dữ liệu" />
+              </Section>
+            </div>
 
-            <Section title="Thành phần">
+            <Section title="Bảng thành phần">
               {product.ingredients?.length > 0 ? (
-                <div className="grid gap-3">
-                  {product.ingredients.map((ingredient) => (
-                    <div
-                      key={ingredient.ingredientId || ingredient.name}
-                      className="rounded-xl border border-border-pink px-4 py-3 bg-surface-container-lowest"
-                    >
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="font-medium text-on-surface">{ingredient.name}</p>
-                          <p className="text-caption text-on-surface-variant">{ingredient.ingredientId}</p>
-                        </div>
-                      </div>
-                      {ingredient.concerns?.length > 0 ? (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {ingredient.concerns.map((concern) => (
-                            <span
-                              key={concern}
-                              className="px-2 py-1 rounded-full bg-surface-soft text-caption text-on-surface-variant"
-                            >
-                              {concern}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
+                <div className="flex flex-wrap gap-2">
+                  {product.ingredients.map((ingredient) => {
+                    const hasConcerns = ingredient.concerns?.length > 0
+                    return (
+                      <span
+                        key={ingredient.ingredientId || ingredient.name}
+                        className={[
+                          'px-3 py-1.5 rounded-lg border text-caption transition-colors',
+                          hasConcerns
+                            ? 'border-warning/30 bg-warning/10 text-warning hover:bg-warning/20 cursor-help'
+                            : 'border-border-pink bg-surface-container-lowest text-on-surface-variant hover:border-primary hover:text-primary cursor-default'
+                        ].join(' ')}
+                        title={hasConcerns ? `Lưu ý: ${ingredient.concerns.join(', ')}` : undefined}
+                      >
+                        {ingredient.name}
+                      </span>
+                    )
+                  })}
                 </div>
               ) : (
                 <p className="text-body-md text-on-surface-variant">Chưa có dữ liệu thành phần.</p>
@@ -260,7 +243,7 @@ function TagList({ items, emptyText }) {
 
 function InfoRow({ label, value }) {
   return (
-    <div className="rounded-xl border border-border-pink px-4 py-3 bg-surface-container-lowest">
+    <div className="rounded-lg border border-border-pink px-4 py-3 bg-surface-container-lowest">
       <p className="text-caption text-on-surface-variant mb-1">{label}</p>
       <p className="text-body-md text-on-surface">{value}</p>
     </div>

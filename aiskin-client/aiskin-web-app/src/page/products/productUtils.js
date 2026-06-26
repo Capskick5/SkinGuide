@@ -1,3 +1,5 @@
+import { translateCategory, translateName, translateTag } from './translator'
+
 export function toArray(value) {
   if (Array.isArray(value)) return value
   if (Array.isArray(value?.data)) return value.data
@@ -65,26 +67,21 @@ export function makeSearchBlob(product, brandName, categoryName) {
 export function toProductCard(product, brandMap, categoryMap) {
   const brand = brandMap.get(product.brandId)
   const category = categoryMap.get(product.categoryId)
-  const ingredientNames = (product.ingredients || [])
-    .map((ingredient) => ingredient.name)
-    .filter(Boolean)
   const priceValue = Number(product.price) || 0
 
   return {
     id: product.id,
     slug: product.slug,
-    brand: brand?.name || product.brandId || 'Không rõ thương hiệu',
-    name: product.name,
-    category: category?.name || product.categoryId || 'Không rõ danh mục',
+    brand: product.brandName || brand?.name || product.brandId || 'Không rõ thương hiệu',
+    name: translateName(product.name),
+    category: translateCategory(product.categoryName || category?.name || product.categoryId || 'Không rõ danh mục'),
     categoryId: product.categoryId,
     priceValue,
     price: money(product.price),
-    ingredients: ingredientNames,
-    reason: product.description || 'Sản phẩm chăm sóc da từ Product Service.',
     imageUrl: resolveImageUrl(product.imageUrl),
-    targetConcerns: product.targetConcerns || [],
-    targetSkinTypes: product.targetSkinTypes || [],
+    targetConcerns: (product.targetConcerns || []).map(translateTag),
+    targetSkinTypes: (product.targetSkinTypes || []).map(translateTag),
     keyIngredientIds: product.keyIngredientIds || [],
-    searchBlob: makeSearchBlob(product, brand?.name || '', category?.name || ''),
+    searchBlob: makeSearchBlob(product, product.brandName || brand?.name || '', product.categoryName || category?.name || ''),
   }
 }
