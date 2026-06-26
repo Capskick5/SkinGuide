@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { productApi } from '@/api/productApi'
 import { mapById, resolveImageUrl, toArray } from './productUtils'
+import { useCart } from '@/hook/useCart'
 import { translateCategory, translateDescription, translateName, translateTag } from './translator'
 
 function money(value) {
@@ -17,7 +18,23 @@ export default function ProductDetailPage() {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const { addItem, items } = useCart()
+  const [addedToCart, setAddedToCart] = useState(false)
+  const inCart = items.some((i) => i.id === product?.id)
   const [translatedDesc, setTranslatedDesc] = useState('')
+
+  function handleAddToCart() {
+    if (!product) return
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      imageUrl: product.imageUrl || product.images?.[0],
+      slug: product.slug,
+    })
+    setAddedToCart(true)
+    setTimeout(() => setAddedToCart(false), 2000)
+  }
 
   useEffect(() => {
     let alive = true
@@ -167,7 +184,31 @@ export default function ProductDetailPage() {
                   <p className="text-title-lg text-on-surface font-semibold">{money(product.price)}</p>
                 </div>
               </div>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  id="product-add-to-cart-btn"
+                  onClick={handleAddToCart}
+                  disabled={addedToCart}
+                  className={[
+                    'inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-label-md transition-all shadow-ambient-pink active:scale-95',
+                    addedToCart
+                      ? 'bg-success text-white'
+                      : 'gradient-bg text-white hover:opacity-90',
+                  ].join(' ')}
+                >
+                  <Icon name={addedToCart ? 'check' : 'add_shopping_cart'} className="text-base" />
+                  {addedToCart ? 'Đã thêm!' : inCart ? 'Thêm nữa' : 'Thêm vào giỏ'}
+                </button>
+
+                <Link
+                  to="/cart"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-primary/30 bg-primary-light text-primary text-label-md font-medium hover:bg-primary hover:text-white transition-all"
+                >
+                  <Icon name="shopping_cart" className="text-base" />
+                  Xem giỏ hàng
+                </Link>
               </div>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoRow label="Thương hiệu" value={brandName} />

@@ -59,13 +59,32 @@ class SkinDatasetWrapper(Dataset):
         self.transform = transform
         
     def __getitem__(self, index):
-        x, y = self.subset[index]
-        if self.transform:
-            x = self.transform(x)
-        return x, y
+        try:
+            x, y = self.subset[index]
+            if self.transform:
+                x = self.transform(x)
+            return x, y
+        except (FileNotFoundError, OSError):
+            # File bi thieu — thu index ke tiep
+            next_index = (index + 1) % len(self)
+            return self.__getitem__(next_index)
         
     def __len__(self):
         return len(self.subset)
+
+def get_valid_indices(dataset):
+    """Loc bo cac anh khong ton tai tren disk truoc khi train."""
+    print("Dang kiem tra tinh hop le cua toan bo anh trong dataset...", flush=True)
+    valid = []
+    invalid = 0
+    for idx in range(len(dataset)):
+        path, _ = dataset.samples[idx]
+        if os.path.exists(path):
+            valid.append(idx)
+        else:
+            invalid += 1
+    print(f"[OK] File hop le: {len(valid)} | File bi thieu (bo qua): {invalid}", flush=True)
+    return np.array(valid)
 
 def train_model():
     print("Khoi tao tien trinh huan luyen Sieu Thuat Toan (Ultimate Hybrid Skin)...", flush=True)
@@ -79,15 +98,19 @@ def train_model():
     print(f"Tong so anh: {len(base_dataset)}", flush=True)
     print(f"Cac lop phan loai: {base_dataset.classes}", flush=True)
     
-    # 2. Phân chia Train/Val chặt chẽ
-    targets = base_dataset.targets
-    train_idx, val_idx = train_test_split(
-        np.arange(len(targets)),
+    # 2. Loc bo file bi thieu, phan chia Train/Val
+    valid_indices = get_valid_indices(base_dataset)
+    targets = np.array(base_dataset.targets)
+    valid_targets = targets[valid_indices]
+    train_idx_local, val_idx_local = train_test_split(
+        np.arange(len(valid_indices)),
         test_size=0.2,
         shuffle=True,
-        stratify=targets,
+        stratify=valid_targets,
         random_state=42
     )
+    train_idx = valid_indices[train_idx_local]
+    val_idx   = valid_indices[val_idx_local]
     
     # 3. Ép kiểu Transform (Đảm bảo Train bị Augment, Val thì không)
     train_dataset = SkinDatasetWrapper(Subset(base_dataset, train_idx), transform=train_transforms)

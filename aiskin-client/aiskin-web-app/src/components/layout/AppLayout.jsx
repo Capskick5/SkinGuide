@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import TopNav from './TopNav'
 import MobileNav from './MobileNav'
+import ChatbotWidget from '@/components/chatbot/ChatbotWidget'
 
 /**
  * Layout chung (phong cách QuillBot):
@@ -26,6 +27,9 @@ export default function AppLayout() {
       </main>
 
       <MobileNav />
+
+      {/* AI Chatbot widget – nổi góc dưới phải */}
+      <ChatbotWidget />
     </div>
   )
 }
