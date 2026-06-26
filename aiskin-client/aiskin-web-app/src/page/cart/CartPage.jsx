@@ -409,7 +409,7 @@ export default function CartPage() {
           </div>
           <Link
             to="/products"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl gradient-bg text-white font-semibold shadow-ambient-pink hover:opacity-90 transition-opacity"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-white text-primary border border-primary font-semibold hover:bg-primary-light transition-colors"
           >
             <Icon name="storefront" className="text-xl" />
             Khám phá sản phẩm
