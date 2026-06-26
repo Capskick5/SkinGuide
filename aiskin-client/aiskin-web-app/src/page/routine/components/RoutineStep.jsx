@@ -13,7 +13,7 @@ const COLOR_MAP = {
   primary: { bg: 'bg-primary/10', text: 'text-primary', border: 'border-border-pink/50' }
 }
 
-export default function RoutineStep({ step, icon, category, title, instruction, frequency, isLast, colorTheme = 'primary', time = 'morning', recommendedProducts = [] }) {
+export default function RoutineStep({ step, icon, category, title, instruction, frequency, isLast, colorTheme = 'primary', time = 'morning', recommendedProducts = [], onQuickView }) {
   const theme = COLOR_MAP[colorTheme] || COLOR_MAP.primary
   const markerStyle = 'bg-black shadow-[0_2px_10px_rgba(0,0,0,0.15)]'
 
@@ -59,7 +59,11 @@ export default function RoutineStep({ step, icon, category, title, instruction, 
                 const formattedPrice = prod.price ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(prod.price) : 'Liên hệ';
                 
                 return (
-                  <div key={idx} className="bg-white border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                  <div 
+                    key={idx} 
+                    onClick={() => onQuickView && onQuickView(prod)}
+                    className="bg-white border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col cursor-pointer"
+                  >
                     <div className="h-28 w-full bg-gray-100 relative">
                       <img src={imgUrl} alt="product" className="w-full h-full object-cover mix-blend-multiply opacity-90" />
                       {matchPercent && (

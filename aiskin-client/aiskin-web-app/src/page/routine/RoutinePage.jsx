@@ -4,6 +4,7 @@ import Icon from '@/components/common/Icon'
 import RoutineStep from './components/RoutineStep'
 import { PATHS } from '@/route/paths'
 import { getScanHistory, generateRoutine, generateRecommendations, getScanRoutine, getRoutineRecommendations } from '@/api/scanApi'
+import { useCart } from '@/hook/useCart'
 
 const translateIssue = (issue) => {
   const dict = {
@@ -114,7 +115,51 @@ export default function RoutinePage() {
   const [isLoadingRoutine, setIsLoadingRoutine] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isGeneratingRecs, setIsGeneratingRecs] = useState(false)
+  const [isAddingToCart, setIsAddingToCart] = useState(null)
+  const [quickViewProduct, setQuickViewProduct] = useState(null)
   const [error, setError] = useState(null)
+  
+  const { addMultipleItems, addItem } = useCart()
+
+  const handleAddTierToCart = (tier) => {
+    setIsAddingToCart(tier)
+    const selectedProducts = []
+    
+    productRecommendations.forEach(stepRec => {
+      if (stepRec.products && stepRec.products.length > 0) {
+        // Sắp xếp sản phẩm theo giá tăng dần
+        const sortedProducts = [...stepRec.products].sort((a, b) => (a.price || 0) - (b.price || 0))
+        
+        let selectedProduct = null
+        if (tier === 'cheap') {
+          selectedProduct = sortedProducts[0]
+        } else if (tier === 'premium') {
+          selectedProduct = sortedProducts[sortedProducts.length - 1]
+        } else if (tier === 'mid') {
+          selectedProduct = sortedProducts[Math.floor(sortedProducts.length / 2)]
+        }
+        
+        if (selectedProduct && !selectedProducts.find(ext => ext.id === selectedProduct.id)) {
+          selectedProducts.push({
+            id: selectedProduct.id,
+            name: selectedProduct.name,
+            price: selectedProduct.price,
+            imageUrl: selectedProduct.imageUrl || selectedProduct.images?.[0],
+            slug: selectedProduct.slug
+          })
+        }
+      }
+    })
+    
+    if (selectedProducts.length > 0) {
+      addMultipleItems(selectedProducts)
+      setTimeout(() => {
+        navigate('/cart')
+      }, 600)
+    } else {
+      setIsAddingToCart(null)
+    }
+  }
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -148,7 +193,7 @@ export default function RoutinePage() {
     fetchHistory()
   }, [])
 
-  const handleGenerateRoutine = async (scanId) => {
+  async function handleGenerateRoutine(scanId) {
     setIsGenerating(true)
     setError(null)
     try {
@@ -171,7 +216,7 @@ export default function RoutinePage() {
     }
   }
 
-  const handleGenerateRecommendations = async () => {
+  async function handleGenerateRecommendations() {
     if (!selectedRoutineId) return
     setIsGeneratingRecs(true)
     setError(null)
@@ -232,7 +277,7 @@ export default function RoutinePage() {
     translateAll()
   }, [topIngredients])
 
-  const handleSelectScan = async (scan) => {
+  async function handleSelectScan(scan) {
     setSelectedScanId(scan._id)
     const typeLabel = scan.skinType === 'Dry' ? 'Da khô' : scan.skinType === 'Oily' ? 'Da dầu' : 'Da thường'
     setSkinType(typeLabel)
@@ -511,6 +556,45 @@ export default function RoutinePage() {
             </div>
           )}
 
+          {/* Add All To Cart Button */}
+          {productRecommendations.length > 0 && (
+            <div className="mt-4 mx-2 md:mx-6 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl p-5 flex flex-col xl:flex-row xl:items-center justify-between shadow-sm gap-4">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-title-md font-bold text-indigo-900 mb-1">Gợi ý sản phẩm đã hoàn tất!</h3>
+                <p className="text-body-sm text-indigo-700">Hãy chọn mức giá phù hợp để tự động gom 1 bộ sản phẩm đầy đủ vào giỏ hàng.</p>
+              </div>
+              
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleAddTierToCart('cheap')}
+                  disabled={isAddingToCart !== null}
+                  className={`px-3 py-1.5 rounded-full font-semibold text-[13px] flex items-center gap-1.5 shadow-sm transition-all border ${isAddingToCart === 'cheap' ? 'bg-success text-white border-success' : 'bg-white text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
+                >
+                  <Icon name={isAddingToCart === 'cheap' ? "check" : "savings"} className="text-[15px]" />
+                  Tiết kiệm
+                </button>
+                
+                <button
+                  onClick={() => handleAddTierToCart('mid')}
+                  disabled={isAddingToCart !== null}
+                  className={`px-3 py-1.5 rounded-full font-semibold text-[13px] flex items-center gap-1.5 shadow-sm transition-all border ${isAddingToCart === 'mid' ? 'bg-success text-white border-success' : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'}`}
+                >
+                  <Icon name={isAddingToCart === 'mid' ? "check" : "balance"} className="text-[15px]" />
+                  Tầm trung
+                </button>
+
+                <button
+                  onClick={() => handleAddTierToCart('premium')}
+                  disabled={isAddingToCart !== null}
+                  className={`px-3 py-1.5 rounded-full font-semibold text-[13px] flex items-center gap-1.5 shadow-sm transition-all border ${isAddingToCart === 'premium' ? 'bg-success text-white border-success' : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-transparent hover:shadow-md'}`}
+                >
+                  <Icon name={isAddingToCart === 'premium' ? "check" : "diamond"} className="text-[15px]" />
+                  Cao cấp
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Routine Steps */}
           <div className="mt-4 px-2 md:px-6">
             {steps.length === 0 ? (
@@ -526,6 +610,7 @@ export default function RoutinePage() {
                     isLast={i === steps.length - 1}
                     time={time}
                     recommendedProducts={products}
+                    onQuickView={setQuickViewProduct}
                   />
                 )
               })
@@ -574,6 +659,80 @@ export default function RoutinePage() {
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* Quick View Modal */}
+      {quickViewProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setQuickViewProduct(null)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <button 
+              onClick={() => setQuickViewProduct(null)}
+              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-colors z-10"
+            >
+              <Icon name="close" className="text-xl" />
+            </button>
+            
+            <div className="h-48 md:h-64 bg-gray-50 flex-shrink-0 relative border-b border-gray-100">
+              <img 
+                src={quickViewProduct.imageUrl || `https://images.unsplash.com/photo-1620916566398-39f1143ab7be?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80`} 
+                alt="product" 
+                className="w-full h-full object-contain mix-blend-multiply py-4"
+              />
+              {quickViewProduct.match_score && (
+                <div className="absolute bottom-3 left-3 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md flex items-center gap-1">
+                  <Icon name="verified" className="text-[14px]" /> Phù hợp { (quickViewProduct.match_score * 100).toFixed(0) }%
+                </div>
+              )}
+            </div>
+            
+            <div className="p-5 overflow-y-auto flex-1 custom-scrollbar">
+              <p className="text-xs font-bold text-gray-400 uppercase mb-1 tracking-wider">{quickViewProduct.brand || 'Thương hiệu chưa xác định'}</p>
+              <h3 className="text-title-md font-bold text-gray-800 leading-tight mb-2">{quickViewProduct.name}</h3>
+              <p className="text-title-lg font-bold text-green-600 mb-4">
+                {quickViewProduct.price ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(quickViewProduct.price) : 'Liên hệ'}
+              </p>
+              
+              {quickViewProduct.ingredients && (
+                <div className="mb-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                  <h4 className="text-label-sm font-bold text-gray-700 mb-1 flex items-center gap-1"><Icon name="science" className="text-[14px] text-primary" /> Thành phần nổi bật:</h4>
+                  <p className="text-body-sm text-gray-600">{quickViewProduct.ingredients}</p>
+                </div>
+              )}
+
+              {quickViewProduct.description && (
+                <div className="mb-4">
+                  <h4 className="text-label-sm font-bold text-gray-700 mb-1">Mô tả:</h4>
+                  <p className="text-body-sm text-gray-600 line-clamp-4">{quickViewProduct.description}</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-3 shrink-0">
+              <button 
+                onClick={() => navigate(`/products/${quickViewProduct.slug}`)}
+                className="flex-1 px-4 py-2.5 rounded-full border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-100 transition-colors text-center"
+              >
+                Xem chi tiết
+              </button>
+              <button 
+                onClick={() => {
+                  addItem({
+                    id: quickViewProduct.id,
+                    name: quickViewProduct.name,
+                    price: quickViewProduct.price,
+                    imageUrl: quickViewProduct.imageUrl || quickViewProduct.images?.[0],
+                    slug: quickViewProduct.slug
+                  })
+                  setQuickViewProduct(null)
+                  // Có thể báo toast ở đây nếu có
+                }}
+                className="flex-1 px-4 py-2.5 rounded-full bg-primary text-white font-semibold text-sm hover:bg-primary-dark shadow-md transition-colors flex justify-center items-center gap-2"
+              >
+                <Icon name="add_shopping_cart" className="text-[18px]" /> Thêm vào giỏ
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
