@@ -4,20 +4,27 @@ import AppLayout from '@/components/layout/AppLayout'
 import AdminLayout from '@/components/layout/AdminLayout'
 import ProtectedRoute from './ProtectedRoute'
 import AdminRoute from './AdminRoute'
+import HomeRoute from './HomeRoute'
 
+import LandingPage from '@/page/landing/LandingPage'
 import AuthPage from '@/page/auth/AuthPage'
 import ForgotPasswordPage from '@/page/auth/ForgotPasswordPage'
 import DashboardPage from '@/page/dashboard/DashboardPage'
+import SkinQuizPage from '@/page/skin-quiz/SkinQuizPage'
 import AnalysisResultPage from '@/page/analysis/AnalysisResultPage'
 import RoutinePage from '@/page/routine/RoutinePage'
 import ProductsPage from '@/page/products/ProductsPage'
 import FavoriteProductsPage from '@/page/products/FavoriteProductsPage'
 import CompareProductsPage from '@/page/products/CompareProductsPage'
 import ProductDetailPage from '@/page/products/ProductDetailPage'
+import CartPage from '@/page/cart/CartPage'
 import HistoryPage from '@/page/history/HistoryPage'
+import HistoryDetailPage from '@/page/history/HistoryDetailPage'
 import ProgressPage from '@/page/progress/ProgressPage'
 import ProfilePage from '@/page/profile/ProfilePage'
+import SettingsPage from '@/page/settings/SettingsPage'
 import NotFoundPage from '@/page/misc/NotFoundPage'
+import OverviewPage from '@/page/overview/OverviewPage'
 
 // Admin pages
 import AdminDashboardPage from '@/page/admin/AdminDashboardPage'
@@ -30,34 +37,64 @@ import AdminIngredientsPage from '@/page/admin/AdminIngredientsPage'
 
 /**
  * Khai báo tập trung toàn bộ route của ứng dụng.
- * - Auth routes: standalone (không có sidebar).
- * - App routes: bọc trong AppLayout (sidebar + topnav).
+ * - Public routes: Landing page, Auth routes.
+ * - App routes: bọc trong AppLayout (sidebar + topnav), yêu cầu đăng nhập.
+ * - Admin routes: yêu cầu ROLE_ADMIN.
  */
 export default function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Auth */}
+        {/* Trang gốc "/" — thông minh:
+            Đã login → Dashboard (có AppLayout)
+            Chưa login → Landing Page */}
+        <Route element={<HomeRoute />}>
+          <Route element={<AppLayout />}>
+            <Route path={PATHS.DASHBOARD} element={<DashboardPage />} />
+          </Route>
+        </Route>
+
+        {/* Public – không cần đăng nhập */}
+        <Route path={PATHS.LANDING} element={<LandingPage />} />
+        <Route path={PATHS.OVERVIEW} element={<OverviewPage />} />
         <Route path={PATHS.LOGIN} element={<AuthPage mode="login" />} />
         <Route path={PATHS.REGISTER} element={<AuthPage mode="register" />} />
         <Route path={PATHS.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
 
+        {/* Skin Quiz – standalone (không cần AppLayout nhưng cần login) */}
+        <Route element={<ProtectedRoute />}>
+          <Route path={PATHS.SKIN_QUIZ} element={<SkinQuizPage />} />
+        </Route>
+
         {/* App (có layout chung, yêu cầu đăng nhập) */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
-            {/* Trang "Quét da" (gộp Trang chủ + Quét mới) */}
-            <Route path={PATHS.DASHBOARD} element={<DashboardPage />} />
+            {/* /scan alias */}
             <Route path={PATHS.SCAN} element={<DashboardPage />} />
+
+            {/* Phân tích */}
             <Route path={PATHS.ANALYSIS} element={<AnalysisResultPage />} />
+
+            {/* Lộ trình */}
             <Route path={PATHS.ROUTINE} element={<RoutinePage />} />
+
+            {/* Sản phẩm */}
             <Route path={PATHS.PRODUCTS} element={<ProductsPage />} />
             <Route path={PATHS.PRODUCT_FAVORITES} element={<FavoriteProductsPage />} />
             <Route path={PATHS.PRODUCT_COMPARE} element={<CompareProductsPage />} />
             <Route path={PATHS.PRODUCT_DETAIL} element={<ProductDetailPage />} />
+            <Route path={PATHS.CART} element={<CartPage />} />
+
+            {/* Lịch sử */}
             <Route path={PATHS.HISTORY} element={<HistoryPage />} />
+            <Route path="/history/:id" element={<HistoryDetailPage />} />
+
+            {/* Tiến trình */}
             <Route path={PATHS.PROGRESS} element={<ProgressPage />} />
+
+            {/* Tài khoản */}
             <Route path={PATHS.PROFILE} element={<ProfilePage />} />
-            <Route path={PATHS.SETTINGS} element={<ProfilePage />} />
+            <Route path={PATHS.SETTINGS} element={<SettingsPage />} />
           </Route>
         </Route>
 

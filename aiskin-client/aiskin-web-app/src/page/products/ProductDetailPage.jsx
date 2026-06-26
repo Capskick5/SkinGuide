@@ -5,6 +5,7 @@ import { productApi } from '@/api/productApi'
 import { mapById, resolveImageUrl, toArray } from './productUtils'
 import ProductCollectionButtons from './components/ProductCollectionButtons'
 import { useComparedProducts, useFavoriteProducts } from './productCollections'
+import { useCart } from '@/hook/useCart'
 
 function money(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '-'
@@ -20,6 +21,22 @@ export default function ProductDetailPage() {
   const [error, setError] = useState('')
   const favorites = useFavoriteProducts()
   const compared = useComparedProducts()
+  const { addItem, items } = useCart()
+  const [addedToCart, setAddedToCart] = useState(false)
+  const inCart = items.some((i) => i.id === product?.id)
+
+  function handleAddToCart() {
+    if (!product) return
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      imageUrl: product.imageUrl || product.images?.[0],
+      slug: product.slug,
+    })
+    setAddedToCart(true)
+    setTimeout(() => setAddedToCart(false), 2000)
+  }
 
   useEffect(() => {
     let alive = true
@@ -154,6 +171,29 @@ export default function ProductDetailPage() {
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  id="product-add-to-cart-btn"
+                  onClick={handleAddToCart}
+                  disabled={addedToCart}
+                  className={[
+                    'inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-label-md transition-all shadow-ambient-pink active:scale-95',
+                    addedToCart
+                      ? 'bg-success text-white'
+                      : 'gradient-bg text-white hover:opacity-90',
+                  ].join(' ')}
+                >
+                  <Icon name={addedToCart ? 'check' : 'add_shopping_cart'} className="text-base" />
+                  {addedToCart ? 'Đã thêm!' : inCart ? 'Thêm nữa' : 'Thêm vào giỏ'}
+                </button>
+
+                <Link
+                  to="/cart"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-primary/30 bg-primary-light text-primary text-label-md font-medium hover:bg-primary hover:text-white transition-all"
+                >
+                  <Icon name="shopping_cart" className="text-base" />
+                  Xem giỏ hàng
+                </Link>
+
                 <ProductCollectionButtons
                   compact={false}
                   favoriteLabel="Yêu thích"
