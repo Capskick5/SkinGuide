@@ -39,14 +39,20 @@ public class Product {
     @Indexed
     private String brandId;
 
+    private String brandName;
+
     @Indexed
     private String categoryId;
+
+    private String categoryName;
 
     private List<String> targetConcerns;
 
     private List<String> targetSkinTypes;
 
     private List<String> keyIngredientIds;
+
+    private String rawIngredients;
 
     private List<ProductIngredient> ingredients;
 

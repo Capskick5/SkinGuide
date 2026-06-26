@@ -144,6 +144,34 @@ export async function generateRoutine(scanId) {
   return res.json()
 }
 
+export async function getScanRoutine(scanId) {
+  const token = tokenStorage.getAccessToken()
+  const headers = {}
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const res = await fetch(`http://localhost:5000/api/scans/${scanId}/routine`, {
+    method: 'GET',
+    headers,
+  })
+
+  if (!res.ok) {
+    if (res.status === 404) return { status: 'not_found' }
+    let errMsg = 'Không thể lấy thông tin lộ trình'
+    try {
+      const errorData = await res.json()
+      errMsg = errorData.detail || errorData.message || errMsg
+    } catch {
+      const errText = await res.text()
+      errMsg = errText || errMsg
+    }
+    throw new Error(errMsg)
+  }
+
+  return res.json()
+}
+
 export async function generateRecommendations(routineId, userId) {
   const token = tokenStorage.getAccessToken()
   const headers = {
@@ -162,6 +190,33 @@ export async function generateRecommendations(routineId, userId) {
 
   if (!res.ok) {
     let errMsg = 'Không thể tạo gợi ý mỹ phẩm'
+    try {
+      const errorData = await res.json()
+      errMsg = errorData.detail || errorData.message || errMsg
+    } catch {
+      const errText = await res.text()
+      errMsg = errText || errMsg
+    }
+    throw new Error(errMsg)
+  }
+
+  return res.json()
+}
+
+export async function getRoutineRecommendations(routineId) {
+  const token = tokenStorage.getAccessToken()
+  const headers = {}
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const res = await fetch(`http://localhost:5001/api/v1/recommend/routine/${routineId}`, {
+    method: 'GET',
+    headers,
+  })
+
+  if (!res.ok) {
+    let errMsg = 'Không thể lấy gợi ý mỹ phẩm'
     try {
       const errorData = await res.json()
       errMsg = errorData.detail || errorData.message || errMsg
