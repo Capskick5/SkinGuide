@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import RoutineStep from './components/RoutineStep'
 import { PATHS } from '@/route/paths'
-import { getScanHistory, generateRoutine, generateRecommendations } from '@/api/scanApi'
+import { getScanHistory, generateRoutine, generateRecommendations, getScanRoutine, getRoutineRecommendations } from '@/api/scanApi'
 
 const translateIssue = (issue) => {
   const dict = {
@@ -111,6 +111,7 @@ export default function RoutinePage() {
 
   const [translatedDescriptions, setTranslatedDescriptions] = useState({})
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingRoutine, setIsLoadingRoutine] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isGeneratingRecs, setIsGeneratingRecs] = useState(false)
   const [error, setError] = useState(null)
@@ -125,16 +126,16 @@ export default function RoutinePage() {
           if (location.state?.scanId) {
             const targetScan = res.data.find(h => h._id === location.state.scanId)
             if (targetScan) {
-              handleSelectScan(targetScan)
-              if (location.state?.needsGeneration && !targetScan.recommendedRoutine) {
+              await handleSelectScan(targetScan)
+              if (location.state?.needsGeneration && !targetScan.hasRoutine) {
                 // Auto generate if coming from scan page
                 handleGenerateRoutine(targetScan._id)
               }
             } else {
-              handleSelectScan(res.data[0])
+              await handleSelectScan(res.data[0])
             }
           } else {
-            handleSelectScan(res.data[0])
+            await handleSelectScan(res.data[0])
           }
         }
       } catch (err) {
@@ -159,7 +160,7 @@ export default function RoutinePage() {
           setHistoryList(histRes.data)
           const updatedScan = histRes.data.find(h => h._id === scanId)
           if (updatedScan) {
-            handleSelectScan(updatedScan)
+            await handleSelectScan(updatedScan)
           }
         }
       }
@@ -231,15 +232,41 @@ export default function RoutinePage() {
     translateAll()
   }, [topIngredients])
 
-  const handleSelectScan = (scan) => {
+  const handleSelectScan = async (scan) => {
     setSelectedScanId(scan._id)
-    setAiRoutine(scan.recommendedRoutine || null)
-    setTopIngredients(scan.topIngredients || [])
-    setFocusAreas(scan.focusAreas || [])
-    setProductRecommendations(scan.productRecommendations || [])
-    setSelectedRoutineId(scan.routineId || '')
     const typeLabel = scan.skinType === 'Dry' ? 'Da khô' : scan.skinType === 'Oily' ? 'Da dầu' : 'Da thường'
     setSkinType(typeLabel)
+    
+    // Reset state before loading new data
+    setAiRoutine(null)
+    setTopIngredients([])
+    setFocusAreas([])
+    setProductRecommendations([])
+    setSelectedRoutineId('')
+    
+    if (scan.hasRoutine) {
+      setIsLoadingRoutine(true)
+      try {
+        const routineRes = await getScanRoutine(scan._id)
+        if (routineRes.status === 'success' && routineRes.data) {
+          const rData = routineRes.data
+          setAiRoutine(rData.routine || null)
+          setTopIngredients(rData.topIngredients || [])
+          setFocusAreas(rData.focusAreas || [])
+          setSelectedRoutineId(rData._id || '')
+          
+          // Fetch recommendations
+          const recRes = await getRoutineRecommendations(rData._id)
+          if (recRes.status === 'success' && recRes.data) {
+             setProductRecommendations(recRes.data)
+          }
+        }
+      } catch(err) {
+        console.error("Lỗi khi fetch chi tiết routine:", err)
+      } finally {
+        setIsLoadingRoutine(false)
+      }
+    }
   }
 
   const formatDate = (isoString) => {
@@ -247,11 +274,11 @@ export default function RoutinePage() {
     return d.toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })
   }
 
-  if (isLoading && !aiRoutine) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64 text-on-surface-variant">
         <div className="animate-spin mr-3"><Icon name="refresh" /></div>
-        Đang tải lộ trình...
+        Đang tải dữ liệu...
       </div>
     )
   }
@@ -291,6 +318,25 @@ export default function RoutinePage() {
   } : { morning: [], evening: [] }
 
   const steps = routinesData[time] || []
+
+  if (isLoadingRoutine) {
+    return (
+      <div className="max-w-4xl mx-auto pb-10">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-headline-lg text-on-surface mb-2">Lộ trình chăm sóc da AI</h1>
+            <p className="text-body-md text-on-surface-variant">
+              Cá nhân hóa cho <span className="font-semibold text-primary">{skinType}</span> · Lộ trình chuyên sâu 4–6 tuần
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-center items-center h-64 text-primary">
+          <div className="animate-spin mr-3"><Icon name="refresh" /></div>
+          Đang lấy thông tin Lộ trình & Sản phẩm gợi ý...
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-4xl mx-auto pb-10">

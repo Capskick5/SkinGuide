@@ -5,12 +5,15 @@ import mss.productservice.dto.request.ProductIngredientRequest;
 import mss.productservice.dto.request.ProductRequest;
 import mss.productservice.dto.response.ProductIngredientResponse;
 import mss.productservice.dto.response.ProductResponse;
+import mss.productservice.dto.response.ProductSummaryResponse;
 import mss.productservice.exception.DuplicateResourceException;
 import mss.productservice.exception.ResourceNotFoundException;
 import mss.productservice.model.Product;
 import mss.productservice.model.ProductIngredient;
 import mss.productservice.repository.ProductRepository;
+import mss.productservice.dto.request.ProductSearchRequest;
 import mss.productservice.util.SlugUtil;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -21,16 +24,22 @@ import java.util.List;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final KafkaProductProducer kafkaProductProducer;
 
-    public List<ProductResponse> getAllProducts() {
+    public void syncAllProductsToKafka() {
+        List<Product> products = productRepository.findAll();
+        kafkaProductProducer.sendBulkProducts(products);
+    }
+
+    public List<ProductSummaryResponse> getAllProducts() {
         return productRepository.findAll().stream()
-                .map(this::toResponse)
+                .map(this::toSummaryResponse)
                 .toList();
     }
 
-    public List<ProductResponse> getActiveProducts() {
+    public List<ProductSummaryResponse> getActiveProducts() {
         return productRepository.findByIsActiveTrue().stream()
-                .map(this::toResponse)
+                .map(this::toSummaryResponse)
                 .toList();
     }
 
@@ -46,40 +55,44 @@ public class ProductService {
         return toResponse(product);
     }
 
-    public List<ProductResponse> getProductsByBrand(String brandId) {
+    public List<ProductSummaryResponse> getProductsByBrand(String brandId) {
         return productRepository.findByBrandId(brandId).stream()
-                .map(this::toResponse)
+                .map(this::toSummaryResponse)
                 .toList();
     }
 
-    public List<ProductResponse> getProductsByCategory(String categoryId) {
+    public List<ProductSummaryResponse> getProductsByCategory(String categoryId) {
         return productRepository.findByCategoryId(categoryId).stream()
-                .map(this::toResponse)
+                .map(this::toSummaryResponse)
                 .toList();
     }
 
-    public List<ProductResponse> getProductsBySkinType(String skinType) {
+    public List<ProductSummaryResponse> getProductsBySkinType(String skinType) {
         return productRepository.findByTargetSkinTypesContaining(skinType).stream()
-                .map(this::toResponse)
+                .map(this::toSummaryResponse)
                 .toList();
     }
 
-    public List<ProductResponse> getProductsByConcern(String concern) {
+    public List<ProductSummaryResponse> getProductsByConcern(String concern) {
         return productRepository.findByTargetConcernsContaining(concern).stream()
-                .map(this::toResponse)
+                .map(this::toSummaryResponse)
                 .toList();
     }
 
-    public List<ProductResponse> getProductsByIngredient(String ingredientId) {
+    public List<ProductSummaryResponse> getProductsByIngredient(String ingredientId) {
         return productRepository.findByKeyIngredientIdsContaining(ingredientId).stream()
-                .map(this::toResponse)
+                .map(this::toSummaryResponse)
                 .toList();
     }
 
-    public List<ProductResponse> searchProducts(String keyword) {
+    public List<ProductSummaryResponse> searchProducts(String keyword) {
         return productRepository.findByNameContainingIgnoreCase(keyword).stream()
-                .map(this::toResponse)
+                .map(this::toSummaryResponse)
                 .toList();
+    }
+
+    public Page<ProductSummaryResponse> searchAdvanced(ProductSearchRequest request) {
+        return productRepository.searchAdvanced(request).map(this::toSummaryResponse);
     }
 
     public ProductResponse createProduct(ProductRequest request) {
@@ -162,12 +175,34 @@ public class ProductService {
                 .imageUrl(product.getImageUrl())
                 .images(product.getImages())
                 .brandId(product.getBrandId())
+                .brandName(product.getBrandName())
                 .categoryId(product.getCategoryId())
+                .categoryName(product.getCategoryName())
                 .targetConcerns(product.getTargetConcerns())
                 .targetSkinTypes(product.getTargetSkinTypes())
                 .keyIngredientIds(product.getKeyIngredientIds())
                 .ingredients(mapIngredientResponses(product.getIngredients()))
                 .isActive(product.getIsActive())
+                .createdAt(product.getCreatedAt())
+                .updatedAt(product.getUpdatedAt())
+                .build();
+    }
+
+    private ProductSummaryResponse toSummaryResponse(Product product) {
+        return ProductSummaryResponse.builder()
+                .id(product.getId())
+                .name(product.getName())
+                .slug(product.getSlug())
+                .price(product.getPrice())
+                .imageUrl(product.getImageUrl())
+                .brandId(product.getBrandId())
+                .brandName(product.getBrandName())
+                .categoryId(product.getCategoryId())
+                .categoryName(product.getCategoryName())
+                .isActive(product.getIsActive())
+                .targetConcerns(product.getTargetConcerns())
+                .targetSkinTypes(product.getTargetSkinTypes())
+                .keyIngredientIds(product.getKeyIngredientIds())
                 .createdAt(product.getCreatedAt())
                 .updatedAt(product.getUpdatedAt())
                 .build();

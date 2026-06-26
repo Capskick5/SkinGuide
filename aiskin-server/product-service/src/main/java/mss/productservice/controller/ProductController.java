@@ -5,7 +5,10 @@ import lombok.RequiredArgsConstructor;
 import mss.productservice.dto.request.ProductRequest;
 import mss.productservice.dto.response.ApiResponse;
 import mss.productservice.dto.response.ProductResponse;
+import mss.productservice.dto.response.ProductSummaryResponse;
+import mss.productservice.dto.request.ProductSearchRequest;
 import mss.productservice.service.ProductService;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,14 +23,26 @@ public class ProductController {
 
     private final ProductService productService;
 
+    @PostMapping("/sync-kafka")
+    public ResponseEntity<ApiResponse<String>> syncKafka() {
+        productService.syncAllProductsToKafka();
+        return ResponseEntity.ok(ApiResponse.ok("Products synced to Kafka successfully", null));
+    }
+
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ProductResponse>>> getAllProducts() {
+    public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getAllProducts() {
         return ResponseEntity.ok(ApiResponse.ok(productService.getAllProducts()));
     }
 
     @GetMapping("/active")
-    public ResponseEntity<ApiResponse<List<ProductResponse>>> getActiveProducts() {
+    public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getActiveProducts() {
         return ResponseEntity.ok(ApiResponse.ok(productService.getActiveProducts()));
+    }
+
+    @GetMapping("/search/advanced")
+    public ResponseEntity<ApiResponse<Page<ProductSummaryResponse>>> searchAdvanced(
+            @ModelAttribute ProductSearchRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(productService.searchAdvanced(request)));
     }
 
     @GetMapping("/{id}")
@@ -41,32 +56,32 @@ public class ProductController {
     }
 
     @GetMapping("/brand/{brandId}")
-    public ResponseEntity<ApiResponse<List<ProductResponse>>> getProductsByBrand(@PathVariable String brandId) {
+    public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getProductsByBrand(@PathVariable String brandId) {
         return ResponseEntity.ok(ApiResponse.ok(productService.getProductsByBrand(brandId)));
     }
 
     @GetMapping("/category/{categoryId}")
-    public ResponseEntity<ApiResponse<List<ProductResponse>>> getProductsByCategory(@PathVariable String categoryId) {
+    public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getProductsByCategory(@PathVariable String categoryId) {
         return ResponseEntity.ok(ApiResponse.ok(productService.getProductsByCategory(categoryId)));
     }
 
     @GetMapping("/skin-type")
-    public ResponseEntity<ApiResponse<List<ProductResponse>>> getProductsBySkinType(@RequestParam String type) {
+    public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getProductsBySkinType(@RequestParam String type) {
         return ResponseEntity.ok(ApiResponse.ok(productService.getProductsBySkinType(type)));
     }
 
     @GetMapping("/concern")
-    public ResponseEntity<ApiResponse<List<ProductResponse>>> getProductsByConcern(@RequestParam String concern) {
+    public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getProductsByConcern(@RequestParam String concern) {
         return ResponseEntity.ok(ApiResponse.ok(productService.getProductsByConcern(concern)));
     }
 
     @GetMapping("/ingredient/{ingredientId}")
-    public ResponseEntity<ApiResponse<List<ProductResponse>>> getProductsByIngredient(@PathVariable String ingredientId) {
+    public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getProductsByIngredient(@PathVariable String ingredientId) {
         return ResponseEntity.ok(ApiResponse.ok(productService.getProductsByIngredient(ingredientId)));
     }
 
     @GetMapping("/search")
-    public ResponseEntity<ApiResponse<List<ProductResponse>>> searchProducts(@RequestParam String keyword) {
+    public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> searchProducts(@RequestParam String keyword) {
         return ResponseEntity.ok(ApiResponse.ok(productService.searchProducts(keyword)));
     }
 

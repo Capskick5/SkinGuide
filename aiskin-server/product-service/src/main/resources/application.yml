@@ -2,10 +2,17 @@ spring:
   application:
     name: product-service
   mongodb:
-    uri: ${MONGODB_URI:mongodb+srv://alicek23004_db_user:AK020304MongO@cluster0.9z2ysfm.mongodb.net/aiskin_product?retryWrites=true&w=majority}
+    uri: ${MONGODB_URI:mongodb+srv://hoannaa2011_db_user:nonoru04@user-service.hil3ccd.mongodb.net/aiskin_product?retryWrites=true&w=majority}
   data:
     mongodb:
       auto-index-creation: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    properties:
+      spring.json.add.type.headers: false
 
 server:
   port: 8082
