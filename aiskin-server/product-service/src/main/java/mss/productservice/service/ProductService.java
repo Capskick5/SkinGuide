@@ -24,6 +24,12 @@ import java.util.List;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final KafkaProductProducer kafkaProductProducer;
+
+    public void syncAllProductsToKafka() {
+        List<Product> products = productRepository.findAll();
+        kafkaProductProducer.sendBulkProducts(products);
+    }
 
     public List<ProductSummaryResponse> getAllProducts() {
         return productRepository.findAll().stream()

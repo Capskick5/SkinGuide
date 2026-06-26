@@ -54,8 +54,9 @@ export default function RoutineStep({ step, icon, category, title, instruction, 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {recommendedProducts.map((prod, idx) => {
                 const seed = encodeURIComponent(prod.brand || prod.name || 'skincare');
-                const imgUrl = `https://images.unsplash.com/photo-1620916566398-39f1143ab7be?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80&seed=${seed}`;
+                const imgUrl = prod.imageUrl || `https://images.unsplash.com/photo-1620916566398-39f1143ab7be?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80&seed=${seed}`;
                 const matchPercent = prod.match_score ? (prod.match_score * 100).toFixed(0) : null;
+                const formattedPrice = prod.price ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(prod.price) : 'Liên hệ';
                 
                 return (
                   <div key={idx} className="bg-white border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col">
@@ -73,7 +74,7 @@ export default function RoutineStep({ step, icon, category, title, instruction, 
                         <h6 className="text-[13px] font-semibold text-gray-800 line-clamp-2 leading-tight mb-2">{prod.name}</h6>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-green-600 mb-1">{prod.price || 'Liên hệ'}</p>
+                        <p className="text-sm font-bold text-green-600 mb-1">{formattedPrice}</p>
                         {prod.ingredients && (
                           <p className="text-[10px] text-gray-500 line-clamp-1" title={prod.ingredients}>
                             <span className="font-semibold text-gray-600">Gồm:</span> {prod.ingredients}

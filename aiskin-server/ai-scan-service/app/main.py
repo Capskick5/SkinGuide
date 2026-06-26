@@ -279,26 +279,13 @@ def get_scan_history(user_id: str = Depends(get_current_user_id)):
                     record["createdAt"] = record["createdAt"].replace(tzinfo=timezone.utc)
                     record["analyzedAt"] = record["createdAt"]
             
-            # Fetch routine corresponding to this scan
-            routine_record = db.skincare_routines.find_one({"scanId": record["_id"]})
+            # Kiểm tra nhanh xem đã có routine chưa (không fetch chi tiết, không gọi API ngoại)
+            routine_record = db.skincare_routines.find_one({"scanId": record["_id"]}, {"_id": 1})
             if routine_record:
-                record["recommendedRoutine"] = routine_record.get("routine")
-                record["topIngredients"] = routine_record.get("topIngredients")
-                record["focusAreas"] = routine_record.get("focusAreas")
-                record["routineId"] = str(routine_record.get("_id"))
-                
-                # Gọi API đồng bộ (API Composition) sang Recommendation Service
-                try:
-                    res = requests.get(f"{RECOMMENDATION_SERVICE_URL}/api/v1/recommend/routine/{record['routineId']}", timeout=2)
-                    if res.status_code == 200:
-                        rec_data = res.json()
-                        if rec_data.get("status") == "success" and rec_data.get("data"):
-                            record["productRecommendations"] = rec_data.get("data")
-                except Exception as ex:
-                    logger.warning(f"Lỗi khi gọi recommendation-service cho routine {record['routineId']}: {ex}")
+                record["hasRoutine"] = True
+                record["routineId"] = str(routine_record["_id"])
             else:
-                # Nếu không có (có thể là data cũ nằm chung 1 collection), lấy trực tiếp
-                pass
+                record["hasRoutine"] = False
                 
             histories.append(record)
             
@@ -309,6 +296,31 @@ def get_scan_history(user_id: str = Depends(get_current_user_id)):
     except Exception as e:
         logger.error(f"Lỗi khi lấy lịch sử quét: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/scans/{scan_id}/routine", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/routine", "GET"))])
+def get_scan_routine_details(scan_id: str, user_id: str = Depends(get_current_user_id)):
+    """
+    Lấy chi tiết Lộ trình của một bản quét cụ thể (Lazy Load).
+    """
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database chưa được kết nối.")
+        
+    try:
+        routine_record = db.skincare_routines.find_one({"scanId": scan_id, "userId": user_id})
+        if not routine_record:
+            return {
+                "status": "not_found",
+                "message": "Bản quét này chưa tạo lộ trình."
+            }
+            
+        routine_record["_id"] = str(routine_record["_id"])
+        return {
+            "status": "success",
+            "data": routine_record
+        }
+    except Exception as e:
+        logger.error(f"Lỗi khi lấy chi tiết routine: {e}")
+        raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ.")
 
 from bson.objectid import ObjectId
 
