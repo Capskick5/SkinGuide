@@ -55,6 +55,25 @@ export function useCart() {
     return next
   }, [])
 
+  /** Thêm nhiều sản phẩm cùng lúc */
+  const addMultipleItems = useCallback((products) => {
+    let current = readCart()
+    products.forEach((product) => {
+      const qty = 1
+      const idx = current.findIndex((i) => i.id === product.id)
+      if (idx >= 0) {
+        current = current.map((i, index) =>
+          index === idx ? { ...i, qty: i.qty + qty } : i,
+        )
+      } else {
+        current = [...current, { ...product, qty }]
+      }
+    })
+    writeCart(current)
+    setItems(current)
+    return current
+  }, [])
+
   /** Xóa 1 sản phẩm khỏi giỏ */
   const removeItem = useCallback((productId) => {
     const next = readCart().filter((i) => i.id !== productId)
@@ -84,7 +103,7 @@ export function useCart() {
   const totalCount = items.reduce((sum, i) => sum + i.qty, 0)
   const totalPrice = items.reduce((sum, i) => sum + (i.price || 0) * i.qty, 0)
 
-  return { items, totalCount, totalPrice, addItem, removeItem, updateQty, clearCart }
+  return { items, totalCount, totalPrice, addItem, addMultipleItems, removeItem, updateQty, clearCart }
 }
 
 export function getCartItems() {
