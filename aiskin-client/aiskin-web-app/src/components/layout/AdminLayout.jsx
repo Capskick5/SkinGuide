@@ -8,6 +8,7 @@ const ADMIN_NAV = [
   { key: 'users', label: 'Người dùng', icon: 'group', path: PATHS.ADMIN_USERS },
   { key: 'roles', label: 'Phân quyền', icon: 'admin_panel_settings', path: PATHS.ADMIN_ROLES },
   { key: 'products', label: 'Sản phẩm', icon: 'inventory_2', path: PATHS.ADMIN_PRODUCTS },
+  { key: 'orders', label: 'Đơn hàng', icon: 'local_shipping', path: PATHS.ADMIN_ORDERS },
   { key: 'brands', label: 'Thương hiệu', icon: 'storefront', path: PATHS.ADMIN_BRANDS },
   { key: 'categories', label: 'Danh mục', icon: 'category', path: PATHS.ADMIN_CATEGORIES },
   { key: 'ingredients', label: 'Thành phần', icon: 'science', path: PATHS.ADMIN_INGREDIENTS },

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Icon from '@/components/common/Icon'
 import { adminApi } from '@/api/adminApi'
+import { productApi } from '@/api/productApi'
 
 const STAT_CARDS = [
   { key: 'users', label: 'Người dùng', icon: 'group', color: 'bg-blue-500' },
@@ -21,11 +22,19 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [usersPage] = await Promise.all([
+        const [usersPage, productsPage, brands, categories] = await Promise.all([
           adminApi.listUsers({ page: 0, size: 5, sort: 'createdAt,desc' }),
+          productApi.searchAdvancedProducts({ size: 1 }),
+          productApi.listBrands(),
+          productApi.listCategories(),
         ])
         setRecentUsers(usersPage.content || [])
-        setStats((s) => ({ ...s, users: usersPage.totalElements || 0 }))
+        setStats({ 
+          users: usersPage.totalElements || 0,
+          products: productsPage.totalElements || 0,
+          brands: Array.isArray(brands) ? brands.length : 0,
+          categories: Array.isArray(categories) ? categories.length : 0,
+        })
       } catch (err) {
         console.error('Admin dashboard fetch error:', err)
       } finally {

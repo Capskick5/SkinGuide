@@ -23,6 +23,27 @@ function getStatusLabel(status) {
 /* ─────────────────────────────────────────────
    Modal Chi Tiết Đơn Hàng
 ───────────────────────────────────────────── */
+function getVisiblePages(currentPage, totalPages) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  const pages = []
+  const start = Math.max(2, currentPage - 2)
+  const end = Math.min(totalPages - 1, currentPage + 2)
+
+  pages.push(1)
+  if (start > 2) pages.push('...')
+
+  for (let page = start; page <= end; page += 1) {
+    pages.push(page)
+  }
+
+  if (end < totalPages - 1) pages.push('...')
+  pages.push(totalPages)
+  return pages
+}
+
 function OrderDetailModal({ order, onClose }) {
   if (!order) return null
 
@@ -142,6 +163,11 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState(null)
+  
+  // Pagination state
+  const [page, setPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const pageSize = 5 // 5 đơn mỗi trang cho client
 
   useEffect(() => {
     if (!user?.id) {
@@ -149,17 +175,19 @@ export default function OrdersPage() {
       return
     }
     
-    fetch(`/api/orders/user/${user.id}`)
+    setLoading(true)
+    fetch(`/api/orders/user/${user.id}?page=${page}&size=${pageSize}`)
       .then(res => res.json())
       .then(data => {
-        setOrders(data)
+        setOrders(data.content || [])
+        setTotalPages(data.totalPages || 1)
         setLoading(false)
       })
       .catch(err => {
         console.error(err)
         setLoading(false)
       })
-  }, [user?.id])
+  }, [user?.id, page])
 
   return (
     <div>
@@ -263,6 +291,59 @@ export default function OrdersPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 0 && (
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+          <p className="text-sm text-gray-500">
+            Trang <span className="font-bold text-gray-800">{page + 1}</span> / {totalPages}
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((value) => Math.max(0, value - 1))}
+              disabled={page === 0}
+              className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:text-primary hover:bg-gray-50 transition-colors"
+            >
+              <Icon name="chevron_left" className="text-base" />
+              Trước
+            </button>
+
+            {getVisiblePages(page + 1, totalPages).map((item, index) =>
+              item === '...' ? (
+                <span key={`dots-${index}`} className="px-2 text-gray-400">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setPage(item - 1)}
+                  className={[
+                    'min-w-10 h-10 px-3 rounded-xl border text-sm font-semibold transition-colors',
+                    item === page + 1
+                      ? 'bg-primary text-white border-primary shadow-sm shadow-primary/20'
+                      : 'border-gray-200 bg-white text-gray-600 hover:text-primary hover:bg-gray-50',
+                  ].join(' ')}
+                >
+                  {item}
+                </button>
+              ),
+            )}
+
+            <button
+              type="button"
+              onClick={() => setPage((value) => Math.min(totalPages - 1, value + 1))}
+              disabled={page >= totalPages - 1}
+              className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:text-primary hover:bg-gray-50 transition-colors"
+            >
+              Sau
+              <Icon name="chevron_right" className="text-base" />
+            </button>
+          </div>
         </div>
       )}
 

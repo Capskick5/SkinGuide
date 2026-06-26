@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Modal, message } from 'antd'
 import Icon from '@/components/common/Icon'
+import Pagination from '@/components/common/Pagination'
 import { productApi } from '@/api/productApi'
 
 const SEARCH_FIELDS = [
@@ -357,27 +358,14 @@ export default function AdminProductsPage() {
               </tbody>
             </table>
             
-            {totalPages > 1 && (
-              <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
-                <p className="text-sm text-gray-500">
-                  Trang <span className="font-medium">{page}</span> / {totalPages}
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Trước
-                  </button>
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Sau
-                  </button>
-                </div>
+            {totalPages > 0 && (
+              <div className="p-5 border-t border-gray-100 bg-gray-50/30">
+                <Pagination 
+                  currentPage={page} 
+                  totalPages={totalPages} 
+                  onPageChange={setPage} 
+                  containerClass="!shadow-none !border-0 !bg-transparent !p-0"
+                />
               </div>
             )}
           </div>
