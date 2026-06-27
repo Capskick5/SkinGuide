@@ -1,9 +1,7 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { useCart } from '@/hook/useCart'
 import { resolveImageUrl } from '@/page/products/productUtils'
-import qrImage from '@/assets/qr-payment.png'
 
 function money(value) {
   if (!value && value !== 0) return '—'
@@ -11,230 +9,81 @@ function money(value) {
 }
 
 /* ─────────────────────────────────────────────
-   Modal thanh toán QR
+   Modal Nhập Thông Tin Giao Hàng
 ───────────────────────────────────────────── */
-function QrPaymentModal({ totalPrice, onClose, onConfirm }) {
-  const [copied, setCopied] = useState(false)
-  const accountNumber = '0123 4567 8910'
+function AddressFormModal({ onClose, onSubmit }) {
+  const [formData, setFormData] = useState({
+    customerName: '',
+    customerPhone: '',
+    shippingAddress: ''
+  })
 
-  function handleCopy() {
-    navigator.clipboard.writeText(accountNumber.replace(/\s/g, ''))
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  function handleChange(e) {
+    setFormData({ ...formData, [e.target.name]: e.target.value })
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    onSubmit(formData)
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      {/* backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-
-      <div
-        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-slide-up"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="gradient-bg px-6 pt-6 pb-8 text-center relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-slide-up">
+        <div className="gradient-bg px-6 py-5 text-center relative">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
           >
             <Icon name="close" className="text-lg" />
           </button>
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 mb-3">
-            <Icon name="qr_code_2" className="text-white text-2xl" />
-          </div>
-          <h2 className="text-white font-bold text-lg">Thanh toán QR</h2>
-          <p className="text-white/80 text-sm mt-1">Quét mã để chuyển khoản</p>
+          <h2 className="text-white font-bold text-lg">Thông tin giao hàng</h2>
         </div>
-
-        {/* QR Code */}
-        <div className="px-6 -mt-5">
-          <div className="bg-white rounded-2xl shadow-ambient-pink p-4 border border-border-pink">
-            <img
-              src={qrImage}
-              alt="Mã QR thanh toán"
-              className="w-full aspect-square object-contain rounded-xl"
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-caption font-medium text-on-surface mb-1">Họ và tên</label>
+            <input
+              required
+              type="text"
+              name="customerName"
+              value={formData.customerName}
+              onChange={handleChange}
+              className="w-full px-4 py-3 rounded-xl border border-border-pink focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              placeholder="Nhập họ và tên"
             />
           </div>
-        </div>
-
-        {/* Bank info */}
-        <div className="px-6 pt-4 space-y-3">
-          <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-surface-container-low border border-border-pink">
-            <div>
-              <p className="text-caption text-on-surface-variant">Số tài khoản</p>
-              <p className="font-semibold text-on-surface tracking-widest">{accountNumber}</p>
-            </div>
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-light text-primary text-caption font-medium hover:bg-primary hover:text-white transition-colors"
-            >
-              <Icon name={copied ? 'check' : 'content_copy'} className="text-base" />
-              {copied ? 'Đã sao chép' : 'Sao chép'}
-            </button>
+          <div>
+            <label className="block text-caption font-medium text-on-surface mb-1">Số điện thoại</label>
+            <input
+              required
+              type="tel"
+              name="customerPhone"
+              value={formData.customerPhone}
+              onChange={handleChange}
+              className="w-full px-4 py-3 rounded-xl border border-border-pink focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              placeholder="Nhập số điện thoại"
+            />
           </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div className="py-3 px-4 rounded-xl bg-surface-container-low border border-border-pink">
-              <p className="text-caption text-on-surface-variant">Chủ tài khoản</p>
-              <p className="font-medium text-on-surface text-sm">NGUYEN VAN A</p>
-            </div>
-            <div className="py-3 px-4 rounded-xl bg-surface-container-low border border-border-pink">
-              <p className="text-caption text-on-surface-variant">Ngân hàng</p>
-              <p className="font-medium text-on-surface text-sm">MB Bank</p>
-            </div>
+          <div>
+            <label className="block text-caption font-medium text-on-surface mb-1">Địa chỉ giao hàng</label>
+            <textarea
+              required
+              name="shippingAddress"
+              value={formData.shippingAddress}
+              onChange={handleChange}
+              rows="3"
+              className="w-full px-4 py-3 rounded-xl border border-border-pink focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none"
+              placeholder="Nhập chi tiết địa chỉ nhận hàng"
+            ></textarea>
           </div>
-
-          <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-primary-light border border-primary/20">
-            <p className="text-body-md font-semibold text-on-surface">Số tiền</p>
-            <p className="text-title-md font-bold text-primary">{money(totalPrice)}</p>
-          </div>
-
-          <p className="text-caption text-on-surface-variant text-center pb-1">
-            Nội dung chuyển khoản: <strong className="text-on-surface">AISKIN ORDER</strong>
-          </p>
-        </div>
-
-        {/* Actions */}
-        <div className="px-6 pb-6 pt-3 flex gap-3">
           <button
-            onClick={onClose}
-            className="flex-1 py-3 rounded-2xl border border-border-pink text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors"
+            type="submit"
+            className="w-full py-3.5 mt-2 rounded-2xl gradient-bg text-white font-bold shadow-ambient-pink hover:opacity-90 transition-opacity"
           >
-            Hủy
+            Tiếp tục
           </button>
-          <button
-            onClick={onConfirm}
-            className="flex-1 py-3 rounded-2xl gradient-bg text-white font-semibold hover:opacity-90 transition-opacity shadow-ambient-pink"
-          >
-            Đã thanh toán
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ─────────────────────────────────────────────
-   Modal thanh toán tiền mặt
-───────────────────────────────────────────── */
-function CashPaymentModal({ totalPrice, onClose, onConfirm }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-
-      <div
-        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-slide-up"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="bg-gradient-to-br from-emerald-400 to-teal-500 px-6 pt-6 pb-8 text-center relative">
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
-          >
-            <Icon name="close" className="text-lg" />
-          </button>
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 mb-3">
-            <Icon name="payments" className="text-white text-2xl" />
-          </div>
-          <h2 className="text-white font-bold text-lg">Thanh toán tiền mặt</h2>
-          <p className="text-white/80 text-sm mt-1">Thanh toán khi nhận hàng (COD)</p>
-        </div>
-
-        {/* Content */}
-        <div className="px-6 -mt-5 space-y-3">
-          <div className="bg-white rounded-2xl shadow-[0_8px_24px_rgba(16,185,129,0.12)] border border-emerald-100 p-5">
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center">
-                <Icon name="local_shipping" className="text-3xl text-emerald-500" />
-              </div>
-              <p className="text-center text-body-md text-on-surface font-medium">
-                Giao hàng tận nơi, thanh toán khi nhận
-              </p>
-              <p className="text-center text-caption text-on-surface-variant">
-                Bạn sẽ thanh toán cho nhân viên giao hàng khi nhận được sản phẩm.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-2 py-3 px-4 rounded-xl bg-surface-container-low border border-border-pink">
-            <InfoRow label="Phương thức" value="Tiền mặt (COD)" />
-            <div className="border-t border-border-pink" />
-            <InfoRow label="Thời gian giao" value="2 – 5 ngày làm việc" />
-            <div className="border-t border-border-pink" />
-            <div className="flex justify-between items-center pt-1">
-              <span className="font-semibold text-on-surface">Tổng thanh toán</span>
-              <span className="font-bold text-lg text-emerald-600">{money(totalPrice)}</span>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2 py-3 px-4 rounded-xl bg-amber-50 border border-amber-200">
-            <Icon name="info" className="text-amber-500 text-base mt-0.5 shrink-0" />
-            <p className="text-caption text-amber-700">
-              Vui lòng chuẩn bị đúng số tiền khi nhận hàng để thuận tiện giao dịch.
-            </p>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="px-6 pb-6 pt-4 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 rounded-2xl border border-border-pink text-on-surface-variant font-medium hover:bg-surface-container-low transition-colors"
-          >
-            Hủy
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 text-white font-semibold hover:opacity-90 transition-opacity shadow-[0_4px_14px_rgba(16,185,129,0.3)]"
-          >
-            Xác nhận đặt hàng
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function InfoRow({ label, value }) {
-  return (
-    <div className="flex justify-between items-center">
-      <span className="text-caption text-on-surface-variant">{label}</span>
-      <span className="text-body-sm text-on-surface font-medium">{value}</span>
-    </div>
-  )
-}
-
-/* ─────────────────────────────────────────────
-   Modal thanh toán thành công
-───────────────────────────────────────────── */
-function SuccessModal({ method, onClose }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-xs text-center p-8 animate-slide-up">
-        <div className="w-20 h-20 rounded-full bg-primary-light flex items-center justify-center mx-auto mb-4">
-          <Icon name="check_circle" filled className="text-4xl text-primary" />
-        </div>
-        <h2 className="text-headline-sm text-on-surface font-bold mb-2">Đặt hàng thành công!</h2>
-        <p className="text-body-sm text-on-surface-variant mb-6">
-          {method === 'qr'
-            ? 'Chúng tôi sẽ xác nhận sau khi nhận được thanh toán.'
-            : 'Đơn hàng của bạn đang được xử lý. Chúng tôi sẽ liên hệ sớm!'}
-        </p>
-        <button
-          onClick={onClose}
-          className="w-full py-3 rounded-2xl gradient-bg text-white font-semibold shadow-ambient-pink hover:opacity-90 transition-opacity"
-        >
-          Về trang sản phẩm
-        </button>
+        </form>
       </div>
     </div>
   )
@@ -243,36 +92,37 @@ function SuccessModal({ method, onClose }) {
 /* ─────────────────────────────────────────────
    Chọn phương thức thanh toán
 ───────────────────────────────────────────── */
-function PaymentSelector({ totalPrice, onSelectQr, onSelectCash }) {
+function PaymentSelector({ totalPrice, onSelectMomo, onSelectCash, onClose }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-    >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div
-        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-slide-up"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="gradient-bg px-6 pt-6 pb-6 text-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-slide-up">
+        <div className="gradient-bg px-6 pt-6 pb-6 text-center relative">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
+          >
+            <Icon name="close" className="text-lg" />
+          </button>
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-white/20 mb-3">
             <Icon name="shopping_cart_checkout" className="text-white text-2xl" />
           </div>
-          <h2 className="text-white font-bold text-lg">Chọn phương thức thanh toán</h2>
+          <h2 className="text-white font-bold text-lg">Phương thức thanh toán</h2>
           <p className="text-white/80 text-sm mt-1">Tổng: <strong>{money(totalPrice)}</strong></p>
         </div>
 
         <div className="p-6 space-y-3">
-          {/* QR */}
+          {/* Momo */}
           <button
-            onClick={onSelectQr}
+            onClick={onSelectMomo}
             className="w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-primary/30 bg-primary-light hover:border-primary hover:shadow-ambient-pink transition-all group"
           >
-            <div className="w-12 h-12 rounded-xl gradient-bg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Icon name="qr_code_2" className="text-white text-2xl" />
+            <div className="w-12 h-12 rounded-xl bg-pink-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <Icon name="account_balance_wallet" className="text-white text-2xl" />
             </div>
             <div className="text-left">
-              <p className="font-semibold text-on-surface">Thanh toán QR</p>
-              <p className="text-caption text-on-surface-variant">Chuyển khoản ngân hàng qua mã QR</p>
+              <p className="font-semibold text-on-surface">Ví MoMo</p>
+              <p className="text-caption text-on-surface-variant">Thanh toán qua ví điện tử</p>
             </div>
             <Icon name="chevron_right" className="ml-auto text-on-surface-variant group-hover:text-primary transition-colors" />
           </button>
@@ -298,6 +148,48 @@ function PaymentSelector({ totalPrice, onSelectQr, onSelectCash }) {
 }
 
 /* ─────────────────────────────────────────────
+   Modal Đang xử lý
+───────────────────────────────────────────── */
+function ProcessingModal() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="relative bg-white rounded-3xl shadow-2xl p-8 flex flex-col items-center">
+        <Icon name="hourglass_empty" className="text-5xl text-primary animate-spin" />
+        <p className="mt-4 font-semibold text-on-surface">Đang xử lý thanh toán...</p>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
+   Modal thanh toán thành công (COD)
+───────────────────────────────────────────── */
+function SuccessModal({ onClose }) {
+  const navigate = useNavigate()
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-xs text-center p-8 animate-slide-up">
+        <div className="w-20 h-20 rounded-full bg-primary-light flex items-center justify-center mx-auto mb-4">
+          <Icon name="check_circle" filled className="text-4xl text-primary" />
+        </div>
+        <h2 className="text-headline-sm text-on-surface font-bold mb-2">Đặt hàng thành công!</h2>
+        <p className="text-body-sm text-on-surface-variant mb-6">
+          Đơn hàng của bạn đang được xử lý. Chúng tôi sẽ liên hệ sớm!
+        </p>
+        <button
+          onClick={() => { onClose(); navigate('/orders') }}
+          className="w-full py-3 rounded-2xl gradient-bg text-white font-semibold shadow-ambient-pink hover:opacity-90 transition-opacity"
+        >
+          Xem đơn hàng
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
    Cart Item Row
 ───────────────────────────────────────────── */
 function CartItem({ item, onRemove, onUpdateQty }) {
@@ -305,7 +197,6 @@ function CartItem({ item, onRemove, onUpdateQty }) {
 
   return (
     <div className="flex gap-4 py-4 border-b border-border-pink last:border-0 group animate-slide-up">
-      {/* Ảnh */}
       <div className="w-20 h-20 rounded-xl overflow-hidden border border-border-pink bg-primary-light shrink-0">
         {imageSrc ? (
           <img src={imageSrc} alt={item.name} className="w-full h-full object-cover" />
@@ -316,12 +207,10 @@ function CartItem({ item, onRemove, onUpdateQty }) {
         )}
       </div>
 
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-on-surface text-body-sm truncate pr-2">{item.name}</p>
         <p className="text-caption text-on-surface-variant mt-0.5">{money(item.price)}</p>
 
-        {/* Qty controls */}
         <div className="flex items-center gap-2 mt-2">
           <button
             onClick={() => onUpdateQty(item.id, item.qty - 1)}
@@ -341,7 +230,6 @@ function CartItem({ item, onRemove, onUpdateQty }) {
         </div>
       </div>
 
-      {/* Subtotal + remove */}
       <div className="flex flex-col items-end justify-between shrink-0">
         <button
           onClick={() => onRemove(item.id)}
@@ -361,11 +249,7 @@ function CartItem({ item, onRemove, onUpdateQty }) {
 ───────────────────────────────────────────── */
 export default function CartPage() {
   const { items, totalCount, totalPrice, removeItem, updateQty, clearCart } = useCart()
-  const [modal, setModal] = useState(null) // null | 'selector' | 'qr' | 'cash' | 'success-qr' | 'success-cash'
-
-  function handleCheckout() {
-    setModal('selector')
-  }
+  const navigate = useNavigate()
 
   return (
     <div>
@@ -417,7 +301,6 @@ export default function CartPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6">
-          {/* Danh sách sản phẩm */}
           <div className="rounded-2xl border border-border-pink bg-surface-container-lowest overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border-pink">
               <p className="font-semibold text-on-surface">{totalCount} sản phẩm</p>
@@ -441,7 +324,6 @@ export default function CartPage() {
             </div>
           </div>
 
-          {/* Tóm tắt đơn hàng */}
           <div className="h-fit rounded-2xl border border-border-pink bg-surface-container-lowest overflow-hidden">
             <div className="px-5 py-4 border-b border-border-pink">
               <p className="font-semibold text-on-surface">Tóm tắt đơn hàng</p>
@@ -461,22 +343,20 @@ export default function CartPage() {
               </div>
             </div>
 
-            {/* Checkout button */}
             <div className="px-5 pb-5">
               <button
-                onClick={handleCheckout}
+                onClick={() => navigate('/checkout')}
                 className="w-full py-4 rounded-2xl gradient-bg text-white font-bold text-body-md shadow-ambient-pink hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
                 <Icon name="shopping_cart_checkout" className="text-xl" />
-                Thanh toán
+                Tiến hành thanh toán
               </button>
             </div>
 
-            {/* Payment methods hint */}
             <div className="px-5 pb-5 flex items-center justify-center gap-4">
               <div className="flex items-center gap-1.5 text-caption text-on-surface-variant">
-                <Icon name="qr_code_2" className="text-base text-primary" />
-                QR Code
+                <Icon name="account_balance_wallet" className="text-base text-primary" />
+                MoMo
               </div>
               <span className="text-border-pink">|</span>
               <div className="flex items-center gap-1.5 text-caption text-on-surface-variant">
@@ -487,35 +367,8 @@ export default function CartPage() {
           </div>
         </div>
       )}
-
-      {/* Modals */}
-      {modal === 'selector' && (
-        <PaymentSelector
-          totalPrice={totalPrice}
-          onSelectQr={() => setModal('qr')}
-          onSelectCash={() => setModal('cash')}
-        />
-      )}
-      {modal === 'qr' && (
-        <QrPaymentModal
-          totalPrice={totalPrice}
-          onClose={() => setModal('selector')}
-          onConfirm={() => { clearCart(); setModal('success-qr') }}
-        />
-      )}
-      {modal === 'cash' && (
-        <CashPaymentModal
-          totalPrice={totalPrice}
-          onClose={() => setModal('selector')}
-          onConfirm={() => { clearCart(); setModal('success-cash') }}
-        />
-      )}
-      {(modal === 'success-qr' || modal === 'success-cash') && (
-        <SuccessModal
-          method={modal === 'success-qr' ? 'qr' : 'cash'}
-          onClose={() => setModal(null)}
-        />
-      )}
     </div>
   )
 }
+
+
