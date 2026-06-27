@@ -34,7 +34,8 @@ class RecommendationEngine:
                 ing_str = str(ing_list)
                 
             # Skin types (one-hot encoding)
-            skin_types = [st.lower() for st in p.get('skinTypes', [])]
+            skin_types_source = p.get('targetSkinTypes', p.get('skinTypes', []))
+            skin_types = [st.lower() for st in skin_types_source] if isinstance(skin_types_source, list) else []
             
             # Label
             cat = p.get('categoryName', p.get('categoryId', ''))
