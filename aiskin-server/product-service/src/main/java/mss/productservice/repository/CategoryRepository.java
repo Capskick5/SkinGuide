@@ -12,6 +12,8 @@ public interface CategoryRepository extends MongoRepository<Category, String> {
 
     Optional<Category> findBySlug(String slug);
 
+    Optional<Category> findByIdAndIsActiveTrue(String id);
+
     List<Category> findByIsActiveTrueOrderByDisplayOrderAsc();
 
     List<Category> findByNameContainingIgnoreCase(String keyword);

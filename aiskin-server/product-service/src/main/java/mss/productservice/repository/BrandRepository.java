@@ -12,6 +12,8 @@ public interface BrandRepository extends MongoRepository<Brand, String> {
 
     Optional<Brand> findBySlug(String slug);
 
+    Optional<Brand> findByIdAndIsActiveTrue(String id);
+
     List<Brand> findByIsActiveTrue();
 
     List<Brand> findByCountryIgnoreCase(String country);
