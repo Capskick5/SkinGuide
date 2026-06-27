@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Modal, message } from 'antd'
 import Icon from '@/components/common/Icon'
+import Pagination from '@/components/common/Pagination'
 import { productApi } from '@/api/productApi'
 
 export default function AdminCategoriesPage() {
@@ -9,7 +10,11 @@ export default function AdminCategoriesPage() {
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ name: '', description: '', displayOrder: '' })
+  const [form, setForm] = useState({ name: '', description: '', displayOrder: 0 })
+
+  // Pagination state
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 10
 
   const fetchCategories = useCallback(async () => {
     setLoading(true)
@@ -93,6 +98,9 @@ export default function AdminCategoriesPage() {
   // Sort by displayOrder
   const sorted = [...filtered].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
 
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE)
+  const currentItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -106,7 +114,10 @@ export default function AdminCategoriesPage() {
             <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
             <input
               type="text" placeholder="Tìm danh mục..." value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/30 focus:border-pink-400"
             />
           </div>
@@ -137,7 +148,7 @@ export default function AdminCategoriesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {sorted.map((c) => (
+                {currentItems.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-5 py-3">
                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-pink-50 text-pink-600 text-xs font-bold">
@@ -175,6 +186,18 @@ export default function AdminCategoriesPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && totalPages > 0 && (
+          <div className="p-5 border-t border-gray-100 bg-gray-50/30">
+            <Pagination 
+              currentPage={page} 
+              totalPages={totalPages} 
+              onPageChange={setPage} 
+              containerClass="!shadow-none !border-0 !bg-transparent !p-0"
+            />
           </div>
         )}
       </div>

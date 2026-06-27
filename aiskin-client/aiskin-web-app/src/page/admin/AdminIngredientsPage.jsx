@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Modal, message } from 'antd'
 import Icon from '@/components/common/Icon'
+import Pagination from '@/components/common/Pagination'
 import { productApi } from '@/api/productApi'
 
 export default function AdminIngredientsPage() {
@@ -13,6 +14,10 @@ export default function AdminIngredientsPage() {
     name: '', description: '', aliases: '', benefits: '',
     concerns: '', contraindications: '', ewgScore: '',
   })
+
+  // Pagination state
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 10
 
   const fetchIngredients = useCallback(async () => {
     setLoading(true)
@@ -99,8 +104,11 @@ export default function AdminIngredientsPage() {
   }
 
   const filtered = search
-    ? ingredients.filter(i => i.name?.toLowerCase().includes(search.toLowerCase()))
+    ? ingredients.filter(i => i.name?.toLowerCase().includes(search.toLowerCase()) || i.aliases?.some(a => a.toLowerCase().includes(search.toLowerCase())))
     : ingredients
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  const currentItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const getEwgColor = (score) => {
     if (!score && score !== 0) return 'bg-gray-100 text-gray-500'
@@ -121,8 +129,11 @@ export default function AdminIngredientsPage() {
           <div className="relative w-full sm:w-64">
             <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
             <input
-              type="text" placeholder="Tìm thành phần..." value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              type="text" placeholder="Tìm thành phần, alias..." value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/30 focus:border-pink-400"
             />
           </div>
@@ -153,7 +164,7 @@ export default function AdminIngredientsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.map((i) => (
+                {currentItems.map((i) => (
                   <tr key={i.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2.5">
@@ -203,6 +214,18 @@ export default function AdminIngredientsPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && totalPages > 0 && (
+          <div className="p-5 border-t border-gray-100 bg-gray-50/30">
+            <Pagination 
+              currentPage={page} 
+              totalPages={totalPages} 
+              onPageChange={setPage} 
+              containerClass="!shadow-none !border-0 !bg-transparent !p-0"
+            />
           </div>
         )}
       </div>

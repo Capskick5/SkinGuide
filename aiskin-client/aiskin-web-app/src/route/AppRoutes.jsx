@@ -18,6 +18,9 @@ import FavoriteProductsPage from '@/page/products/FavoriteProductsPage'
 import CompareProductsPage from '@/page/products/CompareProductsPage'
 import ProductDetailPage from '@/page/products/ProductDetailPage'
 import CartPage from '@/page/cart/CartPage'
+import CheckoutPage from '@/page/cart/CheckoutPage'
+import MomoReturnPage from '@/page/cart/MomoReturnPage'
+import OrdersPage from '@/page/orders/OrdersPage'
 import HistoryPage from '@/page/history/HistoryPage'
 import HistoryDetailPage from '@/page/history/HistoryDetailPage'
 import ProgressPage from '@/page/progress/ProgressPage'
@@ -34,6 +37,7 @@ import AdminProductsPage from '@/page/admin/AdminProductsPage'
 import AdminBrandsPage from '@/page/admin/AdminBrandsPage'
 import AdminCategoriesPage from '@/page/admin/AdminCategoriesPage'
 import AdminIngredientsPage from '@/page/admin/AdminIngredientsPage'
+import AdminOrdersPage from '@/page/admin/orders/AdminOrdersPage'
 
 /**
  * Khai báo tập trung toàn bộ route của ứng dụng.
@@ -84,6 +88,11 @@ export default function AppRoutes() {
             <Route path={PATHS.PRODUCT_COMPARE} element={<CompareProductsPage />} />
             <Route path={PATHS.PRODUCT_DETAIL} element={<ProductDetailPage />} />
             <Route path={PATHS.CART} element={<CartPage />} />
+            <Route path={PATHS.CHECKOUT} element={<CheckoutPage />} />
+            <Route path={PATHS.ORDERS} element={<OrdersPage />} />
+            
+            {/* Momo Return */}
+            <Route path={PATHS.MOMO_RETURN} element={<MomoReturnPage />} />
 
             {/* Lịch sử */}
             <Route path={PATHS.HISTORY} element={<HistoryPage />} />
@@ -105,6 +114,7 @@ export default function AppRoutes() {
             <Route path={PATHS.ADMIN_USERS} element={<AdminUsersPage />} />
             <Route path={PATHS.ADMIN_ROLES} element={<RolePermissionPage />} />
             <Route path={PATHS.ADMIN_PRODUCTS} element={<AdminProductsPage />} />
+            <Route path={PATHS.ADMIN_ORDERS} element={<AdminOrdersPage />} />
             <Route path={PATHS.ADMIN_BRANDS} element={<AdminBrandsPage />} />
             <Route path={PATHS.ADMIN_CATEGORIES} element={<AdminCategoriesPage />} />
             <Route path={PATHS.ADMIN_INGREDIENTS} element={<AdminIngredientsPage />} />
