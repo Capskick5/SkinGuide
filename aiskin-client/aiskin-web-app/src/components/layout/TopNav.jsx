@@ -30,6 +30,16 @@ export default function TopNav() {
         )}
       </button>
 
+      {/* Orders → /orders */}
+      <button
+        type="button"
+        onClick={() => navigate(PATHS.ORDERS)}
+        className="w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/60 transition-colors rounded-full"
+        aria-label="Lịch sử mua hàng"
+      >
+        <Icon name="receipt_long" className="text-[22px]" />
+      </button>
+
       {/* Settings → /settings */}
       <button
         type="button"
