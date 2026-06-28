@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { resolveImageUrl } from '@/page/products/productUtils'
 import { useAuth } from '@/hook/useAuth'
+import httpClient from '@/api/httpClient'
 
 function money(value) {
   if (!value && value !== 0) return '—'
@@ -175,18 +176,28 @@ export default function OrdersPage() {
       return
     }
     
-    setLoading(true)
-    fetch(`/api/orders/user/${user.id}?page=${page}&size=${pageSize}`)
-      .then(res => res.json())
-      .then(data => {
+    let cancelled = false
+
+    async function loadOrders() {
+      setLoading(true)
+      try {
+        const data = await httpClient.get(`/orders/user/${user.id}?page=${page}&size=${pageSize}`)
+        if (cancelled) return
         setOrders(data.content || [])
         setTotalPages(data.totalPages || 1)
-        setLoading(false)
-      })
-      .catch(err => {
-        console.error(err)
-        setLoading(false)
-      })
+      } catch (err) {
+        if (!cancelled) console.error(err)
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadOrders()
+    return () => {
+      cancelled = true
+    }
   }, [user?.id, page])
 
   return (
