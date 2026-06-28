@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Icon from '@/components/common/Icon'
+import httpClient from '@/api/httpClient'
 import { resolveImageUrl } from '@/page/products/productUtils'
 
 function money(value) {
@@ -204,20 +205,18 @@ export default function AdminOrdersPage() {
   const [totalElements, setTotalElements] = useState(0)
   const pageSize = 10
 
-  const fetchOrders = () => {
+  const fetchOrders = async () => {
     setLoading(true)
-    fetch(`/api/orders?page=${page}&size=${pageSize}&status=${filter}`)
-      .then(res => res.json())
-      .then(data => {
-        setOrders(data.content || [])
-        setTotalPages(data.totalPages || 1)
-        setTotalElements(data.totalElements || 0)
-        setLoading(false)
-      })
-      .catch(err => {
-        console.error(err)
-        setLoading(false)
-      })
+    try {
+      const data = await httpClient.get(`/orders?page=${page}&size=${pageSize}&status=${filter}`)
+      setOrders(data.content || [])
+      setTotalPages(data.totalPages || 1)
+      setTotalElements(data.totalElements || 0)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -239,19 +238,11 @@ export default function AdminOrdersPage() {
     setConfirmUpdate(null)
     setUpdating(orderId)
     try {
-      const res = await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      })
-      if (res.ok) {
-        fetchOrders() // Refresh
-      } else {
-        alert('Cập nhật thất bại')
-      }
+      await httpClient.put(`/orders/${orderId}/status`, { status: newStatus })
+      fetchOrders()
     } catch (err) {
       console.error(err)
-      alert('Đã xảy ra lỗi')
+      alert('Cập nhật thất bại')
     } finally {
       setUpdating(null)
     }

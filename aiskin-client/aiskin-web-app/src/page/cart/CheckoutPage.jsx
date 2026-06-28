@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { useCart } from '@/hook/useCart'
 import { useAuth } from '@/hook/useAuth'
+import httpClient from '@/api/httpClient'
 import { resolveImageUrl } from '@/page/products/productUtils'
+
+const ADDRESS_API_URL = 'https://provinces.open-api.vn/api'
 
 function money(value) {
   if (!value && value !== 0) return '—'
@@ -58,10 +61,192 @@ function Stepper({ currentStep }) {
   )
 }
 
+function AddressTextField({ icon, label, name, value, onChange, placeholder }) {
+  return (
+    <div>
+      <label className="block text-body-sm font-semibold text-on-surface mb-2">
+        {label} <span className="text-error">*</span>
+      </label>
+      <div className="relative">
+        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+          <Icon name={icon} className="text-on-surface-variant" />
+        </div>
+        <input
+          required
+          type="text"
+          name={name}
+          value={value}
+          onChange={onChange}
+          className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-border-pink bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-body-md text-on-surface"
+          placeholder={placeholder}
+        />
+      </div>
+    </div>
+  )
+}
+
+function AddressSelectField({ icon, label, name, value, onChange, placeholder, options, disabled }) {
+  return (
+    <div>
+      <label className="block text-body-sm font-semibold text-on-surface mb-2">
+        {label} <span className="text-error">*</span>
+      </label>
+      <div className="relative">
+        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none z-10">
+          <Icon name={icon} className="text-on-surface-variant" />
+        </div>
+        <select
+          required
+          name={name}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          className="w-full appearance-none pl-12 pr-11 py-3.5 rounded-2xl border border-border-pink bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-body-md text-on-surface disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <option value="">{placeholder}</option>
+          {options.map((option) => (
+            <option key={option.code} value={option.code}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+        <Icon
+          name="expand_more"
+          className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xl text-on-surface-variant"
+        />
+      </div>
+    </div>
+  )
+}
+
 /* ─────────────────────────────────────────────
    Bước 1: Thông tin giao hàng
 ───────────────────────────────────────────── */
 function StepAddress({ formData, onChange, onNext }) {
+  const [provinces, setProvinces] = useState([])
+  const [districts, setDistricts] = useState([])
+  const [wards, setWards] = useState([])
+  const [addressApiError, setAddressApiError] = useState('')
+  const [loadingAddress, setLoadingAddress] = useState({
+    provinces: false,
+    districts: false,
+    wards: false,
+  })
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadProvinces() {
+      setLoadingAddress((current) => ({ ...current, provinces: true }))
+      setAddressApiError('')
+      try {
+        const response = await fetch(`${ADDRESS_API_URL}/p/`)
+        if (!response.ok) throw new Error('Cannot load provinces')
+        const data = await response.json()
+        if (!cancelled) setProvinces(Array.isArray(data) ? data : [])
+      } catch {
+        if (!cancelled) setAddressApiError('Không tải được danh sách tỉnh thành. Bạn có thể nhập tay.')
+      } finally {
+        if (!cancelled) {
+          setLoadingAddress((current) => ({ ...current, provinces: false }))
+        }
+      }
+    }
+
+    loadProvinces()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!formData.provinceCode) return
+    let cancelled = false
+
+    async function loadDistricts() {
+      setLoadingAddress((current) => ({ ...current, districts: true }))
+      setAddressApiError('')
+      try {
+        const response = await fetch(`${ADDRESS_API_URL}/p/${formData.provinceCode}?depth=2`)
+        if (!response.ok) throw new Error('Cannot load districts')
+        const data = await response.json()
+        if (!cancelled) setDistricts(Array.isArray(data.districts) ? data.districts : [])
+      } catch {
+        if (!cancelled) setAddressApiError('Không tải được danh sách quận huyện. Bạn có thể nhập tay.')
+      } finally {
+        if (!cancelled) {
+          setLoadingAddress((current) => ({ ...current, districts: false }))
+        }
+      }
+    }
+
+    loadDistricts()
+    return () => {
+      cancelled = true
+    }
+  }, [formData.provinceCode])
+
+  useEffect(() => {
+    if (!formData.districtCode) return
+    let cancelled = false
+
+    async function loadWards() {
+      setLoadingAddress((current) => ({ ...current, wards: true }))
+      setAddressApiError('')
+      try {
+        const response = await fetch(`${ADDRESS_API_URL}/d/${formData.districtCode}?depth=2`)
+        if (!response.ok) throw new Error('Cannot load wards')
+        const data = await response.json()
+        if (!cancelled) setWards(Array.isArray(data.wards) ? data.wards : [])
+      } catch {
+        if (!cancelled) setAddressApiError('Không tải được danh sách phường xã. Bạn có thể nhập tay.')
+      } finally {
+        if (!cancelled) {
+          setLoadingAddress((current) => ({ ...current, wards: false }))
+        }
+      }
+    }
+
+    loadWards()
+    return () => {
+      cancelled = true
+    }
+  }, [formData.districtCode])
+
+  function emitFormChange(name, value) {
+    onChange({ target: { name, value } })
+  }
+
+  function handleProvinceChange(event) {
+    const code = event.target.value
+    const province = provinces.find((item) => String(item.code) === code)
+    setDistricts([])
+    setWards([])
+    emitFormChange('provinceCode', code)
+    emitFormChange('city', province?.name || '')
+    emitFormChange('districtCode', '')
+    emitFormChange('district', '')
+    emitFormChange('wardCode', '')
+    emitFormChange('ward', '')
+  }
+
+  function handleDistrictChange(event) {
+    const code = event.target.value
+    const district = districts.find((item) => String(item.code) === code)
+    setWards([])
+    emitFormChange('districtCode', code)
+    emitFormChange('district', district?.name || '')
+    emitFormChange('wardCode', '')
+    emitFormChange('ward', '')
+  }
+
+  function handleWardChange(event) {
+    const code = event.target.value
+    const ward = wards.find((item) => String(item.code) === code)
+    emitFormChange('wardCode', code)
+    emitFormChange('ward', ward?.name || '')
+  }
+
   function handleSubmit(e) {
     e.preventDefault()
     onNext()
@@ -113,26 +298,67 @@ function StepAddress({ formData, onChange, onNext }) {
           </div>
         </div>
 
-        {/* Tỉnh / Thành phố */}
-        <div>
-          <label className="block text-body-sm font-semibold text-on-surface mb-2">
-            Tỉnh / Thành phố <span className="text-error">*</span>
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-              <Icon name="location_city" className="text-on-surface-variant" />
-            </div>
-            <input
-              required
-              type="text"
+        {addressApiError ? (
+          <>
+            <AddressTextField
+              icon="location_city"
+              label="Tỉnh / Thành phố"
               name="city"
               value={formData.city}
               onChange={onChange}
-              className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-border-pink bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-body-md text-on-surface"
               placeholder="Hà Nội"
             />
-          </div>
-        </div>
+            <AddressTextField
+              icon="map"
+              label="Quận / Huyện"
+              name="district"
+              value={formData.district}
+              onChange={onChange}
+              placeholder="Quận / Huyện"
+            />
+            <AddressTextField
+              icon="pin_drop"
+              label="Phường / Xã"
+              name="ward"
+              value={formData.ward}
+              onChange={onChange}
+              placeholder="Phường / Xã"
+            />
+          </>
+        ) : (
+          <>
+            <AddressSelectField
+              icon="location_city"
+              label="Tỉnh / Thành phố"
+              name="provinceCode"
+              value={formData.provinceCode}
+              onChange={handleProvinceChange}
+              disabled={loadingAddress.provinces}
+              placeholder={loadingAddress.provinces ? 'Đang tải tỉnh thành...' : 'Chọn tỉnh / thành phố'}
+              options={provinces}
+            />
+            <AddressSelectField
+              icon="map"
+              label="Quận / Huyện"
+              name="districtCode"
+              value={formData.districtCode}
+              onChange={handleDistrictChange}
+              disabled={!formData.provinceCode || loadingAddress.districts}
+              placeholder={loadingAddress.districts ? 'Đang tải quận huyện...' : 'Chọn quận / huyện'}
+              options={districts}
+            />
+            <AddressSelectField
+              icon="pin_drop"
+              label="Phường / Xã"
+              name="wardCode"
+              value={formData.wardCode}
+              onChange={handleWardChange}
+              disabled={!formData.districtCode || loadingAddress.wards}
+              placeholder={loadingAddress.wards ? 'Đang tải phường xã...' : 'Chọn phường / xã'}
+              options={wards}
+            />
+          </>
+        )}
 
         {/* Địa chỉ chi tiết */}
         <div className="sm:col-span-2">
@@ -175,6 +401,13 @@ function StepAddress({ formData, onChange, onNext }) {
           </div>
         </div>
       </div>
+
+      {addressApiError && (
+        <div className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-body-sm text-amber-700">
+          <Icon name="info" className="text-lg" />
+          {addressApiError}
+        </div>
+      )}
 
       <button
         type="submit"
@@ -261,7 +494,9 @@ function StepPayment({ selectedMethod, onSelect, onNext, onBack }) {
 ───────────────────────────────────────────── */
 function StepConfirm({ formData, paymentMethod, items, totalPrice, onBack, onConfirm, loading }) {
   const payLabel = paymentMethod === 'MOMO' ? 'Ví MoMo' : 'Tiền mặt (COD)'
-  const fullAddress = `${formData.addressDetail}, ${formData.city}`
+  const fullAddress = [formData.addressDetail, formData.ward, formData.district, formData.city]
+    .filter(Boolean)
+    .join(', ')
 
   return (
     <div className="space-y-5">
@@ -420,20 +655,27 @@ export default function CheckoutPage() {
   const [formData, setFormData] = useState({
     customerName: user?.fullName || '',
     customerPhone: user?.phone || '',
+    provinceCode: '',
     city: '',
+    districtCode: '',
+    district: '',
+    wardCode: '',
+    ward: '',
     addressDetail: '',
     note: '',
   })
   const [paymentMethod, setPaymentMethod] = useState('')
 
   function handleChange(e) {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
+    setFormData((current) => ({ ...current, [e.target.name]: e.target.value }))
   }
 
   async function handlePlaceOrder() {
     setLoading(true)
     try {
-      const shippingAddress = `${formData.addressDetail}, ${formData.city}`
+      const shippingAddress = [formData.addressDetail, formData.ward, formData.district, formData.city]
+        .filter(Boolean)
+        .join(', ')
       const payload = {
         customerId: user?.id || 'GUEST',
         customerName: formData.customerName,
@@ -450,14 +692,7 @@ export default function CheckoutPage() {
         })),
       }
 
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-
-      if (!res.ok) throw new Error('Order failed')
-      const result = await res.json()
+      const result = await httpClient.post('/orders', payload)
 
       if (paymentMethod === 'MOMO' && result.paymentUrl) {
         window.location.href = result.paymentUrl
