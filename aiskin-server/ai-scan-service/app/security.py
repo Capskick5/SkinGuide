@@ -3,8 +3,10 @@ from fastapi import Request, HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import base64
 
-# Dùng chung secret key với user-service (Base64 encoded)
-JWT_SECRET_B64 = "Y2hhbmdlLW1lLXRoaXMtaXMtYS1kZXYtb25seS1zZWNyZXQta2V5LTEyMzQ1Ng=="
+import os
+
+# Lấy chung secret key với user-service (Base64 encoded)
+JWT_SECRET_B64 = os.getenv("JWT_SECRET")
 # Decode base64 to bytes
 JWT_SECRET = base64.b64decode(JWT_SECRET_B64)
 

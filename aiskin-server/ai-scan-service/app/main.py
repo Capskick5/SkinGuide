@@ -21,10 +21,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Constants
-EUREKA_SERVER = "http://localhost:8761/eureka"
+EUREKA_SERVER = os.getenv("EUREKA_URI")
 APP_NAME = "ai-scan-service"
-APP_PORT = 5000
-MONGO_URI = "mongodb+srv://hoannaa2011_db_user:nonoru04@user-service.hil3ccd.mongodb.net/ai_scan_db?retryWrites=true&w=majority"
+APP_PORT = int(os.getenv("AI_SCAN_PORT"))
+MONGO_URI = os.getenv("MONGODB_URI_SCAN")
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -32,7 +32,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 skin_detector = None
 ultimate_detector = None
 db = None
-RECOMMENDATION_SERVICE_URL = os.getenv("RECOMMENDATION_SERVICE_URL", "http://localhost:5001")
+RECOMMENDATION_SERVICE_URL = os.getenv("RECOMMENDATION_SERVICE_URL")
 
 from app.security import verify_token, has_permission
 
