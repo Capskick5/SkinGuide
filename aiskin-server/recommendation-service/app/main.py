@@ -18,11 +18,11 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Constants
-EUREKA_SERVER = os.getenv("EUREKA_SERVER_URL", "http://localhost:8761/eureka")
+EUREKA_SERVER = os.getenv("EUREKA_URI")
 APP_NAME = "recommendation-service"
-APP_PORT = int(os.getenv("SERVER_PORT", 5001))
+APP_PORT = int(os.getenv("RECOMMENDATION_PORT"))
 DATASET_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "datasets", "cosmetics.csv")
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://hoannaa2011_db_user:nonoru04@user-service.hil3ccd.mongodb.net/ai_scan_db?retryWrites=true&w=majority")
+MONGO_URI = os.getenv("MONGODB_URI_RECOMMENDATION")
 
 # Global variables
 engine = None
