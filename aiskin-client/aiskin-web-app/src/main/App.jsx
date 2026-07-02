@@ -10,14 +10,16 @@ import { AuthProvider } from '@/hook/AuthContext'
  */
 const antdTheme = {
   token: {
-    colorPrimary: '#6750e4',
-    colorLink: '#6750e4',
+    colorPrimary: '#ff6f61',
+    colorLink: '#1f7a68',
     fontFamily: "'Inter', system-ui, sans-serif",
-    borderRadius: 12,
-    colorBorder: '#e4e0f3',
+    borderRadius: 8,
+    colorBorder: '#eadbd5',
+    colorBgLayout: '#fbfaf7',
+    colorText: '#172026',
   },
   components: {
-    Input: { controlHeight: 44, borderRadius: 12 },
+    Input: { controlHeight: 44, borderRadius: 8 },
     Button: { controlHeight: 44 },
   },
 }

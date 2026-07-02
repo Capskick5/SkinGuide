@@ -3,6 +3,7 @@ import Icon from '@/components/common/Icon'
 import UserMenu from './UserMenu'
 import { PATHS } from '@/route/paths'
 import { useCart } from '@/hook/useCart'
+import { useAuth } from '@/hook/useAuth'
 
 /**
  * Thanh header trên cùng (desktop) - cùng màu shell (hồng), căn phải.
@@ -11,15 +12,16 @@ import { useCart } from '@/hook/useCart'
 export default function TopNav() {
   const navigate = useNavigate()
   const { totalCount } = useCart()
+  const { isAuthenticated } = useAuth()
 
   return (
-    <header className="hidden md:flex bg-nav fixed top-0 left-sidebar right-0 z-40 justify-end items-center px-6 h-[52px] gap-2">
+    <header className="hidden md:flex bg-white/30 backdrop-blur-xl fixed top-0 left-sidebar right-0 z-40 justify-end items-center px-6 h-[52px] gap-2 border-b border-white/35">
       {/* Cart icon với badge */}
       <button
         type="button"
         id="topnav-cart-btn"
         onClick={() => navigate(PATHS.CART)}
-        className="relative w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/60 transition-colors rounded-full"
+        className="relative w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/70 transition-colors rounded-lg"
         aria-label="Giỏ hàng"
       >
         <Icon name="shopping_cart" className="text-[22px]" />
@@ -34,7 +36,7 @@ export default function TopNav() {
       <button
         type="button"
         onClick={() => navigate(PATHS.ORDERS)}
-        className="w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/60 transition-colors rounded-full"
+        className="w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/70 transition-colors rounded-lg"
         aria-label="Lịch sử mua hàng"
       >
         <Icon name="receipt_long" className="text-[22px]" />
@@ -44,15 +46,34 @@ export default function TopNav() {
       <button
         type="button"
         onClick={() => navigate(PATHS.SETTINGS)}
-        className="w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/60 transition-colors rounded-full"
+        className="w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/70 transition-colors rounded-lg"
         aria-label="Cài đặt"
       >
         <Icon name="settings" className="text-[22px]" />
       </button>
 
-      <div className="ml-1">
-        <UserMenu />
-      </div>
+      {isAuthenticated ? (
+        <div className="ml-1">
+          <UserMenu />
+        </div>
+      ) : (
+        <div className="ml-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate(PATHS.LOGIN)}
+            className="h-9 rounded-lg px-4 text-sm font-semibold text-on-surface hover:bg-white/70 transition-colors"
+          >
+            Đăng nhập
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(PATHS.REGISTER)}
+            className="h-9 rounded-lg bg-on-surface px-4 text-sm font-bold text-white shadow-[0_10px_24px_rgba(23,32,38,0.16)] hover:opacity-90 transition-opacity"
+          >
+            Đăng ký
+          </button>
+        </div>
+      )}
     </header>
   )
 }

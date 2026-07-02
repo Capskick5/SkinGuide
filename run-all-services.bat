@@ -21,7 +21,7 @@ if exist "%BASE_DIR%aiskin-server\recommendation-service" (
 )
 
 echo Starting AI Scan Service...
-start "AI Scan Service" cmd /k "cd /d %BASE_DIR%aiskin-server\ai-scan-service && venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+start "AI Scan Service" cmd /k "cd /d %BASE_DIR%aiskin-server\ai-scan-service && venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload"
 
 echo Starting Web Frontend...
 start "Web Frontend" cmd /k "cd /d %BASE_DIR%aiskin-client\aiskin-web-app && npm install && npm run dev"

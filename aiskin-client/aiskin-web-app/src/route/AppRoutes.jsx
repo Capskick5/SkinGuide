@@ -38,6 +38,7 @@ import AdminBrandsPage from '@/page/admin/AdminBrandsPage'
 import AdminCategoriesPage from '@/page/admin/AdminCategoriesPage'
 import AdminIngredientsPage from '@/page/admin/AdminIngredientsPage'
 import AdminOrdersPage from '@/page/admin/orders/AdminOrdersPage'
+import AdminScansPage from '@/page/admin/AdminScansPage'
 
 /**
  * Khai báo tập trung toàn bộ route của ứng dụng.
@@ -65,6 +66,12 @@ export default function AppRoutes() {
         <Route path={PATHS.REGISTER} element={<AuthPage mode="register" />} />
         <Route path={PATHS.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
 
+        {/* Shop public: khách chưa đăng nhập vẫn xem được sản phẩm */}
+        <Route element={<AppLayout />}>
+          <Route path={PATHS.PRODUCTS} element={<ProductsPage />} />
+          <Route path={PATHS.PRODUCT_DETAIL} element={<ProductDetailPage />} />
+        </Route>
+
         {/* Skin Quiz – standalone (không cần AppLayout nhưng cần login) */}
         <Route element={<ProtectedRoute />}>
           <Route path={PATHS.SKIN_QUIZ} element={<SkinQuizPage />} />
@@ -82,11 +89,9 @@ export default function AppRoutes() {
             {/* Lộ trình */}
             <Route path={PATHS.ROUTINE} element={<RoutinePage />} />
 
-            {/* Sản phẩm */}
-            <Route path={PATHS.PRODUCTS} element={<ProductsPage />} />
+            {/* Mua hàng: cần đăng nhập */}
             <Route path={PATHS.PRODUCT_FAVORITES} element={<FavoriteProductsPage />} />
             <Route path={PATHS.PRODUCT_COMPARE} element={<CompareProductsPage />} />
-            <Route path={PATHS.PRODUCT_DETAIL} element={<ProductDetailPage />} />
             <Route path={PATHS.CART} element={<CartPage />} />
             <Route path={PATHS.CHECKOUT} element={<CheckoutPage />} />
             <Route path={PATHS.ORDERS} element={<OrdersPage />} />
@@ -115,6 +120,7 @@ export default function AppRoutes() {
             <Route path={PATHS.ADMIN_ROLES} element={<RolePermissionPage />} />
             <Route path={PATHS.ADMIN_PRODUCTS} element={<AdminProductsPage />} />
             <Route path={PATHS.ADMIN_ORDERS} element={<AdminOrdersPage />} />
+            <Route path={PATHS.ADMIN_SCANS} element={<AdminScansPage />} />
             <Route path={PATHS.ADMIN_BRANDS} element={<AdminBrandsPage />} />
             <Route path={PATHS.ADMIN_CATEGORIES} element={<AdminCategoriesPage />} />
             <Route path={PATHS.ADMIN_INGREDIENTS} element={<AdminIngredientsPage />} />

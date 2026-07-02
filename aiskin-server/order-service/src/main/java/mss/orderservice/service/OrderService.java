@@ -12,11 +12,13 @@ import mss.orderservice.repository.OrderRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -184,6 +186,9 @@ public class OrderService {
         return orderRepository.findById(orderId).map(order -> {
             try {
                 Order.OrderStatus status = Order.OrderStatus.valueOf(newStatus.toUpperCase());
+                if (order.getStatus() == Order.OrderStatus.CANCELLED && status != Order.OrderStatus.CANCELLED) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cancelled orders cannot be changed to another status");
+                }
                 order.setStatus(status);
                 
                 // If cancelled, set payment status to FAILED or REFUNDED if needed
@@ -198,8 +203,8 @@ public class OrderService {
 
                 return orderRepository.save(order);
             } catch (IllegalArgumentException e) {
-                throw new RuntimeException("Invalid order status: " + newStatus);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid order status: " + newStatus);
             }
-        }).orElseThrow(() -> new RuntimeException("Order not found with id: " + orderId));
+        }).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found with id: " + orderId));
     }
 }
