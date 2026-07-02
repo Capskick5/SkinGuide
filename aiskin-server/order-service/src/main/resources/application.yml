@@ -2,18 +2,18 @@ spring:
   application:
     name: order-service
   mongodb:
-    uri: ${MONGODB_URI:mongodb+srv://hoannaa2011_db_user:nonoru04@user-service.hil3ccd.mongodb.net/aiskin_order?retryWrites=true&w=majority}
+    uri: ${MONGODB_URI_ORDER}
   data:
     mongodb:
       auto-index-creation: true
 
 server:
-  port: 8083
+  port: ${ORDER_SERVICE_PORT}
 
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_URI:http://127.0.0.1:8761/eureka/}
+      defaultZone: ${EUREKA_URI}
   instance:
     prefer-ip-address: true
 
@@ -30,8 +30,8 @@ springdoc:
 
 momo:
   endpoint: https://test-payment.momo.vn/v2/gateway/api/create
-  partnerCode: MOCK_PARTNER_CODE
-  accessKey: MOCK_ACCESS_KEY
-  secretKey: MOCK_SECRET_KEY
+  partnerCode: ${MOMO_PARTNER_CODE}
+  accessKey: ${MOMO_ACCESS_KEY}
+  secretKey: ${MOMO_SECRET_KEY}
   returnUrl: http://localhost:5173/payment/momo-return
-  notifyUrl: https://your-ngrok-domain.ngrok.io/api/orders/payment/momo-ipn
+  notifyUrl: ${MOMO_NOTIFY_URL}

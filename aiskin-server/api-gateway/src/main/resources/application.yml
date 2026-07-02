@@ -95,12 +95,12 @@ spring:
                 - RewritePath=/api-docs/order-service/(?<segment>.*), /$\{segment}
 
 server:
-  port: 8080
+  port: ${API_GATEWAY_PORT}
 
 eureka:
   client:
     service-url:
-      defaultZone: http://127.0.0.1:8761/eureka/
+      defaultZone: ${EUREKA_URI}
   instance:
     prefer-ip-address: true
 
