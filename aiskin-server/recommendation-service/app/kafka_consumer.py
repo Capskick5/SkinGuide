@@ -6,7 +6,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")
+KAFKA_BROKER = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
 TOPIC = "product-sync-topic"
 
 class ProductKafkaConsumer:
