@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", ".env"))
 import uuid
 import jwt
 from datetime import datetime, timezone
@@ -23,7 +25,7 @@ logger = logging.getLogger(__name__)
 # Constants
 EUREKA_SERVER = os.getenv("EUREKA_URI")
 APP_NAME = "ai-scan-service"
-APP_PORT = int(os.getenv("AI_SCAN_PORT"))
+APP_PORT = 5000
 MONGO_URI = os.getenv("MONGODB_URI_SCAN")
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
