@@ -18,10 +18,10 @@ export default function Logo({ layout = 'inline', size = 40, showWordmark = true
         className,
       ].join(' ')}
     >
-      <LogoMark size={size} rounded={size * 0.32} className="shadow-[0_6px_16px_rgba(103,80,228,0.28)]" />
+      <LogoMark size={size} rounded={size * 0.22} className="shadow-[0_10px_24px_rgba(31,122,104,0.24)]" />
       {showWordmark && (
         <span
-          className="brand-wordmark"
+          className="brand-wordmark tracking-normal"
           style={{ fontSize: stacked ? 19 : size * 0.52 }}
         >
           <span className="brand-ai">Ai</span>

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { productApi } from '@/api/productApi'
 import { mapById, resolveImageUrl, toArray } from './productUtils'
 import { useCart } from '@/hook/useCart'
+import { useAuth } from '@/hook/useAuth'
+import { PATHS } from '@/route/paths'
 import { translateCategory, translateDescription, translateName, translateTag } from './translator'
 
 function money(value) {
@@ -11,20 +13,35 @@ function money(value) {
   return `${Number(value).toLocaleString('vi-VN')}đ`
 }
 
+function compactText(value, maxLength = 260) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (text.length <= maxLength) return text
+  const boundary = text.lastIndexOf(' ', maxLength)
+  return `${text.slice(0, boundary > 120 ? boundary : maxLength).trim()}...`
+}
+
 export default function ProductDetailPage() {
   const { slug } = useParams()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [product, setProduct] = useState(null)
   const [brands, setBrands] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const { addItem, items } = useCart()
+  const { isAuthenticated } = useAuth()
   const [addedToCart, setAddedToCart] = useState(false)
   const inCart = items.some((i) => i.id === product?.id)
   const [translatedDesc, setTranslatedDesc] = useState('')
+  const [showFullDescription, setShowFullDescription] = useState(false)
 
   function handleAddToCart() {
     if (!product) return
+    if (!isAuthenticated) {
+      navigate(PATHS.LOGIN, { state: { from: location } })
+      return
+    }
     addItem({
       id: product.id,
       name: product.name,
@@ -42,6 +59,8 @@ export default function ProductDetailPage() {
     void (async () => {
       setLoading(true)
       setError('')
+      setShowFullDescription(false)
+      setTranslatedDesc('')
 
       try {
         const [productRes, brandRes, categoryRes] = await Promise.all([
@@ -92,6 +111,9 @@ export default function ProductDetailPage() {
   const categoryName = translateCategory(rawCategoryName)
   const productName = translateName(product?.name || '')
   const productDescription = translateDescription(product?.description || 'Không có mô tả.')
+  const finalDescription = translatedDesc || productDescription
+  const shortDescription = compactText(finalDescription)
+  const canExpandDescription = finalDescription.length > shortDescription.length
   const ingredientCount = product?.ingredients?.length || 0
   const concernCount = product?.targetConcerns?.length || 0
   const skinTypeCount = product?.targetSkinTypes?.length || 0
@@ -174,8 +196,18 @@ export default function ProductDetailPage() {
                   <div className="mt-3 rounded-lg border border-border-pink bg-surface-container-lowest px-4 py-3">
                     <p className="text-caption text-on-surface-variant mb-1">Mô tả</p>
                     <p className="text-body-md text-on-surface leading-6 whitespace-pre-line">
-                      {translatedDesc || productDescription}
+                      {showFullDescription ? finalDescription : shortDescription}
                     </p>
+                    {canExpandDescription ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowFullDescription((value) => !value)}
+                        className="mt-3 inline-flex items-center gap-1 text-label-md font-semibold text-primary hover:text-secondary"
+                      >
+                        {showFullDescription ? 'Thu gọn' : 'Xem thêm mô tả'}
+                        <Icon name={showFullDescription ? 'expand_less' : 'expand_more'} className="text-base" />
+                      </button>
+                    ) : null}
                   </div>
                 </div>
 
@@ -197,11 +229,17 @@ export default function ProductDetailPage() {
                   ].join(' ')}
                 >
                   <Icon name={addedToCart ? 'check' : 'add_shopping_cart'} className="text-base" />
-                  {addedToCart ? 'Đã thêm!' : inCart ? 'Thêm nữa' : 'Thêm vào giỏ'}
+                  {!isAuthenticated ? 'Đăng nhập để mua' : addedToCart ? 'Đã thêm!' : inCart ? 'Thêm nữa' : 'Thêm vào giỏ'}
                 </button>
 
                 <Link
                   to="/cart"
+                  onClick={(event) => {
+                    if (!isAuthenticated) {
+                      event.preventDefault()
+                      navigate(PATHS.LOGIN, { state: { from: location } })
+                    }
+                  }}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-primary/30 bg-primary-light text-primary text-label-md font-medium hover:bg-primary hover:text-white transition-all"
                 >
                   <Icon name="shopping_cart" className="text-base" />

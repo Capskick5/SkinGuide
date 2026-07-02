@@ -31,7 +31,7 @@ export default function ProductCard({
 
       <div className="p-5 flex flex-col grow">
         <p className="text-caption text-on-surface-variant">{brand}</p>
-        <h3 className="text-body-lg font-semibold text-on-surface mb-2">{name}</h3>
+        <h3 className="line-clamp-2 min-h-14 text-body-lg font-semibold text-on-surface mb-2">{name}</h3>
 
         <span className="self-start px-3 py-1 bg-primary-light text-tertiary rounded-full text-caption mb-2">
           {category}

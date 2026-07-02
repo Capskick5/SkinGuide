@@ -10,7 +10,7 @@ import { PATHS } from '@/route/paths'
  */
 export default function Sidebar() {
   return (
-    <nav className="hidden md:flex bg-nav fixed left-0 top-0 h-full w-sidebar flex-col items-center py-5 z-50">
+    <nav className="hidden md:flex bg-white/35 backdrop-blur-xl fixed left-0 top-0 h-full w-sidebar flex-col items-center py-5 z-50 border-r border-white/40">
       {/* Logo thương hiệu (style QuillBot: logo trên, wordmark dưới) */}
       <NavLink to={PATHS.DASHBOARD} end className="mb-6">
         <Logo layout="stacked" size={44} />
@@ -25,10 +25,10 @@ export default function Sidebar() {
             end={item.path === PATHS.DASHBOARD}
             className={({ isActive }) =>
               [
-                'group flex flex-col items-center gap-1 py-2 px-1 w-full rounded-2xl transition-all active:scale-95',
+                'group flex flex-col items-center gap-1 py-2 px-1 w-full rounded-lg transition-all active:scale-95',
                 isActive
-                  ? 'bg-white text-on-surface shadow-[0_4px_14px_rgba(177,14,107,0.12)]'
-                  : 'text-on-surface hover:bg-white/50',
+                  ? 'bg-white text-on-surface shadow-[0_12px_26px_rgba(23,32,38,0.1)]'
+                  : 'text-on-surface hover:bg-white/55',
               ].join(' ')
             }
           >
@@ -36,7 +36,7 @@ export default function Sidebar() {
               <>
                 <span
                   className={[
-                    'w-9 h-9 flex items-center justify-center rounded-xl transition-colors',
+                    'w-9 h-9 flex items-center justify-center rounded-lg transition-colors',
                     isActive ? 'text-primary' : 'text-on-surface group-hover:text-primary',
                   ].join(' ')}
                 >

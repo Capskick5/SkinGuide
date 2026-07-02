@@ -7,31 +7,31 @@ import { request } from './httpClient'
 export const productApi = {
   // ---------- Products ----------
   async listProducts() {
-    return request('/products')
+    return request('/products', { auth: false })
   },
   async listActiveProducts() {
-    return request('/products/active')
+    return request('/products/active', { auth: false })
   },
   async getProduct(id) {
-    return request(`/products/${id}`)
+    return request(`/products/${id}`, { auth: false })
   },
   async getProductBySlug(slug) {
-    return request(`/products/slug/${encodeURIComponent(slug)}`)
+    return request(`/products/slug/${encodeURIComponent(slug)}`, { auth: false })
   },
   async getProductsByBrand(brandId) {
-    return request(`/products/brand/${brandId}`)
+    return request(`/products/brand/${brandId}`, { auth: false })
   },
   async getProductsByCategory(categoryId) {
-    return request(`/products/category/${categoryId}`)
+    return request(`/products/category/${categoryId}`, { auth: false })
   },
   async getProductsBySkinType(type) {
-    return request(`/products/skin-type?type=${encodeURIComponent(type)}`)
+    return request(`/products/skin-type?type=${encodeURIComponent(type)}`, { auth: false })
   },
   async getProductsByConcern(concern) {
-    return request(`/products/concern?concern=${encodeURIComponent(concern)}`)
+    return request(`/products/concern?concern=${encodeURIComponent(concern)}`, { auth: false })
   },
   async getProductsByIngredient(ingredientId) {
-    return request(`/products/ingredient/${ingredientId}`)
+    return request(`/products/ingredient/${ingredientId}`, { auth: false })
   },
   async createProduct(data) {
     return request('/products', { method: 'POST', body: data })
@@ -43,7 +43,7 @@ export const productApi = {
     return request(`/products/${id}`, { method: 'DELETE' })
   },
   async searchProducts(keyword) {
-    return request(`/products/search?keyword=${encodeURIComponent(keyword)}`)
+    return request(`/products/search?keyword=${encodeURIComponent(keyword)}`, { auth: false })
   },
   async searchAdvancedProducts({ query = '', searchField = 'all', categoryId = '', isActive = '', sortBy = '', page = 1, size = 12 }) {
     const params = new URLSearchParams()
@@ -54,18 +54,18 @@ export const productApi = {
     if (sortBy) params.append('sortBy', sortBy)
     params.append('page', page)
     params.append('size', size)
-    return request(`/products/search/advanced?${params.toString()}`)
+    return request(`/products/search/advanced?${params.toString()}`, { auth: false })
   },
 
   // ---------- Brands ----------
   async listBrands() {
-    return request('/brands')
+    return request('/brands', { auth: false })
   },
   async listActiveBrands() {
-    return request('/brands/active')
+    return request('/brands/active', { auth: false })
   },
   async getBrand(id) {
-    return request(`/brands/${id}`)
+    return request(`/brands/${id}`, { auth: false })
   },
   async createBrand(data) {
     return request('/brands', { method: 'POST', body: data })
@@ -79,13 +79,13 @@ export const productApi = {
 
   // ---------- Categories ----------
   async listCategories() {
-    return request('/categories')
+    return request('/categories', { auth: false })
   },
   async listActiveCategories() {
-    return request('/categories/active')
+    return request('/categories/active', { auth: false })
   },
   async getCategory(id) {
-    return request(`/categories/${id}`)
+    return request(`/categories/${id}`, { auth: false })
   },
   async createCategory(data) {
     return request('/categories', { method: 'POST', body: data })
@@ -99,25 +99,25 @@ export const productApi = {
 
   // ---------- Ingredients ----------
   async listIngredients() {
-    return request('/ingredients')
+    return request('/ingredients', { auth: false })
   },
   async getIngredient(id) {
-    return request(`/ingredients/${id}`)
+    return request(`/ingredients/${id}`, { auth: false })
   },
   async getIngredientBySlug(slug) {
-    return request(`/ingredients/slug/${slug}`)
+    return request(`/ingredients/slug/${slug}`, { auth: false })
   },
   async searchIngredients(keyword) {
-    return request(`/ingredients/search?keyword=${encodeURIComponent(keyword)}`)
+    return request(`/ingredients/search?keyword=${encodeURIComponent(keyword)}`, { auth: false })
   },
   async getIngredientsByConcern(concern) {
-    return request(`/ingredients/by-concern?concern=${encodeURIComponent(concern)}`)
+    return request(`/ingredients/by-concern?concern=${encodeURIComponent(concern)}`, { auth: false })
   },
   async getIngredientsByBenefit(benefit) {
-    return request(`/ingredients/by-benefit?benefit=${encodeURIComponent(benefit)}`)
+    return request(`/ingredients/by-benefit?benefit=${encodeURIComponent(benefit)}`, { auth: false })
   },
   async getSafeIngredients(maxEwgScore = 3) {
-    return request(`/ingredients/safe?maxEwgScore=${maxEwgScore}`)
+    return request(`/ingredients/safe?maxEwgScore=${maxEwgScore}`, { auth: false })
   },
   async createIngredient(data) {
     return request('/ingredients', { method: 'POST', body: data })

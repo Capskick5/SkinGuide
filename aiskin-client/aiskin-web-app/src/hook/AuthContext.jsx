@@ -90,7 +90,8 @@ export function AuthProvider({ children }) {
   )
 
   const register = useCallback(
-    async ({ email, password }) => applyAuthResponse(await authApi.register({ email, password })),
+    async ({ email, password, fullName }) =>
+      applyAuthResponse(await authApi.register({ email, password, fullName })),
     [applyAuthResponse],
   )
 
