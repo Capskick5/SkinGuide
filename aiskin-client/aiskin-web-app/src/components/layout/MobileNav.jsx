@@ -8,7 +8,7 @@ import { PATHS } from '@/route/paths'
  */
 export default function MobileNav() {
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 w-full bg-nav border-t border-border-pink shadow-[0_-4px_20px_rgba(103,80,228,0.1)] z-50 px-3 py-2 flex justify-between items-center">
+    <nav className="md:hidden fixed bottom-0 left-0 w-full bg-white/85 backdrop-blur-xl border-t border-white/70 shadow-[0_-18px_40px_rgba(23,32,38,0.12)] z-50 px-3 py-2 flex justify-between items-center">
       {MOBILE_NAV_ITEMS.map((item) => (
         <NavLink
           key={item.key}
@@ -24,7 +24,7 @@ export default function MobileNav() {
           {({ isActive }) =>
             isActive ? (
               <>
-                <span className="bg-white px-4 py-1 rounded-full flex items-center justify-center shadow-[0_3px_10px_rgba(177,14,107,0.15)]">
+                <span className="bg-primary text-white px-4 py-1 rounded-lg flex items-center justify-center shadow-[0_8px_18px_rgba(255,111,97,0.24)]">
                   <Icon name={item.icon} filled />
                 </span>
                 <span className="text-[10px] leading-tight font-semibold">{item.label}</span>

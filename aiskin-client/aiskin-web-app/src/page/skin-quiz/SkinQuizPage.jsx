@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { App as AntApp } from 'antd'
 import Icon from '@/components/common/Icon'
 import { PATHS } from '@/route/paths'
+import { useAuth } from '@/hook/useAuth'
 
 const STEPS = [
   {
@@ -73,6 +75,8 @@ const STEPS = [
 
 export default function SkinQuizPage() {
   const navigate = useNavigate()
+  const { user, updateProfile } = useAuth()
+  const { message } = AntApp.useApp()
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState({})
   const [submitting, setSubmitting] = useState(false)
@@ -115,10 +119,25 @@ export default function SkinQuizPage() {
 
   const handleSubmit = async () => {
     setSubmitting(true)
-    // TODO: gọi API lưu skinProfile
-    await new Promise((r) => setTimeout(r, 1200))
-    setSubmitting(false)
-    navigate(PATHS.DASHBOARD)
+    try {
+      await updateProfile({
+        fullName: user?.fullName || '',
+        skinProfile: {
+          skinType: answers.skin_type || user?.skinProfile?.skinType || null,
+          gender: user?.skinProfile?.gender || null,
+          currentConcerns: answers.concerns || user?.skinProfile?.currentConcerns || [],
+          allergies: user?.skinProfile?.allergies || [],
+          sensitiveSkin:
+            answers.skin_type === 'sensitive' || !!user?.skinProfile?.sensitiveSkin,
+        },
+      })
+      message.success('Đã lưu hồ sơ da của bạn')
+      navigate(PATHS.DASHBOARD)
+    } catch (err) {
+      message.error(err.message || 'Không thể lưu hồ sơ da, vui lòng thử lại')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
