@@ -3,7 +3,7 @@ import uuid
 import jwt
 from datetime import datetime, timezone
 from pymongo import MongoClient
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends, BackgroundTasks, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import py_eureka_client.eureka_client as eureka_client
@@ -98,7 +98,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.post("/api/scans/analyze", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/analyze", "POST"))])
+@app.post("/api/scans/analyze", tags=["AI Skin Scan"])
 def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
     """
     Nhận file ảnh từ người dùng, chạy các mô hình AI để đánh giá tổng quan tình trạng da, lưu lịch sử quét.
@@ -189,7 +189,7 @@ def validate_skin_image(image: UploadFile = File(...), user_id: str = Depends(ge
 
 
 
-@app.post("/api/scans/{scan_id}/routine", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/routine", "POST"))])
+@app.post("/api/scans/{scan_id}/routine", tags=["AI Skin Scan"])
 def generate_scan_routine(scan_id: str, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user_id)):
     """
     API để sinh lộ trình dựa trên một kết quả Scan đã có trong hệ thống.
@@ -258,7 +258,7 @@ def generate_scan_routine(scan_id: str, background_tasks: BackgroundTasks, user_
         logger.error(f"Lỗi khi tạo routine: {e}")
         raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ khi tạo lộ trình.")
 
-@app.get("/api/scans/history", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/history", "GET"))])
+@app.get("/api/scans/history", tags=["AI Skin Scan"])
 def get_scan_history(user_id: str = Depends(get_current_user_id)):
     """
     Lấy danh sách lịch sử quét da của user hiện tại (chỉ lấy scan_results).
@@ -297,7 +297,58 @@ def get_scan_history(user_id: str = Depends(get_current_user_id)):
         logger.error(f"Lỗi khi lấy lịch sử quét: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/scans/{scan_id}/routine", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/routine", "GET"))])
+@app.get("/api/scans/admin/stats", tags=["Admin"])
+def get_scan_admin_stats(
+    limit: int = Query(default=50, ge=1, le=200),
+    payload: dict = Depends(has_permission("/api/scans/admin/stats", "GET")),
+):
+    """
+    Tong hop nhanh so lieu quet da cho dashboard admin.
+    """
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database chua duoc ket noi.")
+
+    try:
+        total_scans = db.ai_scan_results.count_documents({})
+        unique_users = len(db.ai_scan_results.distinct("userId"))
+
+        now = datetime.now(timezone.utc)
+        start_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        scans_today = db.ai_scan_results.count_documents({"analyzedAt": {"$gte": start_today}})
+
+        skin_type_breakdown = {}
+        for item in db.ai_scan_results.aggregate([
+            {"$group": {"_id": "$skinType.predicted", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+        ]):
+            skin_type_breakdown[item.get("_id") or "Unknown"] = item.get("count", 0)
+
+        latest = []
+        cursor = db.ai_scan_results.find(
+            {},
+            {"_id": 1, "userId": 1, "skinType": 1, "analyzedAt": 1},
+        ).sort("analyzedAt", -1).limit(limit)
+        for record in cursor:
+            analyzed_at = record.get("analyzedAt")
+            latest.append({
+                "id": str(record.get("_id")),
+                "userId": record.get("userId"),
+                "skinType": record.get("skinType", {}).get("predicted"),
+                "analyzedAt": analyzed_at.isoformat() if isinstance(analyzed_at, datetime) else analyzed_at,
+            })
+
+        return {
+            "totalScans": total_scans,
+            "uniqueScanUsers": unique_users,
+            "scansToday": scans_today,
+            "skinTypeBreakdown": skin_type_breakdown,
+            "latestScans": latest,
+        }
+    except Exception as e:
+        logger.error(f"Admin scan stats error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/scans/{scan_id}/routine", tags=["AI Skin Scan"])
 def get_scan_routine_details(scan_id: str, user_id: str = Depends(get_current_user_id)):
     """
     Lấy chi tiết Lộ trình của một bản quét cụ thể (Lazy Load).
@@ -324,7 +375,7 @@ def get_scan_routine_details(scan_id: str, user_id: str = Depends(get_current_us
 
 from bson.objectid import ObjectId
 
-@app.delete("/api/scans/history/{scan_id}", tags=["AI Skin Scan"], dependencies=[Depends(has_permission("/api/scans/history/{scan_id}", "DELETE"))])
+@app.delete("/api/scans/history/{scan_id}", tags=["AI Skin Scan"])
 def delete_scan_history(scan_id: str, user_id: str = Depends(get_current_user_id)):
     """
     Xóa 1 bản quét lịch sử và routine tương ứng.
