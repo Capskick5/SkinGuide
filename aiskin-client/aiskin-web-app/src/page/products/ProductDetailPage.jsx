@@ -35,6 +35,7 @@ export default function ProductDetailPage() {
   const inCart = items.some((i) => i.id === product?.id)
   const [translatedDesc, setTranslatedDesc] = useState('')
   const [showFullDescription, setShowFullDescription] = useState(false)
+  const [showAllIngredients, setShowAllIngredients] = useState(false)
 
   function handleAddToCart() {
     if (!product) return
@@ -60,6 +61,7 @@ export default function ProductDetailPage() {
       setLoading(true)
       setError('')
       setShowFullDescription(false)
+      setShowAllIngredients(false)
       setTranslatedDesc('')
 
       try {
@@ -115,6 +117,8 @@ export default function ProductDetailPage() {
   const shortDescription = compactText(finalDescription)
   const canExpandDescription = finalDescription.length > shortDescription.length
   const ingredientCount = product?.ingredients?.length || 0
+  const displayedIngredients = showAllIngredients ? product?.ingredients || [] : (product?.ingredients || []).slice(0, 5)
+  const hiddenIngredientCount = Math.max(0, ingredientCount - displayedIngredients.length)
   const concernCount = product?.targetConcerns?.length || 0
   const skinTypeCount = product?.targetSkinTypes?.length || 0
 
@@ -266,7 +270,7 @@ export default function ProductDetailPage() {
             <Section title="Bảng thành phần">
               {product.ingredients?.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {product.ingredients.map((ingredient) => {
+                  {displayedIngredients.map((ingredient) => {
                     const hasConcerns = ingredient.concerns?.length > 0
                     return (
                       <span
@@ -283,6 +287,25 @@ export default function ProductDetailPage() {
                       </span>
                     )
                   })}
+                  {hiddenIngredientCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllIngredients(true)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-primary/30 bg-primary-light px-3 py-1.5 text-caption font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
+                    >
+                      <Icon name="add" className="text-base" />
+                      {hiddenIngredientCount}
+                    </button>
+                  ) : showAllIngredients && ingredientCount > 5 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllIngredients(false)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-border-pink bg-surface-container-lowest px-3 py-1.5 text-caption font-semibold text-on-surface-variant transition-colors hover:border-primary hover:text-primary"
+                    >
+                      <Icon name="remove" className="text-base" />
+                      Thu gọn
+                    </button>
+                  ) : null}
                 </div>
               ) : (
                 <p className="text-body-md text-on-surface-variant">Chưa có dữ liệu thành phần.</p>

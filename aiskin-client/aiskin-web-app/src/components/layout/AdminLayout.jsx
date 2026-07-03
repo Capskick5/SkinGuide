@@ -98,7 +98,7 @@ export default function AdminLayout() {
 
         <div className="space-y-1 border-t border-gray-100 p-3">
           <NavLink
-            to={PATHS.DASHBOARD}
+            to={PATHS.PRODUCTS}
             className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 hover:text-gray-950"
           >
             <Icon name="arrow_back" className="text-xl" />

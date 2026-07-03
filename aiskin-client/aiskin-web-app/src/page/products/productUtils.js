@@ -68,13 +68,15 @@ export function toProductCard(product, brandMap, categoryMap) {
   const brand = brandMap.get(product.brandId)
   const category = categoryMap.get(product.categoryId)
   const priceValue = Number(product.price) || 0
+  const brandName = product.brandName || brand?.name || product.brandId || 'Không rõ thương hiệu'
+  const categoryName = product.categoryName || category?.name || product.categoryId || 'Không rõ danh mục'
 
   return {
     id: product.id,
     slug: product.slug,
-    brand: product.brandName || brand?.name || product.brandId || 'Không rõ thương hiệu',
+    brand: brandName,
     name: translateName(product.name),
-    category: translateCategory(product.categoryName || category?.name || product.categoryId || 'Không rõ danh mục'),
+    category: translateCategory(categoryName),
     categoryId: product.categoryId,
     priceValue,
     price: money(product.price),
@@ -82,6 +84,6 @@ export function toProductCard(product, brandMap, categoryMap) {
     targetConcerns: (product.targetConcerns || []).map(translateTag),
     targetSkinTypes: (product.targetSkinTypes || []).map(translateTag),
     keyIngredientIds: product.keyIngredientIds || [],
-    searchBlob: makeSearchBlob(product, product.brandName || brand?.name || '', product.categoryName || category?.name || ''),
+    searchBlob: makeSearchBlob(product, brandName, categoryName),
   }
 }

@@ -26,7 +26,7 @@ export default function AdminRoute() {
 
   const isAdmin = user?.roles?.includes('ADMIN')
   if (!isAdmin) {
-    return <Navigate to={PATHS.DASHBOARD} replace />
+    return <Navigate to={PATHS.PRODUCTS} replace />
   }
 
   return <Outlet />

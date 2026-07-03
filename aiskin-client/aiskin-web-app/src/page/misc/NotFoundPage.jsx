@@ -14,7 +14,7 @@ export default function NotFoundPage() {
         Trang bạn đang tìm không tồn tại hoặc đã được di chuyển.
       </p>
       <Link
-        to={PATHS.DASHBOARD}
+        to={PATHS.PRODUCTS}
         className="px-6 py-3 rounded-full gradient-bg text-white text-label-md font-medium shadow-md hover:shadow-lg transition-all"
       >
         Về trang chủ

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { productApi } from '@/api/productApi'
 import ProductCard from './components/ProductCard'
-import { mapById, toArray, toProductCard } from './productUtils'
+import { makeSearchBlob, mapById, normalize, toArray, toProductCard } from './productUtils'
 import { translateCategory } from './translator'
 
 const CATEGORY_ALL = 'all'
@@ -94,6 +94,57 @@ function pickFlashDeals(products, cycle) {
   return Array.from({ length: Math.min(FLASH_DEAL_SIZE, products.length) }, (_, index) => {
     return products[(start + index) % products.length]
   })
+}
+
+async function loadWithFallback(primaryRequest, fallbackRequest) {
+  try {
+    return await primaryRequest()
+  } catch (primaryError) {
+    if (!fallbackRequest) throw primaryError
+    return fallbackRequest()
+  }
+}
+
+function toPagedResult(items, { query, searchField, categoryId, isActive, sortBy, page, size }) {
+  const normalizedQuery = normalize(query)
+  const normalizedField = searchField || 'all'
+  const filtered = items.filter((product) => {
+    if (
+      isActive !== '' &&
+      isActive !== null &&
+      isActive !== undefined &&
+      typeof product.isActive === 'boolean' &&
+      product.isActive !== Boolean(isActive)
+    ) {
+      return false
+    }
+    if (categoryId && product.categoryId !== categoryId) {
+      return false
+    }
+    if (!normalizedQuery) {
+      return true
+    }
+    const blob = makeSearchBlob(product, product.brandName || '', product.categoryName || '')
+    return normalize(blob[normalizedField] || blob.all).includes(normalizedQuery)
+  })
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === 'name-asc') return String(a.name || '').localeCompare(String(b.name || ''), 'vi')
+    if (sortBy === 'name-desc') return String(b.name || '').localeCompare(String(a.name || ''), 'vi')
+    if (sortBy === 'price-asc') return (Number(a.price) || 0) - (Number(b.price) || 0)
+    if (sortBy === 'price-desc') return (Number(b.price) || 0) - (Number(a.price) || 0)
+    return 0
+  })
+
+  const currentPage = Math.max(1, Number(page) || 1)
+  const pageSize = Math.max(1, Number(size) || PAGE_SIZE)
+  const start = (currentPage - 1) * pageSize
+
+  return {
+    content: sorted.slice(start, start + pageSize),
+    totalElements: sorted.length,
+    totalPages: Math.max(1, Math.ceil(sorted.length / pageSize)),
+  }
 }
 
 function ShopHero({ onPick }) {
@@ -202,7 +253,7 @@ function QuickLinks({ onPick }) {
 }
 
 function FlashDeals({ products }) {
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(() => Date.now())
   const { cycle, timeParts } = useMemo(() => getFlashDealMeta(now), [now])
   const deals = useMemo(() => pickFlashDeals(products, cycle), [products, cycle])
 
@@ -285,8 +336,8 @@ export default function ProductsPage() {
     void (async () => {
       try {
         const [brandRes, categoryRes] = await Promise.all([
-          productApi.listActiveBrands(),
-          productApi.listActiveCategories(),
+          loadWithFallback(productApi.listActiveBrands, productApi.listBrands),
+          loadWithFallback(productApi.listActiveCategories, productApi.listCategories),
         ])
         if (!alive) return
         setBrands(toArray(brandRes))
@@ -302,12 +353,16 @@ export default function ProductsPage() {
     let alive = true
     void (async () => {
       try {
-        const res = await productApi.searchAdvancedProducts({
+        const options = {
           isActive: true,
           sortBy: 'relevance',
           page: 1,
           size: 72,
-        })
+        }
+        const res = await loadWithFallback(
+          () => productApi.searchAdvancedProducts(options),
+          async () => toPagedResult(toArray(await productApi.listActiveProducts()), options),
+        )
         if (alive) setFlashProducts(res?.content || [])
       } catch (err) {
         console.error('KhÃ´ng táº£i Ä‘Æ°á»£c flash deals', err)
@@ -331,7 +386,7 @@ export default function ProductsPage() {
       setLoading(true)
       setError('')
       try {
-        const res = await productApi.searchAdvancedProducts({
+        const options = {
           query: debouncedQuery,
           searchField,
           categoryId: categoryFilter === CATEGORY_ALL ? '' : categoryFilter,
@@ -339,7 +394,11 @@ export default function ProductsPage() {
           sortBy,
           page,
           size: PAGE_SIZE,
-        })
+        }
+        const res = await loadWithFallback(
+          () => productApi.searchAdvancedProducts(options),
+          async () => toPagedResult(toArray(await productApi.listActiveProducts()), options),
+        )
         if (!alive) return
         setProducts(res?.content || [])
         setTotalPages(res?.totalPages || 1)
