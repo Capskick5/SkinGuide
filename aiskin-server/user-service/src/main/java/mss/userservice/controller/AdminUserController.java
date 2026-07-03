@@ -30,8 +30,8 @@ public class AdminUserController {
     @GetMapping
     @PreAuthorize("hasPermission('/api/admin/users', 'GET')")
     @Operation(summary = "Danh sách người dùng (phân trang)")
-    public ResponseEntity<Page<UserResponse>> list(Pageable pageable) {
-        return ResponseEntity.ok(userService.listUsers(pageable));
+    public ResponseEntity<Page<UserResponse>> list(@RequestParam(required = false) String role, Pageable pageable) {
+        return ResponseEntity.ok(userService.listUsers(role, pageable));
     }
 
     @GetMapping("/{id}")
@@ -57,7 +57,7 @@ public class AdminUserController {
 
     @PutMapping("/{id}/role")
     @PreAuthorize("hasPermission('/api/admin/users/{id}/role', 'PUT')")
-    @Operation(summary = "Gán role cho người dùng (USER hoặc ADMIN)")
+    @Operation(summary = "Gán role cho người dùng (USER, MANAGER hoặc ADMIN)")
     public ResponseEntity<UserResponse> setRole(@PathVariable String id, @RequestParam String role) {
         return ResponseEntity.ok(userService.setRole(id, role));
     }

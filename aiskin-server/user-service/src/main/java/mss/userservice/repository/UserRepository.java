@@ -10,4 +10,6 @@ public interface UserRepository extends MongoRepository<User, String> {
     Optional<User> findByEmail(String email);
 
     boolean existsByEmail(String email);
+
+    org.springframework.data.domain.Page<User> findByRoles(String role, org.springframework.data.domain.Pageable pageable);
 }

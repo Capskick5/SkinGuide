@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '@/hook/useAuth'
 import Icon from '@/components/common/Icon'
 import { adminApi } from '@/api/adminApi'
 import { productApi } from '@/api/productApi'
@@ -78,6 +79,9 @@ function Section({ title, action, children }) {
 }
 
 export default function AdminDashboardPage() {
+  const { user } = useAuth()
+  const isAdmin = user?.roles?.includes('ADMIN')
+
   const [stats, setStats] = useState({
     users: 0,
     products: 0,
@@ -104,12 +108,12 @@ export default function AdminDashboardPage() {
       setLoading(true)
       try {
         const [usersPage, productsPage, brands, categories, ordersPage, scanStats] = await Promise.allSettled([
-          adminApi.listUsers({ page: 0, size: 6, sort: 'createdAt,desc' }),
+          isAdmin ? adminApi.listUsers({ page: 0, size: 6, sort: 'createdAt,desc' }) : Promise.resolve({}),
           productApi.searchAdvancedProducts({ size: 1 }),
           productApi.listBrands(),
           productApi.listCategories(),
           httpClient.get('/orders?page=0&size=1000&status=ALL'),
-          httpClient.get('/scans/admin/stats'),
+          isAdmin ? httpClient.get('/scans/admin/stats') : Promise.resolve({}),
         ])
 
         if (ignore) return
@@ -231,22 +235,26 @@ export default function AdminDashboardPage() {
           tone="coral"
           to={PATHS.ADMIN_ORDERS}
         />
-        <DashboardCard
-          label="Lượt quét da"
-          value={number(stats.scans)}
-          hint={`${number(stats.scanUsers)} người dùng đã quét, hôm nay ${number(stats.scansToday)} lượt`}
-          icon="document_scanner"
-          tone="blue"
-          to={PATHS.ADMIN_SCANS}
-        />
-        <DashboardCard
-          label="Người dùng"
-          value={number(stats.users)}
-          hint="Tài khoản đang được quản lý"
-          icon="group"
-          tone="teal"
-          to={PATHS.ADMIN_USERS}
-        />
+        {isAdmin && (
+          <DashboardCard
+            label="Lượt quét da"
+            value={number(stats.scans)}
+            hint={`${number(stats.scanUsers)} người dùng đã quét, hôm nay ${number(stats.scansToday)} lượt`}
+            icon="document_scanner"
+            tone="blue"
+            to={PATHS.ADMIN_SCANS}
+          />
+        )}
+        {isAdmin && (
+          <DashboardCard
+            label="Người dùng"
+            value={number(stats.users)}
+            hint="Tài khoản đang được quản lý"
+            icon="group"
+            tone="teal"
+            to={PATHS.ADMIN_USERS}
+          />
+        )}
         <DashboardCard
           label="Sản phẩm"
           value={number(stats.products)}
@@ -255,14 +263,16 @@ export default function AdminDashboardPage() {
           tone="amber"
           to={PATHS.ADMIN_PRODUCTS}
         />
-        <DashboardCard
-          label="Tỷ lệ chuyển đổi scan"
-          value={`${stats.users ? Math.round((stats.scanUsers / stats.users) * 100) : 0}%`}
-          hint="Tỷ lệ người dùng từng có lịch sử quét da"
-          icon="analytics"
-          tone="slate"
-          to={PATHS.ADMIN_SCANS}
-        />
+        {isAdmin && (
+          <DashboardCard
+            label="Tỷ lệ chuyển đổi scan"
+            value={`${stats.users ? Math.round((stats.scanUsers / stats.users) * 100) : 0}%`}
+            hint="Tỷ lệ người dùng từng có lịch sử quét da"
+            icon="analytics"
+            tone="slate"
+            to={PATHS.ADMIN_SCANS}
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
@@ -351,39 +361,41 @@ export default function AdminDashboardPage() {
           </div>
         </Section>
 
-        <Section title="Người dùng và quét da">
-          <div className="divide-y divide-gray-100">
-            {recentUsers.map((user) => (
-              <div key={user.id} className="flex items-center justify-between gap-4 px-5 py-4">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-container">
-                    <Icon name="person" className="text-secondary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-gray-950">{user.fullName || user.email}</p>
-                    <p className="truncate text-xs text-gray-500">{user.email}</p>
-                  </div>
-                </div>
-                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
-                  {user.roles?.includes('ADMIN') ? 'Admin' : 'User'}
-                </span>
-              </div>
-            ))}
-            {latestScans.length > 0 && (
-              <div className="px-5 py-4">
-                <p className="mb-3 text-xs font-semibold uppercase text-gray-400">Lượt quét gần đây</p>
-                <div className="space-y-3">
-                  {latestScans.map((scan) => (
-                    <div key={scan.id} className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
-                      <span className="min-w-0 truncate text-xs font-medium text-gray-700">{scan.userId}</span>
-                      <span className="text-xs text-gray-500">{scan.skinType || 'Unknown'} - {formatDate(scan.analyzedAt)}</span>
+        {isAdmin && (
+          <Section title="Người dùng và quét da">
+            <div className="divide-y divide-gray-100">
+              {recentUsers.map((user) => (
+                <div key={user.id} className="flex items-center justify-between gap-4 px-5 py-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-container">
+                      <Icon name="person" className="text-secondary" />
                     </div>
-                  ))}
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-gray-950">{user.fullName || user.email}</p>
+                      <p className="truncate text-xs text-gray-500">{user.email}</p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
+                    {user.roles?.includes('ADMIN') ? 'Admin' : 'User'}
+                  </span>
                 </div>
-              </div>
-            )}
-          </div>
-        </Section>
+              ))}
+              {latestScans.length > 0 && (
+                <div className="px-5 py-4">
+                  <p className="mb-3 text-xs font-semibold uppercase text-gray-400">Lượt quét gần đây</p>
+                  <div className="space-y-3">
+                    {latestScans.map((scan) => (
+                      <div key={scan.id} className="flex items-center justify-between gap-3 rounded-lg bg-gray-50 px-3 py-2">
+                        <span className="min-w-0 truncate text-xs font-medium text-gray-700">{scan.userId}</span>
+                        <span className="text-xs text-gray-500">{scan.skinType || 'Unknown'} - {formatDate(scan.analyzedAt)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
       </div>
     </div>
   )

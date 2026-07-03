@@ -23,9 +23,9 @@ export default function LoginForm() {
     try {
       const loggedUser = await login({ email: values.email, password: values.password })
       message.success('Đăng nhập thành công')
-      // Admin → admin dashboard, otherwise → previous page or user dashboard
-      const isAdmin = loggedUser?.roles?.includes('ADMIN')
-      const dest = isAdmin ? PATHS.ADMIN_DASHBOARD : redirectTo
+      // Redirect to admin if user has any role other than 'USER'
+      const hasAdminAccess = loggedUser?.roles?.some(role => role !== 'USER')
+      const dest = hasAdminAccess ? PATHS.ADMIN_DASHBOARD : redirectTo
       navigate(dest, { replace: true })
     } catch (err) {
       if (err.status === 401) {

@@ -60,7 +60,10 @@ public class UserService {
 
     // ---------- Admin operations ----------
 
-    public Page<UserResponse> listUsers(Pageable pageable) {
+    public Page<UserResponse> listUsers(String role, Pageable pageable) {
+        if (role != null && !role.isBlank()) {
+            return userRepository.findByRoles(role.toUpperCase(), pageable).map(UserResponse::from);
+        }
         return userRepository.findAll(pageable).map(UserResponse::from);
     }
 
@@ -76,8 +79,9 @@ public class UserService {
 
     /** Assign a single role to user (replaces existing roles). */
     public UserResponse setRole(String userId, String roleName) {
+        String upperRole = roleName.toUpperCase();
         User user = loadUser(userId);
-        user.setRoles(java.util.Set.of(roleName.toUpperCase()));
+        user.setRoles(java.util.Set.of(upperRole));
         return UserResponse.from(userRepository.save(user));
     }
 
