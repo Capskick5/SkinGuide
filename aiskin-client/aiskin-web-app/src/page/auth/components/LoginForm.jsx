@@ -16,7 +16,7 @@ export default function LoginForm() {
   const { message } = AntApp.useApp()
   const [loading, setLoading] = useState(false)
 
-  const redirectTo = location.state?.from?.pathname || PATHS.DASHBOARD
+  const redirectTo = location.state?.from?.pathname || PATHS.PRODUCTS
 
   const onFinish = async (values) => {
     setLoading(true)

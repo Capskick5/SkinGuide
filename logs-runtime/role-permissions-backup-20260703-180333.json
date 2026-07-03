@@ -1,0 +1,37 @@
+{
+  "createdAt": "2026-07-03T18:03:33",
+  "roles": [
+    {
+      "_id": "6a351c673b614b22d44c800e",
+      "name": "USER",
+      "description": "Người dùng",
+      "permissions": [
+        "6a4794f7f20d51442e4de450",
+        "6a4794f7f20d51442e4de452",
+        "6a4794f5f20d51442e4de448",
+        "6a4794f5f20d51442e4de442",
+        "6a4794f7f20d51442e4de459",
+        "6a4794f8f20d51442e4de461",
+        "6a4794f6f20d51442e4de44e",
+        "6a4794f9f20d51442e4de463",
+        "6a4794f4f20d51442e4de43d",
+        "6a4794f4f20d51442e4de43a",
+        "6a351c973b614b22d44c8018",
+        "6a4794f8f20d51442e4de45c",
+        "6a4794f8f20d51442e4de45b"
+      ]
+    },
+    {
+      "_id": "6a351c6f3b614b22d44c800f",
+      "name": "ADMIN",
+      "description": "Quản trị viên",
+      "permissions": []
+    },
+    {
+      "_id": "6a464745ddb2c3b75b682724",
+      "name": "MANAGER",
+      "description": "Quản lý hệ thống",
+      "permissions": []
+    }
+  ]
+}

@@ -13,7 +13,7 @@ export default function MobileNav() {
         <NavLink
           key={item.key}
           to={item.path}
-          end={item.path === PATHS.DASHBOARD}
+          end={item.path === PATHS.PRODUCTS}
           className={({ isActive }) =>
             [
               'flex flex-col items-center gap-1 px-2 py-1 transition-colors',

@@ -1,73 +1,103 @@
 import { Link } from 'react-router-dom'
+import { App as AntApp } from 'antd'
 import Icon from '@/components/common/Icon'
+import { useCart } from '@/hook/useCart'
 
 export default function ProductCard({
+  id,
   slug,
   brand,
   name,
   category,
   match,
   price,
+  priceValue,
   rating,
   imageUrl,
   targetConcerns = [],
 }) {
   const canRenderImage = imageUrl && (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('/'))
+  const { addItem } = useCart()
+  const { message } = AntApp.useApp()
+
+  function handleQuickAdd() {
+    if (!id) return
+
+    addItem({
+      id,
+      name,
+      price: priceValue || 0,
+      imageUrl,
+      slug,
+    })
+    message.success(`Đã thêm ${name} vào giỏ hàng`)
+  }
 
   return (
-    <div className="bg-surface-container-lowest border border-border-pink rounded-2xl overflow-hidden shadow-[0_4px_20px_rgba(103,80,228,0.06)] hover:shadow-[0_8px_25px_rgba(103,80,228,0.12)] transition-all flex flex-col">
-      <div className="relative h-40 bg-primary-light flex items-center justify-center overflow-hidden">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-border-pink bg-surface-container-lowest shadow-[0_4px_20px_rgba(103,80,228,0.06)] transition-all hover:shadow-[0_8px_25px_rgba(103,80,228,0.12)]">
+      <div className="relative flex h-40 items-center justify-center overflow-hidden bg-primary-light">
         {canRenderImage ? (
-          <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+          <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
         ) : (
           <Icon name="science" className="text-5xl text-primary/50" />
         )}
         {match ? (
-          <span className="absolute top-3 right-3 px-3 py-1 gradient-bg text-white rounded-full text-caption font-medium">
+          <span className="gradient-bg absolute right-3 top-3 rounded-full px-3 py-1 text-caption font-medium text-white">
             Phù hợp {match}%
           </span>
         ) : null}
       </div>
 
-      <div className="p-5 flex flex-col grow">
+      <div className="flex grow flex-col p-5">
         <p className="text-caption text-on-surface-variant">{brand}</p>
-        <h3 className="line-clamp-2 min-h-14 text-body-lg font-semibold text-on-surface mb-2">{name}</h3>
+        <h3 className="mb-2 min-h-14 text-body-lg font-semibold text-on-surface line-clamp-2">{name}</h3>
 
-        <span className="self-start px-3 py-1 bg-primary-light text-tertiary rounded-full text-caption mb-2">
+        <span className="mb-2 self-start rounded-full bg-primary-light px-3 py-1 text-caption text-tertiary">
           {category}
         </span>
 
         {targetConcerns?.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-auto">
+          <div className="mb-auto flex flex-wrap gap-1">
             {targetConcerns.slice(0, 2).map((concern, i) => (
-              <span key={i} className="px-2 py-0.5 bg-surface-soft text-on-surface-variant rounded-md text-[10px]">
+              <span key={i} className="rounded-md bg-surface-soft px-2 py-0.5 text-[10px] text-on-surface-variant">
                 {concern}
               </span>
             ))}
             {targetConcerns.length > 2 && (
-              <span className="px-2 py-0.5 bg-surface-soft text-on-surface-variant rounded-md text-[10px]">
+              <span className="rounded-md bg-surface-soft px-2 py-0.5 text-[10px] text-on-surface-variant">
                 +{targetConcerns.length - 2}
               </span>
             )}
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-auto mb-4">
+        <div className="mb-4 mt-auto flex items-center justify-between">
           <span className="text-body-lg font-semibold text-on-surface">{price}</span>
           {rating ? (
             <span className="flex items-center gap-1 text-label-md text-on-surface-variant">
-              <Icon name="star" filled className="text-warning text-base" />
+              <Icon name="star" filled className="text-base text-warning" />
               {rating}
             </span>
           ) : null}
         </div>
 
-        <Link
-          to={`/products/${slug}`}
-          className="w-full py-2.5 rounded-full bg-primary text-white text-label-md font-semibold hover:bg-tertiary transition-colors text-center shadow-[0_8px_24px_rgba(103,80,228,0.18)]"
-        >
-          Xem chi tiết
-        </Link>
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <Link
+            to={`/products/${slug}`}
+            className="min-h-11 rounded-full bg-primary px-4 py-2.5 text-center text-label-md font-semibold text-white shadow-[0_8px_24px_rgba(103,80,228,0.18)] transition-colors hover:bg-tertiary"
+          >
+            Xem chi tiết
+          </Link>
+          <button
+            type="button"
+            onClick={handleQuickAdd}
+            disabled={!id}
+            title="Thêm nhanh vào giỏ hàng"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/30 bg-primary-light text-primary transition-all hover:bg-primary hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Icon name="add_shopping_cart" className="text-xl" />
+          </button>
+        </div>
       </div>
     </div>
   )

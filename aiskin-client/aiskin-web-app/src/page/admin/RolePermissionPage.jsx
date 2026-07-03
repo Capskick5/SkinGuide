@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { App as AntApp } from 'antd';
 import { roleApi } from '@/api/roleApi';
 import { permissionApi } from '@/api/permissionApi';
 import { systemApi } from '@/api/systemApi';
@@ -73,6 +74,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
 };
 
 export default function RolePermissionPage() {
+    const { message } = AntApp.useApp();
     const [activeTab, setActiveTab] = useState('roles');
     
     // Data
@@ -125,7 +127,7 @@ export default function RolePermissionPage() {
             }
         } catch (error) {
             console.error('Failed to load data', error);
-            alert('Lỗi khi tải dữ liệu');
+            message.error('Lỗi khi tải dữ liệu');
         } finally {
             setLoading(false);
         }
@@ -141,7 +143,7 @@ export default function RolePermissionPage() {
             setNewRoleDesc('');
             loadData();
         } catch (error) {
-            alert('Lỗi tạo role: ' + (error.message || ''));
+            message.error('Lỗi tạo role: ' + (error.message || ''));
         }
     };
 
@@ -164,10 +166,10 @@ export default function RolePermissionPage() {
         if (!selectedRole) return;
         try {
             await roleApi.assignPermissions(selectedRole.id, Array.from(rolePermissions));
-            alert('Cập nhật quyền thành công!');
+            message.success('Cập nhật quyền thành công!');
             loadData();
         } catch (error) {
-            alert('Lỗi cập nhật quyền');
+            message.error('Lỗi cập nhật quyền');
         }
     };
 
@@ -185,11 +187,11 @@ export default function RolePermissionPage() {
             if (productEps.length > 0) await permissionApi.syncEndpoints({ service: 'product-service', endpoints: productEps });
             if (scanEps.length > 0) await permissionApi.syncEndpoints({ service: 'ai-scan-service', endpoints: scanEps });
 
-            alert('Đồng bộ API thành công!');
+            message.success('Đồng bộ API thành công!');
             loadData();
         } catch (error) {
             console.error('Sync failed', error);
-            alert('Lỗi khi đồng bộ API');
+            message.error('Lỗi khi đồng bộ API');
         } finally {
             setSyncing(false);
         }
@@ -198,16 +200,16 @@ export default function RolePermissionPage() {
     const handleCreatePermission = async (e) => {
         e.preventDefault();
         if (!newPerm.name || !newPerm.resource || !newPerm.method) {
-            alert('Vui lòng điền đủ các trường bắt buộc');
+            message.warning('Vui lòng điền đủ các trường bắt buộc');
             return;
         }
         try {
             await permissionApi.createPermission(newPerm);
-            alert('Thêm permission thành công');
+            message.success('Thêm permission thành công');
             setNewPerm({ name: '', resource: '', method: 'GET', service: '', description: '' });
             loadData();
         } catch (error) {
-            alert('Lỗi thêm permission: ' + (error.message || ''));
+            message.error('Lỗi thêm permission: ' + (error.message || ''));
         }
     };
 

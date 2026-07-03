@@ -5,10 +5,6 @@ import { PATHS } from '@/route/paths'
 import { useCart } from '@/hook/useCart'
 import { useAuth } from '@/hook/useAuth'
 
-/**
- * Thanh header trên cùng (desktop) - cùng màu shell (hồng), căn phải.
- * Icon/chữ màu đen + cart icon + menu người dùng (avatar).
- */
 export default function TopNav() {
   const navigate = useNavigate()
   const { totalCount } = useCart()
@@ -16,7 +12,6 @@ export default function TopNav() {
 
   return (
     <header className="hidden md:flex bg-white/30 backdrop-blur-xl fixed top-0 left-sidebar right-0 z-40 justify-end items-center px-6 h-[52px] gap-2 border-b border-white/35">
-      {/* Cart icon với badge */}
       <button
         type="button"
         id="topnav-cart-btn"
@@ -32,7 +27,6 @@ export default function TopNav() {
         )}
       </button>
 
-      {/* Orders → /orders */}
       <button
         type="button"
         onClick={() => navigate(PATHS.ORDERS)}
@@ -42,7 +36,6 @@ export default function TopNav() {
         <Icon name="receipt_long" className="text-[22px]" />
       </button>
 
-      {/* Settings → /settings */}
       <button
         type="button"
         onClick={() => navigate(PATHS.SETTINGS)}
@@ -77,4 +70,3 @@ export default function TopNav() {
     </header>
   )
 }
-

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { App as AntApp } from 'antd'
 import Icon from '@/components/common/Icon'
 import httpClient from '@/api/httpClient'
 import { resolveImageUrl } from '@/page/products/productUtils'
@@ -199,6 +200,7 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
 }
 
 export default function AdminOrdersPage() {
+  const { message } = AntApp.useApp()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('ALL')
@@ -251,7 +253,7 @@ export default function AdminOrdersPage() {
       await fetchOrders()
     } catch (err) {
       console.error('Update order status failed:', err)
-      alert(err?.message || 'Cập nhật trạng thái thất bại')
+      message.error(err?.message || 'Cập nhật trạng thái thất bại')
     } finally {
       setUpdating(null)
     }

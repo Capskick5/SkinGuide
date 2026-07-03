@@ -20,7 +20,7 @@ export default function RegisterForm() {
     try {
       await register({ email: values.email, password: values.password, fullName: values.fullName })
       message.success('Tạo tài khoản thành công')
-      navigate(PATHS.DASHBOARD, { replace: true })
+      navigate(PATHS.PRODUCTS, { replace: true })
     } catch (err) {
       if (err.status === 409) {
         message.error('Email đã được sử dụng')

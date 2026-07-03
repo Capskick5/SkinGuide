@@ -14,12 +14,12 @@ export const PATHS = {
   FORGOT_PASSWORD: '/forgot-password',
 
   // App (yêu cầu đăng nhập)
-  DASHBOARD: '/',
+  PRODUCTS: '/',
+  DASHBOARD: '/scan',
   SCAN: '/scan',
   SKIN_QUIZ: '/skin-quiz',
   ANALYSIS: '/analysis',
   ROUTINE: '/routine',
-  PRODUCTS: '/products',
   PRODUCT_FAVORITES: '/products/favorites',
   PRODUCT_COMPARE: '/products/compare',
   PRODUCT_DETAIL: '/products/:slug',
@@ -29,7 +29,6 @@ export const PATHS = {
   MOMO_RETURN: '/payment/momo-return',
   HISTORY: '/history',
   HISTORY_DETAIL: '/history/:id',
-  PROGRESS: '/progress',
 
   // Tài khoản
   PROFILE: '/profile',

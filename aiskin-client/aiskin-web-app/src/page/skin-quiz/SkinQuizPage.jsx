@@ -132,7 +132,7 @@ export default function SkinQuizPage() {
         },
       })
       message.success('Đã lưu hồ sơ da của bạn')
-      navigate(PATHS.DASHBOARD)
+      navigate(PATHS.PRODUCTS)
     } catch (err) {
       message.error(err.message || 'Không thể lưu hồ sơ da, vui lòng thử lại')
     } finally {
@@ -265,7 +265,7 @@ export default function SkinQuizPage() {
         <p className="text-center mt-4">
           <button
             type="button"
-            onClick={() => navigate(PATHS.DASHBOARD)}
+            onClick={() => navigate(PATHS.PRODUCTS)}
             className="text-caption text-on-surface-variant hover:text-primary transition-colors underline-offset-2 hover:underline"
           >
             Bỏ qua, tôi sẽ làm sau

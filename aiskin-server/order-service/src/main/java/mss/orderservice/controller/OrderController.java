@@ -29,12 +29,33 @@ public class OrderController {
     @Operation(summary = "MoMo IPN Callback", description = "Server-to-server callback for Momo payment status")
     public ResponseEntity<?> momoIpn(@RequestBody Map<String, Object> requestBody) {
         String orderId = (String) requestBody.get("orderId");
-        Integer resultCode = (Integer) requestBody.get("resultCode");
+        Integer resultCode = parseResultCode(requestBody.get("resultCode"));
+
+        if (orderId == null || resultCode == null) {
+            return ResponseEntity.badRequest().body("orderId and resultCode are required");
+        }
         
         // Note: In production, verify signature first!
         orderService.processMomoIpn(orderId, resultCode);
         
         return ResponseEntity.noContent().build();
+    }
+
+    private Integer parseResultCode(Object value) {
+        if (value instanceof Integer resultCode) {
+            return resultCode;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text) {
+            try {
+                return Integer.parseInt(text);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     @GetMapping("/user/{customerId}")
