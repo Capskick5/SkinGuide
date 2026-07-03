@@ -18,8 +18,8 @@ export default function SocialButtons() {
       const loggedUser = await loginWithGoogle(credential)
       message.success('Đăng nhập bằng Google thành công')
       
-      const isAdmin = loggedUser?.roles?.includes('ADMIN')
-      const dest = isAdmin ? PATHS.ADMIN_DASHBOARD : PATHS.DASHBOARD
+      const hasAdminAccess = loggedUser?.roles?.some(role => role !== 'USER')
+      const dest = hasAdminAccess ? PATHS.ADMIN_DASHBOARD : PATHS.DASHBOARD
       navigate(dest, { replace: true })
     } catch (err) {
       message.error(err.message || 'Đăng nhập Google thất bại, vui lòng thử lại')

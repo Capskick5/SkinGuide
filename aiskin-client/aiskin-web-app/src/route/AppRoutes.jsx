@@ -4,6 +4,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import AdminLayout from '@/components/layout/AdminLayout'
 import ProtectedRoute from './ProtectedRoute'
 import AdminRoute from './AdminRoute'
+import ManagerRoute from './ManagerRoute'
 import HomeRoute from './HomeRoute'
 
 import LandingPage from '@/page/landing/LandingPage'
@@ -112,12 +113,18 @@ export default function AppRoutes() {
           </Route>
         </Route>
 
-        {/* Admin (yêu cầu ROLE_ADMIN) */}
+        {/* Admin (chỉ ROLE_ADMIN) */}
         <Route element={<AdminRoute />}>
           <Route element={<AdminLayout />}>
-            <Route path={PATHS.ADMIN_DASHBOARD} element={<AdminDashboardPage />} />
             <Route path={PATHS.ADMIN_USERS} element={<AdminUsersPage />} />
             <Route path={PATHS.ADMIN_ROLES} element={<RolePermissionPage />} />
+          </Route>
+        </Route>
+
+        {/* Manager (ROLE_ADMIN hoặc ROLE_MANAGER hoặc các Role tùy chỉnh) */}
+        <Route element={<ManagerRoute />}>
+          <Route element={<AdminLayout />}>
+            <Route path={PATHS.ADMIN_DASHBOARD} element={<AdminDashboardPage />} />
             <Route path={PATHS.ADMIN_PRODUCTS} element={<AdminProductsPage />} />
             <Route path={PATHS.ADMIN_ORDERS} element={<AdminOrdersPage />} />
             <Route path={PATHS.ADMIN_SCANS} element={<AdminScansPage />} />

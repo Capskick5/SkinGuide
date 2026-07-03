@@ -59,7 +59,9 @@ export default function AdminLayout() {
 
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <div className="space-y-5">
-            {ADMIN_NAV_GROUPS.map((group) => (
+            {ADMIN_NAV_GROUPS.filter((group) => 
+              user?.roles?.includes('ADMIN') ? true : group.title !== 'Hệ thống'
+            ).map((group) => (
               <div key={group.title}>
                 <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
                   {group.title}

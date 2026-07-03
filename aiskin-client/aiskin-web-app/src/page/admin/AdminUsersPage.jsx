@@ -2,13 +2,16 @@ import { useEffect, useState, useCallback } from 'react'
 import { Modal, message } from 'antd'
 import Icon from '@/components/common/Icon'
 import { adminApi } from '@/api/adminApi'
+import { roleApi } from '@/api/roleApi'
 
 /**
  * Quản lý người dùng — liệt kê, tìm kiếm, gán role, kích hoạt/vô hiệu hóa.
  * Phong cách Stitch: bảng sạch, pill badges, action buttons nhỏ gọn.
  */
 export default function AdminUsersPage() {
+  const [activeTab, setActiveTab] = useState('ADMIN')
   const [users, setUsers] = useState([])
+  const [rolesList, setRolesList] = useState([])
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
@@ -20,7 +23,7 @@ export default function AdminUsersPage() {
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await adminApi.listUsers({ page, size: pageSize, sort: 'createdAt,desc' })
+      const data = await adminApi.listUsers({ page, size: pageSize, sort: 'createdAt,desc', role: activeTab })
       setUsers(data.content || [])
       setTotalPages(data.totalPages || 0)
       setTotalElements(data.totalElements || 0)
@@ -29,7 +32,24 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false)
     }
-  }, [page])
+  }, [page, activeTab])
+
+  const fetchRoles = useCallback(async () => {
+    try {
+      const data = await roleApi.getAllRoles()
+      setRolesList(data || [])
+    } catch (err) {
+      message.error('Không tải được danh sách role')
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchRoles()
+  }, [fetchRoles])
+
+  useEffect(() => {
+    setPage(0)
+  }, [activeTab])
 
   useEffect(() => {
     fetchUsers()
@@ -66,6 +86,12 @@ export default function AdminUsersPage() {
     }
   }
 
+  const roleWeight = (roles) => {
+    if (roles?.includes('ADMIN')) return 3
+    if (roles?.includes('MANAGER')) return 2
+    return 1
+  }
+
   const filteredUsers = search
     ? users.filter(
         (u) =>
@@ -73,6 +99,14 @@ export default function AdminUsersPage() {
           u.fullName?.toLowerCase().includes(search.toLowerCase()),
       )
     : users
+
+  const sortedUsers = [...filteredUsers].sort((a, b) => roleWeight(b.roles) - roleWeight(a.roles))
+
+  // Danh sách Role từ API, đảm bảo có 'USER' nếu API thiếu
+  const availableRoles = [...rolesList]
+  if (!availableRoles.find(r => r.name === 'USER')) {
+    availableRoles.push({ name: 'USER', description: 'Người dùng' })
+  }
 
   return (
     <div className="space-y-6">
@@ -99,6 +133,23 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 overflow-x-auto">
+        {availableRoles.map((role) => (
+          <button
+            key={role.name}
+            onClick={() => setActiveTab(role.name)}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === role.name
+                ? 'border-pink-500 text-pink-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            {role.description || role.name}
+          </button>
+        ))}
+      </div>
+
       {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
@@ -114,11 +165,11 @@ export default function AdminUsersPage() {
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Role</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Trạng thái</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Ngày tạo</th>
-                  <th className="text-right px-5 py-3 font-medium text-gray-500">Hành động</th>
+                  <th className="text-right px-5 py-3 font-medium text-gray-500">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filteredUsers.map((u) => (
+                {sortedUsers.map((u) => (
                   <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
@@ -132,17 +183,33 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="px-5 py-3">
-                      {u.roles?.includes('ADMIN') ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium bg-purple-100 text-purple-700 px-2.5 py-1 rounded-full">
-                          <Icon name="shield_person" className="text-xs" />
-                          Admin
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
-                          <Icon name="person" className="text-xs" />
-                          User
-                        </span>
-                      )}
+                      {(() => {
+                        const userRole = u.roles?.length ? u.roles[0] : 'USER';
+                        const roleInfo = availableRoles.find(r => r.name === userRole) || { name: userRole, description: userRole };
+                        
+                        if (userRole === 'ADMIN') {
+                          return (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium bg-purple-100 text-purple-700 px-2.5 py-1 rounded-full">
+                              <Icon name="shield_person" className="text-xs" />
+                              {roleInfo.description}
+                            </span>
+                          );
+                        }
+                        if (userRole !== 'USER') {
+                          return (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full">
+                              <Icon name="manage_accounts" className="text-xs" />
+                              {roleInfo.description}
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">
+                            <Icon name="person" className="text-xs" />
+                            {roleInfo.description}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-5 py-3">
                       {u.active ? (
@@ -161,33 +228,29 @@ export default function AdminUsersPage() {
                       {u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '—'}
                     </td>
                     <td className="px-5 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        {/* Toggle role */}
-                        {u.roles?.includes('ADMIN') ? (
-                          <button
-                            onClick={() => handleSetRole(u, 'USER')}
-                            title="Hạ xuống User"
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-all"
-                          >
-                            <Icon name="arrow_downward" className="text-base" />
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleSetRole(u, 'ADMIN')}
-                            title="Nâng lên Admin"
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-all"
-                          >
-                            <Icon name="arrow_upward" className="text-base" />
-                          </button>
-                        )}
+                      <div className="flex items-center justify-end gap-2">
+                        {/* Set role */}
+                        <select
+                          className="text-xs border border-gray-300 rounded-lg pr-8 py-1.5 focus:ring-pink-500 focus:border-pink-500 text-gray-700 bg-white shadow-sm hover:border-gray-400 transition-all outline-none disabled:opacity-50 disabled:bg-gray-50 disabled:cursor-not-allowed disabled:hover:border-gray-300"
+                          value={u.roles?.length ? u.roles[0] : 'USER'}
+                          onChange={(e) => handleSetRole(u, e.target.value)}
+                          disabled={u.roles?.includes('ADMIN')}
+                        >
+                          {availableRoles.map(r => (
+                            <option key={r.name} value={r.name}>{r.description || r.name}</option>
+                          ))}
+                        </select>
                         {/* Toggle active */}
                         <button
                           onClick={() => handleToggleActive(u)}
-                          title={u.active ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                          title={u.roles?.includes('ADMIN') ? 'Không thể vô hiệu hóa Admin' : u.active ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                          disabled={u.roles?.includes('ADMIN')}
                           className={`p-1.5 rounded-lg transition-all ${
-                            u.active
-                              ? 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                              : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
+                            u.roles?.includes('ADMIN')
+                              ? 'text-gray-300 cursor-not-allowed'
+                              : u.active
+                                ? 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                                : 'text-gray-400 hover:text-green-600 hover:bg-green-50'
                           }`}
                         >
                           <Icon name={u.active ? 'block' : 'check_circle'} className="text-base" />

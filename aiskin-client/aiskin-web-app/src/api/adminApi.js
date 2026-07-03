@@ -9,8 +9,9 @@ export const adminApi = {
    * Danh sách người dùng (phân trang).
    * @param {{ page?: number, size?: number, sort?: string }} params
    */
-  async listUsers({ page = 0, size = 10, sort = 'createdAt,desc' } = {}) {
-    return request(`/admin/users?page=${page}&size=${size}&sort=${sort}`)
+  async listUsers({ page = 0, size = 10, sort = 'createdAt,desc', role = '' } = {}) {
+    const roleParam = role ? `&role=${role}` : ''
+    return request(`/admin/users?page=${page}&size=${size}&sort=${sort}${roleParam}`)
   },
 
   /** Xem chi tiết một user. */

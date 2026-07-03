@@ -10,7 +10,7 @@ import { PATHS } from './paths'
  * - Chưa đăng nhập → vào Landing Page
  */
 export default function HomeRoute() {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, user, loading } = useAuth()
 
   if (loading) {
     return (
@@ -21,6 +21,10 @@ export default function HomeRoute() {
   }
 
   if (isAuthenticated) {
+    const hasAdminAccess = user?.roles?.some(role => role !== 'USER')
+    if (hasAdminAccess) {
+      return <Navigate to={PATHS.ADMIN_DASHBOARD} replace />
+    }
     return <Outlet />
   }
 

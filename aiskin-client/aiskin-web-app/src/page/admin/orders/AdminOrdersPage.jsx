@@ -228,15 +228,7 @@ export default function AdminOrdersPage() {
     fetchOrders()
   }, [page, filter])
 
-  const pageRevenue = useMemo(
-    () =>
-      orders
-        .filter((order) => order.paymentStatus === 'PAID' || ['PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED'].includes(order.status))
-        .reduce((sum, order) => sum + Number(order.totalAmount || 0), 0),
-    [orders],
-  )
 
-  const cancelledCount = useMemo(() => orders.filter((order) => order.status === 'CANCELLED').length, [orders])
 
   function changeFilter(status) {
     setFilter(status)
@@ -285,23 +277,7 @@ export default function AdminOrdersPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">Tổng đơn</p>
-          <p className="mt-2 text-3xl font-bold text-gray-950">{totalElements.toLocaleString('vi-VN')}</p>
-          <p className="mt-2 text-xs text-gray-500">Theo bộ lọc hiện tại</p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">Doanh thu trang này</p>
-          <p className="mt-2 text-3xl font-bold text-gray-950">{money(pageRevenue)}</p>
-          <p className="mt-2 text-xs text-gray-500">Chỉ tính đơn đã thanh toán/đang xử lý</p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-medium text-gray-500">Đơn đã hủy</p>
-          <p className="mt-2 text-3xl font-bold text-gray-950">{cancelledCount.toLocaleString('vi-VN')}</p>
-          <p className="mt-2 text-xs text-gray-500">Các đơn này không thể đổi trạng thái</p>
-        </div>
-      </div>
+
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white p-2 shadow-sm">
         <div className="flex min-w-max gap-2">
