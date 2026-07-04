@@ -16,20 +16,22 @@ const CONDITION_METADATA = {
   Healthy: { icon: 'check_circle', label: 'Khỏe mạnh', desc: 'Làn da trong trạng thái khá tốt.' }
 }
 
-export default function AnalysisResultPage() {
+export default function AnalysisResultPage({
+  result: providedResult,
+  originalImage: providedOriginalImage,
+  onScanAgain,
+} = {}) {
   const navigate = useNavigate()
   const location = useLocation()
   
-  const result = location.state?.result
-  const originalImage = location.state?.originalImage
+  const result = providedResult || location.state?.result
+  const originalImage = providedOriginalImage || location.state?.originalImage
   
-  const [imgDims, setImgDims] = useState({ w: 1, h: 1 })
-
   useEffect(() => {
-    if (!result || !originalImage) {
+    if (!onScanAgain && (!result || !originalImage)) {
       navigate(PATHS.SCAN)
     }
-  }, [result, originalImage, navigate])
+  }, [result, originalImage, navigate, onScanAgain])
 
   const [activeZone, setActiveZone] = useState('t_zone')
 
@@ -142,12 +144,22 @@ export default function AnalysisResultPage() {
           )}
 
           <div className="mt-4 flex flex-col sm:flex-row gap-4">
-            <button
-              type="button"
-              className="flex-1 bg-surface-container-lowest border-2 border-border-pink text-primary py-3 rounded-full text-label-md hover:bg-surface-soft transition-colors flex justify-center items-center gap-2"
-            >
-              <Icon name="download" /> Tải báo cáo
-            </button>
+            {onScanAgain ? (
+              <button
+                type="button"
+                onClick={onScanAgain}
+                className="flex-1 bg-surface-container-lowest border-2 border-border-pink text-primary py-3 rounded-full text-label-md hover:bg-surface-soft transition-colors flex justify-center items-center gap-2"
+              >
+                <Icon name="refresh" /> Quét lại
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="flex-1 bg-surface-container-lowest border-2 border-border-pink text-primary py-3 rounded-full text-label-md hover:bg-surface-soft transition-colors flex justify-center items-center gap-2"
+              >
+                <Icon name="download" /> Tải báo cáo
+              </button>
+            )}
             <button
               type="button"
               onClick={() => navigate(PATHS.ROUTINE, { 

@@ -11,7 +11,6 @@ import AuthPage from '@/page/auth/AuthPage'
 import ForgotPasswordPage from '@/page/auth/ForgotPasswordPage'
 import DashboardPage from '@/page/dashboard/DashboardPage'
 import SkinQuizPage from '@/page/skin-quiz/SkinQuizPage'
-import AnalysisResultPage from '@/page/analysis/AnalysisResultPage'
 import RoutinePage from '@/page/routine/RoutinePage'
 import ProductsPage from '@/page/products/ProductsPage'
 import FavoriteProductsPage from '@/page/products/FavoriteProductsPage'
@@ -61,7 +60,7 @@ export default function AppRoutes() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route path={PATHS.SCAN} element={<DashboardPage />} />
-            <Route path={PATHS.ANALYSIS} element={<AnalysisResultPage />} />
+            <Route path={PATHS.ANALYSIS} element={<DashboardPage />} />
             <Route path={PATHS.ROUTINE} element={<RoutinePage />} />
             <Route path={PATHS.PRODUCT_FAVORITES} element={<FavoriteProductsPage />} />
             <Route path={PATHS.PRODUCT_COMPARE} element={<CompareProductsPage />} />
