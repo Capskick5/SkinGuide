@@ -5,6 +5,7 @@ import { productApi } from '@/api/productApi'
 import ProductCard from './components/ProductCard'
 import { makeSearchBlob, mapById, normalize, toArray, toProductCard } from './productUtils'
 import { translateCategory, translateTag } from './translator'
+import { useComparedProducts, useFavoriteProducts } from './productCollections'
 
 const CATEGORY_ALL = 'all'
 const FILTER_ALL = 'all'
@@ -222,7 +223,6 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
   // Bộ lọc nâng cao: giá, thương hiệu, loại da, mối quan tâm, còn hàng
   const [brandFilter, setBrandFilter] = useState(FILTER_ALL)
   const [skinTypeFilter, setSkinTypeFilter] = useState(FILTER_ALL)
@@ -232,6 +232,8 @@ export default function ProductsPage() {
   const [maxPriceInput, setMaxPriceInput] = useState('')
   const [debouncedMinPrice, setDebouncedMinPrice] = useState('')
   const [debouncedMaxPrice, setDebouncedMaxPrice] = useState('')
+  const favorites = useFavoriteProducts()
+  const compared = useComparedProducts()
 
   // 1. Chỉ load danh mục và thương hiệu 1 lần lúc đầu
   useEffect(() => {
@@ -553,7 +555,14 @@ export default function ProductsPage() {
         <>
           <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {pageCards.map((product) => (
-              <ProductCard key={product.id} {...product} />
+              <ProductCard
+                key={product.id}
+                {...product}
+                isFavorite={favorites.hasId(product.id)}
+                isCompared={compared.hasId(product.id)}
+                onFavoriteToggle={() => favorites.toggle(product.id)}
+                onCompareToggle={() => compared.toggle(product.id)}
+              />
             ))}
           </div>
 
