@@ -352,13 +352,36 @@ export default function ProductsPage() {
       <ShopHero onPick={handlePromoPick} />
       <QuickLinks onPick={handlePromoPick} />
 
-      <div className="mb-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="text-headline-lg text-on-surface mb-2">Shop sản phẩm skincare</h1>
+      <div className="mb-6 rounded-2xl border border-border-pink bg-white/90 p-4 shadow-[0_14px_38px_rgba(23,32,38,0.06)]">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-caption text-on-surface-variant mb-1">Bộ sưu tập của bạn</p>
+            <h2 className="text-headline-sm text-on-surface mb-2">Xem nhanh sản phẩm đã lưu</h2>
             <p className="text-body-md text-on-surface-variant">
-              Tìm theo tên, slug, thương hiệu, danh mục, thành phần hoặc mối quan tâm.
+              Bạn đã lưu <span className="font-semibold text-primary">{favorites.count}</span> sản phẩm yêu thích và{' '}
+              <span className="font-semibold text-secondary">{compared.count}</span> sản phẩm trong danh sách so sánh.
             </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to="/products/favorites"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-label-md font-semibold text-white hover:bg-tertiary"
+            >
+              <Icon name="favorite" filled className="text-base" />
+              Yêu thích
+              <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold">{favorites.count}</span>
+            </Link>
+            <Link
+              to="/products/compare"
+              className="inline-flex items-center gap-2 rounded-full border border-border-pink bg-surface-container-lowest px-4 py-2 text-label-md font-semibold text-on-surface-variant hover:text-primary"
+            >
+              <Icon name="compare_arrows" className="text-base" />
+              So sánh
+              <span className="rounded-full bg-primary-light px-2 py-0.5 text-xs font-bold text-secondary">
+                {compared.count}
+              </span>
+            </Link>
           </div>
         </div>
       </div>
