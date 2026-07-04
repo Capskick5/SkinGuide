@@ -31,11 +31,11 @@ export default function AnalysisResultPage() {
     }
   }, [result, originalImage, navigate])
 
+  const [activeZone, setActiveZone] = useState('t_zone')
+
   if (!result || !result.scan_result) return null
 
   const scanResult = result.scan_result
-  const [activeZone, setActiveZone] = useState('t_zone')
-
   // Xử lý dữ liệu AI trả về
   const skinType = scanResult.skinType?.predicted === 'Dry' ? 'Da khô' : scanResult.skinType?.predicted === 'Oily' ? 'Da dầu' : 'Da thường'
   

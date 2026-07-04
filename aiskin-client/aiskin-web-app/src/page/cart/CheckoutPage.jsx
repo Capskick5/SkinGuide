@@ -22,7 +22,7 @@ const steps = [
 
 function Stepper({ currentStep }) {
   return (
-    <div className="mb-6 grid grid-cols-3 gap-2 rounded-lg border border-border-pink bg-white p-2">
+    <div className="mb-6 grid grid-cols-3 gap-2">
       {steps.map((step) => {
         const active = currentStep === step.id
         const done = currentStep > step.id
