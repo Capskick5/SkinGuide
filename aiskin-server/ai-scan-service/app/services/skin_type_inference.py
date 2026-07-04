@@ -29,8 +29,11 @@ class SkinTypeDetector:
 
         logger.info("Loading skin type weights from: %s", model_path)
         if os.path.exists(model_path):
-            self.model.load_state_dict(torch.load(model_path, map_location=self.device))
-            logger.info("Skin type weights loaded successfully.")
+            try:
+                self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+                logger.info("Skin type weights loaded successfully.")
+            except Exception as e:
+                logger.error(f"Failed to load weights, using random weights. Error: {e}")
         else:
             logger.warning("Skin type weight file not found at %s. Using random weights.", model_path)
 
