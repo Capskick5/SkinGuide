@@ -1,7 +1,9 @@
 package mss.orderservice.service;
 
 import mss.orderservice.config.MomoConfig;
+import mss.orderservice.config.VnpayConfig;
 import mss.orderservice.config.MomoEncoderUtils;
+import mss.orderservice.utils.VnpayUtils;
 import mss.orderservice.dto.MomoPaymentRequest;
 import mss.orderservice.dto.MomoPaymentResponse;
 import mss.orderservice.dto.OrderRequest;
@@ -24,20 +26,26 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class OrderService {
 
     private final OrderRepository orderRepository;
     private final MomoConfig momoConfig;
+    private final VnpayConfig vnpayConfig;
     private final GhnService ghnService;
     private final RestTemplate restTemplate;
 
-    public OrderService(OrderRepository orderRepository, MomoConfig momoConfig, GhnService ghnService) {
+    public OrderService(OrderRepository orderRepository, MomoConfig momoConfig, VnpayConfig vnpayConfig, GhnService ghnService) {
         this.orderRepository = orderRepository;
         this.momoConfig = momoConfig;
+        this.vnpayConfig = vnpayConfig;
         this.ghnService = ghnService;
         this.restTemplate = new RestTemplate();
     }
@@ -76,6 +84,7 @@ public class OrderService {
                 .customerName(request.getCustomerName())
                 .customerPhone(request.getCustomerPhone())
                 .shippingAddress(request.getShippingAddress())
+                .customerNote(request.getCustomerNote())
                 .ghnDistrictId(request.getGhnDistrictId())
                 .ghnWardCode(request.getGhnWardCode())
                 .shippingFee(request.getShippingFee())
@@ -94,6 +103,8 @@ public class OrderService {
         String paymentUrl = "";
         if (request.getPaymentMethod() == Order.PaymentMethod.MOMO) {
             paymentUrl = generateMomoPaymentUrl(order);
+        } else if (request.getPaymentMethod() == Order.PaymentMethod.VNPAY) {
+            paymentUrl = generateVnpayPaymentUrl(order);
         }
 
         return OrderResponse.builder()
@@ -161,6 +172,95 @@ public class OrderService {
 
         return "";
     }
+
+    private String generateVnpayPaymentUrl(Order order) {
+        String vnp_Version = "2.1.0";
+        String vnp_Command = "pay";
+        String orderType = "other";
+        long amount = order.getTotalAmount().longValue() * 100;
+
+        String vnp_TxnRef = order.getOrderCode();
+        
+        String vnp_IpAddr = "113.168.1.1"; // Default public IP
+        try {
+            org.springframework.web.context.request.ServletRequestAttributes attrs = 
+                (org.springframework.web.context.request.ServletRequestAttributes) org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (attrs != null) {
+                jakarta.servlet.http.HttpServletRequest req = attrs.getRequest();
+                vnp_IpAddr = req.getHeader("X-FORWARDED-FOR");
+                if (vnp_IpAddr == null || vnp_IpAddr.isEmpty()) {
+                    vnp_IpAddr = req.getRemoteAddr();
+                }
+                if (vnp_IpAddr != null && vnp_IpAddr.contains(",")) {
+                    vnp_IpAddr = vnp_IpAddr.split(",")[0].trim();
+                }
+                if ("0:0:0:0:0:0:0:1".equals(vnp_IpAddr) || "127.0.0.1".equals(vnp_IpAddr)) {
+                    vnp_IpAddr = "113.168.1.1"; // Mock public IP to satisfy VNPay firewall if local
+                }
+            }
+        } catch (Exception ignored) {}
+
+        String secretKey = vnpayConfig.getHashSecret().replace("\"", "").replace("'", "").trim();
+        String tmnCode = vnpayConfig.getTmnCode().replace("\"", "").replace("'", "").trim();
+        String returnUrl = vnpayConfig.getReturnUrl().replace("\"", "").replace("'", "").trim();
+        String baseUrl = vnpayConfig.getUrl().replace("\"", "").replace("'", "").trim();
+
+        java.util.Map<String, String> vnp_Params = new java.util.HashMap<>();
+        vnp_Params.put("vnp_Version", vnp_Version);
+        vnp_Params.put("vnp_Command", vnp_Command);
+        vnp_Params.put("vnp_TmnCode", tmnCode);
+        vnp_Params.put("vnp_Amount", String.valueOf(amount));
+        vnp_Params.put("vnp_CurrCode", "VND");
+        vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
+        vnp_Params.put("vnp_OrderInfo", "ThanhToanDonHang_" + vnp_TxnRef);
+        vnp_Params.put("vnp_OrderType", orderType);
+        vnp_Params.put("vnp_Locale", "vn");
+        vnp_Params.put("vnp_ReturnUrl", returnUrl);
+        vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
+
+        java.util.Calendar cld = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
+        java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("yyyyMMddHHmmss");
+        String vnp_CreateDate = formatter.format(cld.getTime());
+        vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
+        
+        cld.add(java.util.Calendar.MINUTE, 15);
+        String vnp_ExpireDate = formatter.format(cld.getTime());
+        vnp_Params.put("vnp_ExpireDate", vnp_ExpireDate);
+
+        java.util.List<String> fieldNames = new java.util.ArrayList<>(vnp_Params.keySet());
+        java.util.Collections.sort(fieldNames);
+        StringBuilder hashData = new StringBuilder();
+        StringBuilder query = new StringBuilder();
+        java.util.Iterator<String> itr = fieldNames.iterator();
+        while (itr.hasNext()) {
+            String fieldName = (String) itr.next();
+            String fieldValue = (String) vnp_Params.get(fieldName);
+            if ((fieldValue != null) && (fieldValue.length() > 0)) {
+                try {
+                    String encodedValue = java.net.URLEncoder.encode(fieldValue, java.nio.charset.StandardCharsets.US_ASCII.toString());
+                    hashData.append(fieldName);
+                    hashData.append('=');
+                    hashData.append(encodedValue);
+                    query.append(java.net.URLEncoder.encode(fieldName, java.nio.charset.StandardCharsets.US_ASCII.toString()));
+                    query.append('=');
+                    query.append(encodedValue);
+                } catch (java.io.UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
+                if (itr.hasNext()) {
+                    query.append('&');
+                    hashData.append('&');
+                }
+            }
+        }
+        String queryUrl = query.toString();
+        String vnp_SecureHash = VnpayUtils.hmacSHA512(secretKey, hashData.toString());
+        queryUrl += "&vnp_SecureHash=" + vnp_SecureHash;
+        String paymentUrl = baseUrl + "?" + queryUrl;
+        
+        System.out.println(">>> VNPAY PAYMENT URL GENERATED: " + paymentUrl);
+        return paymentUrl;
+    }
     
     public OrderResponse cancelOrder(String orderId, String cancelReason) {
         Order order = orderRepository.findById(orderId)
@@ -201,30 +301,76 @@ public class OrderService {
         });
     }
 
+    public void processVnpayIpn(String orderId, String responseCode) {
+        Order order = orderRepository.findByOrderCode(orderId).orElse(null);
+        if (order == null) return;
+        
+        if ("00".equals(responseCode)) {
+            if (order.getPaymentStatus() != Order.PaymentStatus.PAID) {
+                order.setPaymentStatus(Order.PaymentStatus.PAID);
+                order.setStatus(Order.OrderStatus.PROCESSING); // Đã thanh toán, chờ xử lý GHN
+                order.setUpdatedAt(LocalDateTime.now());
+                orderRepository.save(order);
+            }
+        } else {
+            order.setPaymentStatus(Order.PaymentStatus.FAILED);
+            order.setUpdatedAt(LocalDateTime.now());
+            orderRepository.save(order);
+        }
+    }
+
     public Order getOrderById(String orderId) {
         return orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+    }
+
+    public String getPaymentUrlForOrder(String orderId) {
+        Order order = getOrderById(orderId);
+        if (order.getPaymentStatus() == Order.PaymentStatus.PAID) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã được thanh toán");
+        }
+        if (order.getPaymentMethod() == Order.PaymentMethod.MOMO) {
+            return generateMomoPaymentUrl(order);
+        } else if (order.getPaymentMethod() == Order.PaymentMethod.VNPAY) {
+            return generateVnpayPaymentUrl(order);
+        }
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phương thức thanh toán không hỗ trợ thanh toán trực tuyến");
     }
 
     public Page<Order> getOrdersByCustomerId(String customerId, int page, int size, String status) {
         Pageable pageable = PageRequest.of(page, size);
         if (status != null && !status.trim().isEmpty() && !status.equalsIgnoreCase("ALL")) {
             try {
-                Order.OrderStatus orderStatus = Order.OrderStatus.valueOf(status.toUpperCase());
-                return orderRepository.findByCustomerIdAndStatusOrderByCreatedAtDesc(customerId, orderStatus, pageable);
+                String[] statusArray = status.split(",");
+                List<Order.OrderStatus> statuses = java.util.Arrays.stream(statusArray)
+                        .map(s -> Order.OrderStatus.valueOf(s.trim().toUpperCase()))
+                        .collect(java.util.stream.Collectors.toList());
+                        
+                if (statuses.size() == 1) {
+                    return orderRepository.findByCustomerIdAndStatusOrderByCreatedAtDesc(customerId, statuses.get(0), pageable);
+                } else if (statuses.size() > 1) {
+                    return orderRepository.findByCustomerIdAndStatusInOrderByCreatedAtDesc(customerId, statuses, pageable);
+                }
             } catch (IllegalArgumentException e) {
                 // Ignore invalid status and return all
             }
         }
         return orderRepository.findByCustomerIdOrderByCreatedAtDesc(customerId, pageable);
     }
-
     public Page<Order> getAllOrders(int page, int size, String status) {
         Pageable pageable = PageRequest.of(page, size);
         if (status != null && !status.trim().isEmpty() && !status.equalsIgnoreCase("ALL")) {
             try {
-                Order.OrderStatus orderStatus = Order.OrderStatus.valueOf(status.toUpperCase());
-                return orderRepository.findByStatusOrderByCreatedAtDesc(orderStatus, pageable);
+                String[] statusArray = status.split(",");
+                List<Order.OrderStatus> statuses = java.util.Arrays.stream(statusArray)
+                        .map(s -> Order.OrderStatus.valueOf(s.trim().toUpperCase()))
+                        .collect(java.util.stream.Collectors.toList());
+                        
+                if (statuses.size() == 1) {
+                    return orderRepository.findByStatusOrderByCreatedAtDesc(statuses.get(0), pageable);
+                } else if (statuses.size() > 1) {
+                    return orderRepository.findByStatusInOrderByCreatedAtDesc(statuses, pageable);
+                }
             } catch (IllegalArgumentException e) {
                 // Ignore invalid status and return all
             }
@@ -248,6 +394,11 @@ public class OrderService {
                     if (status != Order.OrderStatus.PROCESSING && status != Order.OrderStatus.CANCELLED) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn đang chờ duyệt chỉ có thể Hủy hoặc chuyển sang Đang chuẩn bị");
                     }
+                    if (status == Order.OrderStatus.PROCESSING) {
+                        if (order.getPaymentMethod() != Order.PaymentMethod.COD && order.getPaymentStatus() != Order.PaymentStatus.PAID) {
+                            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không thể duyệt đơn hàng thanh toán trực tuyến khi khách chưa chuyển khoản thành công");
+                        }
+                    }
                     if (status == Order.OrderStatus.CANCELLED) {
                         if (cancelReason == null || cancelReason.trim().isEmpty()) {
                             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cần cung cấp lý do hủy đơn");
@@ -258,7 +409,7 @@ public class OrderService {
 
                 // Rule for PROCESSING orders
                 if (order.getStatus() == Order.OrderStatus.PROCESSING) {
-                    if (status != Order.OrderStatus.READY_TO_SHIP) {
+                    if (status != Order.OrderStatus.READY_TO_PICK) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn đang chuẩn bị chỉ có thể chuyển sang Chờ lấy hàng");
                     }
                     if (weight == null || weight <= 0) {
@@ -267,7 +418,7 @@ public class OrderService {
                 }
                 
                 // GHN Integration
-                if (status == Order.OrderStatus.READY_TO_SHIP && order.getStatus() == Order.OrderStatus.PROCESSING) {
+                if (status == Order.OrderStatus.READY_TO_PICK && order.getStatus() == Order.OrderStatus.PROCESSING) {
                     if (order.getGhnWardCode() == null || order.getGhnDistrictId() == null) {
                          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng không có mã địa chỉ GHN. Không thể tạo đơn.");
                     }
@@ -275,6 +426,9 @@ public class OrderService {
                     java.util.Map<String, Object> ghnData = new java.util.HashMap<>();
                     ghnData.put("payment_type_id", order.getPaymentMethod() == Order.PaymentMethod.COD ? 2 : 1);
                     ghnData.put("required_note", requiredNote != null ? requiredNote : "CHOXEMHANGKHONGTHU");
+                    if (order.getCustomerNote() != null && !order.getCustomerNote().isBlank()) {
+                        ghnData.put("note", order.getCustomerNote());
+                    }
                     ghnData.put("client_order_code", order.getOrderCode());
                     ghnData.put("to_name", order.getCustomerName());
                     ghnData.put("to_phone", order.getCustomerPhone());
@@ -287,12 +441,25 @@ public class OrderService {
                     ghnData.put("height", height != null ? height : 10);
                     ghnData.put("service_type_id", 2); // Đi bộ / Chuẩn
                     
+                    int totalAmount = order.getTotalAmount() != null ? order.getTotalAmount().intValue() : 0;
+                    int shippingFee = order.getShippingFee() != null ? order.getShippingFee().intValue() : 0;
+                    int insuranceValue = totalAmount - shippingFee;
+                    ghnData.put("insurance_value", insuranceValue > 0 ? insuranceValue : 0);
+                    
+                    if (order.getPaymentMethod() == Order.PaymentMethod.COD) {
+                        ghnData.put("cod_amount", totalAmount);
+                    } else {
+                        ghnData.put("cod_amount", 0);
+                    }
+                    
+                    int itemWeight = weight / (order.getItems().size() > 0 ? order.getItems().size() : 1);
                     java.util.List<java.util.Map<String, Object>> ghnItems = order.getItems().stream().map(item -> {
                         java.util.Map<String, Object> map = new java.util.HashMap<>();
                         map.put("name", item.getProductName());
+                        map.put("code", item.getProductId()); // Mã sản phẩm
                         map.put("quantity", item.getQuantity());
                         map.put("price", item.getUnitPrice().intValue());
-                        map.put("weight", 50); // Mặc định mỗi món 50g
+                        map.put("weight", itemWeight > 0 ? itemWeight : 50); // Cân nặng chia đều theo tổng
                         return map;
                     }).collect(java.util.stream.Collectors.toList());
                     
@@ -332,10 +499,81 @@ public class OrderService {
         List<Order> expiredOrders = orderRepository.findExpiredUnpaidOrders(threshold);
         for (Order order : expiredOrders) {
             order.setStatus(Order.OrderStatus.CANCELLED);
-            order.setCancelReason("Đơn hàng chưa được thanh toán");
+            order.setCancelReason("Hủy tự động do quá hạn thanh toán 30 phút");
             order.setPaymentStatus(Order.PaymentStatus.FAILED);
             orderRepository.save(order);
-            System.out.println("Auto cancelled order: " + order.getOrderCode());
+            log.info("Auto-cancelled unpaid order: {}", order.getOrderCode());
+        }
+    }
+
+    @Scheduled(fixedRate = 300000) // Chạy mỗi 5 phút
+    public void syncGhnOrderStatus() {
+        List<Order> activeOrders = orderRepository.findActiveGhnOrders();
+        for (Order order : activeOrders) {
+            try {
+                Map<String, Object> detail = ghnService.getOrderDetail(order.getTrackingCode());
+                if (detail != null && detail.containsKey("status")) {
+                    String ghnStatus = (String) detail.get("status");
+                    Order.OrderStatus newStatus = mapGhnStatusToSystemStatus(ghnStatus);
+                    if (newStatus != null && newStatus != order.getStatus()) {
+                        order.setStatus(newStatus);
+                        
+                        // Update payment status if needed
+                        if ((newStatus == Order.OrderStatus.CANCELLED || newStatus == Order.OrderStatus.REFUSED) 
+                            && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
+                            order.setPaymentStatus(Order.PaymentStatus.FAILED);
+                        }
+                        if (newStatus == Order.OrderStatus.DELIVERED && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
+                            order.setPaymentStatus(Order.PaymentStatus.PAID);
+                        }
+                        
+                        orderRepository.save(order);
+                        log.info("Auto-synced GHN order {}: {} -> {}", order.getOrderCode(), ghnStatus, newStatus);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Error syncing GHN order {}: {}", order.getOrderCode(), e.getMessage());
+            }
+        }
+    }
+
+    public Order.OrderStatus mapGhnStatusToSystemStatus(String ghnStatus) {
+        switch (ghnStatus) {
+            case "ready_to_pick":
+                return Order.OrderStatus.READY_TO_PICK;
+            case "picking":
+                return Order.OrderStatus.PICKING;
+            case "picked":
+                return Order.OrderStatus.PICKED;
+            case "storing":
+                return Order.OrderStatus.STORING;
+            case "sorting":
+                return Order.OrderStatus.SORTING;
+            case "transporting":
+                return Order.OrderStatus.TRANSPORTING;
+            case "delivering":
+                return Order.OrderStatus.DELIVERING;
+            case "delivered":
+            case "deliveried":
+                return Order.OrderStatus.DELIVERED;
+            case "delivery_fail":
+                return Order.OrderStatus.DELIVERY_FAIL;
+            case "waiting_to_return":
+                return Order.OrderStatus.WAITING_TO_RETURN;
+            case "return":
+                return Order.OrderStatus.RETURN;
+            case "return_transporting":
+                return Order.OrderStatus.RETURN_TRANSPORTING;
+            case "returning":
+                return Order.OrderStatus.RETURNING;
+            case "return_fail":
+                return Order.OrderStatus.RETURN_FAIL;
+            case "returned":
+                return Order.OrderStatus.RETURNED;
+            case "cancel":
+                return Order.OrderStatus.CANCELLED;
+            default:
+                return null;
         }
     }
 }

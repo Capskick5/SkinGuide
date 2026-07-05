@@ -27,9 +27,15 @@ public class OrderController {
 
     @PostMapping("/{id}/cancel")
     @Operation(summary = "Cancel an order", description = "Customer cancels their order before it is processed")
-    public ResponseEntity<OrderResponse> cancelOrder(@PathVariable String id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> cancelOrder(@PathVariable String id, @RequestBody Map<String, String> body) {
         String reason = body.get("cancelReason");
-        return ResponseEntity.ok(orderService.cancelOrder(id, reason));
+        try {
+            return ResponseEntity.ok(orderService.cancelOrder(id, reason));
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(Map.of("message", e.getReason()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("message", e.getMessage()));
+        }
     }
 
     @PostMapping("/payment/momo-ipn")
@@ -46,6 +52,17 @@ public class OrderController {
         orderService.processMomoIpn(orderId, resultCode);
         
         return ResponseEntity.noContent().build();
+    }
+    
+    @GetMapping("/payment/vnpay-ipn")
+    @Operation(summary = "VNPay IPN Callback", description = "Server-to-server callback for VNPay status")
+    public ResponseEntity<?> vnpayIpn(@RequestParam Map<String, String> requestParams) {
+        String orderId = requestParams.get("vnp_TxnRef");
+        String responseCode = requestParams.get("vnp_ResponseCode");
+        if (orderId != null && responseCode != null) {
+            orderService.processVnpayIpn(orderId, responseCode);
+        }
+        return ResponseEntity.ok("{\"RspCode\":\"00\",\"Message\":\"Confirm Success\"}");
     }
 
     private Integer parseResultCode(Object value) {
@@ -69,6 +86,19 @@ public class OrderController {
     @Operation(summary = "Get order details", description = "Fetch details of a specific order")
     public ResponseEntity<?> getOrderById(@PathVariable String id) {
         return ResponseEntity.ok(orderService.getOrderById(id));
+    }
+
+    @GetMapping("/{id}/payment-url")
+    @Operation(summary = "Get payment URL for an existing order", description = "Generates a payment URL for an unpaid order (VNPAY/MOMO)")
+    public ResponseEntity<?> getPaymentUrl(@PathVariable String id) {
+        try {
+            String paymentUrl = orderService.getPaymentUrlForOrder(id);
+            return ResponseEntity.ok(Map.of("paymentUrl", paymentUrl));
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(Map.of("message", e.getReason()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("message", e.getMessage()));
+        }
     }
 
     @GetMapping("/user/{customerId}")
@@ -105,9 +135,15 @@ public class OrderController {
         Integer height = parseInteger(body.get("height"));
         
         if (newStatus == null) {
-            return ResponseEntity.badRequest().body("Status is required");
+            return ResponseEntity.badRequest().body(Map.of("message", "Status is required"));
         }
-        return ResponseEntity.ok(orderService.updateOrderStatus(id, newStatus, cancelReason, weight, length, width, height, requiredNote));
+        try {
+            return ResponseEntity.ok(orderService.updateOrderStatus(id, newStatus, cancelReason, weight, length, width, height, requiredNote));
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(Map.of("message", e.getReason()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("message", e.getMessage()));
+        }
     }
 
     private Integer parseInteger(String value) {
@@ -117,5 +153,16 @@ public class OrderController {
             } catch (NumberFormatException ignored) {}
         }
         return null;
+    }
+
+    @PostMapping("/sync-ghn")
+    @Operation(summary = "Đồng bộ GHN thủ công", description = "Đồng bộ trạng thái toàn bộ đơn hàng từ GHN")
+    public ResponseEntity<?> syncGhnOrderStatusManual() {
+        try {
+            orderService.syncGhnOrderStatus();
+            return ResponseEntity.ok(Map.of("message", "Đồng bộ thành công"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("message", "Lỗi đồng bộ: " + e.getMessage()));
+        }
     }
 }

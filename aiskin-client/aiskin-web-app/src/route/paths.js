@@ -28,6 +28,7 @@ export const PATHS = {
   ORDERS: '/orders',
   ORDER_DETAIL: '/orders/:id',
   MOMO_RETURN: '/payment/momo-return',
+  VNPAY_RETURN: '/payment/vnpay-return',
   HISTORY: '/history',
   HISTORY_DETAIL: '/history/:id',
 
