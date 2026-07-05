@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { App as AntApp } from 'antd'
+import { App as AntApp, Select } from 'antd'
 import Icon from '@/components/common/Icon'
 import { useCart } from '@/hook/useCart'
 import { useAuth } from '@/hook/useAuth'
@@ -70,22 +70,17 @@ function SelectField({ icon, label, value, onChange, placeholder, options, disab
         {label} <span className="text-error">*</span>
       </span>
       <div className="relative">
-        <Icon name={icon} className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-xl text-on-surface-variant" />
-        <select
-          required
-          value={value}
-          onChange={onChange}
+        <Icon name={icon} className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-xl text-on-surface-variant pointer-events-none" />
+        <Select
+          showSearch
+          value={value || undefined}
+          onChange={(val) => onChange({ target: { value: val } })}
           disabled={disabled}
-          className="h-12 w-full appearance-none rounded-lg border border-border-pink bg-white pl-11 pr-10 text-body-md text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <option value="">{placeholder}</option>
-          {options.map((option) => (
-            <option key={option.code} value={option.code}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-        <Icon name="expand_more" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xl text-on-surface-variant" />
+          placeholder={placeholder}
+          options={options.map((opt) => ({ value: String(opt.code), label: opt.name }))}
+          optionFilterProp="label"
+          className="h-12 w-full [&_.ant-select-selector]:!h-12 [&_.ant-select-selector]:!rounded-lg [&_.ant-select-selector]:!border-border-pink [&_.ant-select-selector]:!pl-10 [&_.ant-select-selection-item]:!leading-[46px] [&_.ant-select-selection-placeholder]:!leading-[46px] [&_.ant-select-selection-item]:!text-body-md"
+        />
       </div>
     </label>
   )
@@ -257,7 +252,7 @@ function AddressStep({ formData, onChange, onNext }) {
           />
         </label>
 
-        <label className="block sm:col-span-2">
+        <div className="block sm:col-span-2">
           <span className="mb-2 block text-sm font-semibold text-on-surface">Ghi chú</span>
           <textarea
             name="note"
@@ -267,7 +262,22 @@ function AddressStep({ formData, onChange, onNext }) {
             className="w-full rounded-lg border border-border-pink bg-white px-3 py-3 text-body-md text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
             placeholder="Gọi trước khi giao, thời gian nhận hàng..."
           />
-        </label>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {['Giao giờ hành chính', 'Gọi trước khi giao', 'Gửi bảo vệ'].map(s => (
+              <button 
+                key={s} 
+                type="button" 
+                onClick={() => {
+                   const newNote = formData.note ? formData.note + ', ' + s : s;
+                   onChange({ target: { name: 'note', value: newNote }})
+                }}
+                className="rounded-full border border-border-pink bg-surface-soft px-3 py-1 text-xs text-on-surface hover:border-primary hover:text-primary transition"
+              >
+                + {s}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {addressApiError ? (
@@ -290,18 +300,18 @@ function PaymentMethodStep({ selectedMethod, onSelect, onBack, onNext }) {
     {
       id: 'COD',
       label: 'Thanh toán khi nhận hàng (COD)',
-      desc: 'Thanh toán bằng tiền mặt khi giao hàng',
+      desc: 'Thanh toán bằng tiền mặt khi nhận hàng',
       icon: 'local_shipping',
-      badge: 'Phổ biến',
+      badge: 'Truyền thống',
       accent: 'border-primary bg-primary/5 text-primary',
     },
     {
-      id: 'MOMO',
-      label: 'Ví MoMo',
-      desc: 'Quét mã QR qua ứng dụng MoMo',
-      icon: 'qr_code_scanner',
-      badge: 'Nhanh chóng',
-      accent: 'border-pink-600 bg-pink-50 text-pink-700',
+      id: 'VNPAY',
+      label: 'Thanh toán trực tuyến (VNPay)',
+      desc: 'Thanh toán an toàn qua cổng VNPay',
+      icon: 'credit_card',
+      badge: 'Khuyên dùng',
+      accent: 'border-blue-600 bg-blue-50 text-blue-700',
     },
   ]
 
@@ -361,6 +371,7 @@ function PaymentMethodStep({ selectedMethod, onSelect, onBack, onNext }) {
 function ConfirmStep({ formData, items, paymentMethod, onBack, onConfirm, loading }) {
   const fullAddress = [formData.addressDetail, formData.ward, formData.district, formData.city].filter(Boolean).join(', ')
   const isMomo = paymentMethod === 'MOMO'
+  const isVnPay = paymentMethod === 'VNPAY'
 
   return (
     <div className="space-y-4">
@@ -381,7 +392,7 @@ function ConfirmStep({ formData, items, paymentMethod, onBack, onConfirm, loadin
           Phương thức thanh toán
         </p>
         <p className="font-semibold text-on-surface">
-          {isMomo ? 'Ví MoMo' : 'Thanh toán khi nhận hàng (COD)'}
+          {isMomo ? 'Ví MoMo' : isVnPay ? 'Thanh toán trực tuyến (VNPay)' : 'Thanh toán khi nhận hàng (COD)'}
         </p>
       </div>
 
@@ -431,7 +442,7 @@ function ProceedPaymentStep({ paymentUrl }) {
       <div>
         <h2 className="text-xl font-bold text-on-surface">Đơn hàng đã được tạo!</h2>
         <p className="mt-2 text-on-surface-variant max-w-md">
-          Vui lòng thanh toán qua MoMo trong vòng <span className="font-bold text-error">30 phút</span> để hoàn tất đặt hàng. Quá thời gian này, hệ thống sẽ tự động hủy đơn.
+          Vui lòng thanh toán trong vòng <span className="font-bold text-error">15 phút</span> để hoàn tất đặt hàng. Quá thời gian này, hệ thống sẽ tự động hủy đơn.
         </p>
       </div>
 
@@ -492,7 +503,7 @@ function OrderSummary({ items, totalPrice, shippingFee = 0 }) {
         </div>
         <div className="flex justify-between text-sm text-on-surface-variant">
           <span>Vận chuyển</span>
-          <span className="font-semibold text-on-surface">{shippingFee > 0 ? money(shippingFee) : 'Miễn phí'}</span>
+          <span className="font-semibold text-on-surface">{shippingFee > 0 ? money(shippingFee) : '-'}</span>
         </div>
         <div className="flex justify-between border-t border-border-pink pt-3 text-lg font-bold text-on-surface">
           <span>Tổng cộng</span>
@@ -542,6 +553,7 @@ export default function CheckoutPage() {
         ghnDistrictId: formData.districtCode ? Number(formData.districtCode) : null,
         ghnWardCode: formData.wardCode ? String(formData.wardCode) : null,
         shippingFee: formData.shippingFee,
+        customerNote: formData.note,
         paymentMethod,
         items: items.map((item) => ({
           productId: item.id,
@@ -555,13 +567,11 @@ export default function CheckoutPage() {
 
       const result = await httpClient.post('/orders', payload)
 
-      if (paymentMethod === 'MOMO') {
+      if (paymentMethod === 'VNPAY') {
         if (!result?.paymentUrl) {
-          throw new Error('MoMo sandbox chưa trả về đường dẫn thanh toán. Kiểm tra MOMO_* trong .env và log order-service.')
+          throw new Error('VNPAY chưa trả về đường dẫn thanh toán. Kiểm tra config trong .env và log order-service.')
         }
-        setPaymentUrl(result.paymentUrl)
-        setStep(4)
-        clearCart()
+        window.location.href = result.paymentUrl
         return
       }
 
@@ -611,7 +621,6 @@ export default function CheckoutPage() {
             {step === 1 ? <AddressStep formData={formData} onChange={handleChange} onNext={() => setStep(2)} /> : null}
             {step === 2 ? <PaymentMethodStep selectedMethod={paymentMethod} onSelect={setPaymentMethod} onBack={() => setStep(1)} onNext={() => setStep(3)} /> : null}
             {step === 3 ? <ConfirmStep formData={formData} items={items} paymentMethod={paymentMethod} onBack={() => setStep(2)} onConfirm={handlePlaceOrder} loading={loading} /> : null}
-            {step === 4 ? <ProceedPaymentStep paymentUrl={paymentUrl} /> : null}
           </section>
         </main>
 

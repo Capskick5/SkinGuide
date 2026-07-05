@@ -37,3 +37,15 @@ momo:
   secretKey: ${MOMO_SECRET_KEY}
   returnUrl: http://localhost:5173/payment/momo-return
   notifyUrl: ${MOMO_NOTIFY_URL}
+
+ghn:
+  api-url: ${GHN_API_URL:https://dev-online-gateway.ghn.vn/shiip/public-api/v2}
+  token: ${GHN_TOKEN}
+  shop-id: ${GHN_SHOP_ID}
+
+vnpay:
+  tmnCode: ${VNPAY_TMN_CODE:QY5D4FFD}
+  hashSecret: ${VNPAY_HASH_SECRET:619Y7IGXCOH01PV7MKQNT00T8KGJ0O3D}
+  url: ${VNPAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+  returnUrl: ${VNPAY_RETURN_URL:http://localhost:5173/payment/vnpay-return}
+  apiUrl: ${VNPAY_API_URL:https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}

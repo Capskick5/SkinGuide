@@ -32,6 +32,7 @@ public class Order {
     private String shippingAddress;
     private Integer ghnDistrictId;
     private String ghnWardCode;
+    private String customerNote; // Ghi chú của khách hàng
     
     // Items & Pricing
     private List<OrderItem> items;
@@ -56,7 +57,11 @@ public class Order {
     private LocalDateTime updatedAt;
     
     public enum OrderStatus {
-        PENDING, PROCESSING, READY_TO_SHIP, DELIVERING, DELIVERED, RECEIVED, REFUSED, DELIVERY_FAILED, RETURNED, CANCELLED
+        PENDING, PROCESSING, 
+        READY_TO_PICK, PICKING, PICKED, STORING, 
+        SORTING, TRANSPORTING, DELIVERING, DELIVERED, 
+        DELIVERY_FAIL, WAITING_TO_RETURN, RETURN, RETURN_TRANSPORTING, RETURNING, RETURN_FAIL, RETURNED,
+        RECEIVED, REFUSED, CANCELLED
     }
     
     public enum PaymentMethod {

@@ -67,6 +67,23 @@ public class GhnService {
         }
     }
 
+    public Map<String, Object> getOrderDetail(String trackingCode) {
+        String url = ghnConfig.getApiUrl() + "/shipping-order/detail";
+        
+        Map<String, Object> request = new HashMap<>();
+        request.put("order_code", trackingCode);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, createHeaders());
+
+        try {
+            Map response = restTemplate.postForObject(url, entity, Map.class);
+            return (Map<String, Object>) response.get("data");
+        } catch (Exception e) {
+            log.error("Lỗi lấy chi tiết đơn GHN {}: {}", trackingCode, e.getMessage());
+            return null;
+        }
+    }
+
     public Object getProvinces() {
         String url = ghnConfig.getApiUrl().replace("/v2", "") + "/master-data/province";
         HttpEntity<String> entity = new HttpEntity<>(createHeaders());

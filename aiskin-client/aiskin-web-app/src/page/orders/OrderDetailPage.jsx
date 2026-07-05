@@ -12,16 +12,32 @@ function money(value) {
 
 function getStatusLabel(status) {
   const map = {
+    // Nhóm 1: Chờ duyệt
     PENDING: { label: 'Chờ duyệt', color: 'text-amber-600 bg-amber-50 border-amber-200', icon: 'schedule' },
+    // Nhóm 2: Đang chuẩn bị
     PROCESSING: { label: 'Đang chuẩn bị', color: 'text-blue-600 bg-blue-50 border-blue-200', icon: 'inventory_2' },
-    READY_TO_SHIP: { label: 'Chờ lấy hàng', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'inventory' },
+    // Nhóm 3: Chờ lấy hàng
+    READY_TO_PICK: { label: 'Chờ lấy hàng', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'inventory' },
+    PICKING: { label: 'Đang lấy hàng', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'inventory' },
+    PICKED: { label: 'Đã lấy hàng', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'inventory' },
+    // Nhóm 4: Đang vận chuyển
+    STORING: { label: 'Nhập kho', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'warehouse' },
+    TRANSPORTING: { label: 'Trung chuyển', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'local_shipping' },
+    SORTING: { label: 'Đang phân loại', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'category' },
     DELIVERING: { label: 'Đang giao hàng', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'local_shipping' },
-    DELIVERED: { label: 'Đã giao hàng', color: 'text-teal-600 bg-teal-50 border-teal-200', icon: 'mark_email_read' },
-    RECEIVED: { label: 'Hoàn tất', color: 'text-emerald-600 bg-emerald-50 border-emerald-200', icon: 'check_circle' },
-    REFUSED: { label: 'Từ chối nhận', color: 'text-error bg-error/10 border-error/20', icon: 'cancel' },
-    CANCELLED: { label: 'Đã hủy', color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'block' },
-    DELIVERY_FAILED: { label: 'Giao thất bại', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'error_outline' },
-    RETURNED: { label: 'Đã hoàn trả', color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'keyboard_return' }
+    DELIVERY_FAIL: { label: 'Giao thất bại (Đang hoàn về kho)', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'local_shipping' },
+    // Nhóm 5: Thành công
+    DELIVERED: { label: 'Thành công', color: 'text-teal-600 bg-teal-50 border-teal-200', icon: 'mark_email_read' },
+    RECEIVED: { label: 'Thành công', color: 'text-teal-600 bg-teal-50 border-teal-200', icon: 'mark_email_read' },
+    // Nhóm 6: Giao thất bại / Hoàn trả
+    WAITING_TO_RETURN: { label: 'Chờ hoàn trả', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
+    RETURN: { label: 'Đang hoàn trả', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
+    RETURN_TRANSPORTING: { label: 'Luân chuyển hàng hoàn', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
+    RETURNING: { label: 'Đang trả hàng', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
+    RETURN_FAIL: { label: 'Hoàn trả thất bại', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
+    RETURNED: { label: 'Đã hoàn trả', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
+    REFUSED: { label: 'Từ chối nhận hàng', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'cancel' },
+    CANCELLED: { label: 'Đã hủy', color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'block' }
   }
   return map[status] || { label: status, color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'info' }
 }
@@ -261,7 +277,9 @@ export default function OrderDetailPage() {
               </h3>
               <div className="flex justify-between text-body-sm font-medium mb-2">
                 <span className="text-on-surface-variant">Phương thức</span>
-                <span className="text-on-surface">{order.paymentMethod === 'MOMO' ? 'Ví MoMo' : 'Tiền mặt (COD)'}</span>
+                <span className="text-on-surface">
+                  {order.paymentMethod === 'MOMO' ? 'Ví MoMo' : order.paymentMethod === 'VNPAY' ? 'Thanh toán trực tuyến (VNPay)' : 'Tiền mặt (COD)'}
+                </span>
               </div>
               <div className="flex justify-between text-body-sm font-medium mb-3 border-b border-border-pink pb-3">
                 <span className="text-on-surface-variant">Phí vận chuyển</span>
@@ -274,13 +292,34 @@ export default function OrderDetailPage() {
               
               {/* Nút hành động */}
               {order.status === 'PENDING' && (
-                <button
-                  onClick={() => setConfirmCancel(order)}
-                  className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-xl border border-error text-error font-bold hover:bg-error/10 transition-colors"
-                >
-                  <Icon name="cancel" className="text-xl" />
-                  Hủy đơn hàng
-                </button>
+                <div className="w-full mt-4 flex flex-col gap-2">
+                  {order.paymentStatus === 'UNPAID' && order.paymentMethod !== 'COD' && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          message.loading('Đang khởi tạo cổng thanh toán...')
+                          const res = await httpClient.get(`/orders/${order.id}/payment-url`)
+                          if (res.paymentUrl) {
+                            window.location.href = res.paymentUrl
+                          }
+                        } catch (err) {
+                          message.error(err.response?.data?.message || 'Không thể tạo liên kết thanh toán')
+                        }
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-white font-bold hover:bg-tertiary transition-colors"
+                    >
+                      <Icon name="payment" className="text-xl" />
+                      Tiến hành thanh toán
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setConfirmCancel(order)}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-error text-error font-bold hover:bg-error/10 transition-colors"
+                  >
+                    <Icon name="cancel" className="text-xl" />
+                    Hủy đơn hàng
+                  </button>
+                </div>
               )}
               {order.status === 'DELIVERED' && order.paymentMethod === 'MOMO' && (
                 <button

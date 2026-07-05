@@ -5,19 +5,44 @@ import httpClient from '@/api/httpClient'
 import { resolveImageUrl } from '@/page/products/productUtils'
 
 const STATUS = {
+  // Nhóm 1: Chờ duyệt
   PENDING: { label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
+  // Nhóm 2: Đang chuẩn bị
   PROCESSING: { label: 'Đang chuẩn bị', icon: 'inventory_2', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
-  READY_TO_SHIP: { label: 'Chờ lấy hàng', icon: 'outbox', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
+  // Nhóm 3: Chờ lấy hàng
+  READY_TO_PICK: { label: 'Chờ lấy hàng', icon: 'outbox', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
+  PICKING: { label: 'Đang lấy hàng', icon: 'outbox', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
+  PICKED: { label: 'Đã lấy hàng', icon: 'outbox', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
+  // Nhóm 4: Đang vận chuyển
+  STORING: { label: 'Nhập kho', icon: 'warehouse', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  TRANSPORTING: { label: 'Trung chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  SORTING: { label: 'Đang phân loại', icon: 'category', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   DELIVERING: { label: 'Đang giao hàng', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  DELIVERED: { label: 'Đã giao hàng', icon: 'done_all', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
-  RECEIVED: { label: 'Hoàn tất', icon: 'check_circle', tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
-  REFUSED: { label: 'Từ chối nhận', icon: 'cancel', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
-  DELIVERY_FAILED: { label: 'Giao thất bại', icon: 'error_outline', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
-  RETURNED: { label: 'Đã hoàn trả', icon: 'keyboard_return', tone: 'bg-gray-100 text-gray-700 border-gray-200' },
+  DELIVERY_FAIL: { label: 'Giao thất bại (Hoàn về kho)', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  // Nhóm 5: Thành công
+  DELIVERED: { label: 'Thành công', icon: 'done_all', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
+  RECEIVED: { label: 'Thành công', icon: 'done_all', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
+  // Nhóm 6: Giao thất bại / Hoàn trả (Từ chối nhận hàng)
+  WAITING_TO_RETURN: { label: 'Chờ hoàn trả', icon: 'keyboard_return', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
+  RETURN: { label: 'Đang hoàn trả', icon: 'keyboard_return', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
+  RETURN_TRANSPORTING: { label: 'Luân chuyển hàng hoàn', icon: 'keyboard_return', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
+  RETURNING: { label: 'Đang trả hàng', icon: 'keyboard_return', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
+  RETURN_FAIL: { label: 'Hoàn trả thất bại', icon: 'keyboard_return', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
+  RETURNED: { label: 'Đã hoàn trả', icon: 'keyboard_return', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
+  REFUSED: { label: 'Từ chối nhận hàng', icon: 'cancel', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
+  // Khác
   CANCELLED: { label: 'Đã hủy', icon: 'block', tone: 'bg-gray-100 text-gray-700 border-gray-200' },
 }
 
-const STATUS_OPTIONS = Object.keys(STATUS)
+const TABS = [
+  { key: 'PENDING', query: 'PENDING', label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
+  { key: 'PROCESSING', query: 'PROCESSING', label: 'Đang chuẩn bị', icon: 'inventory_2', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
+  { key: 'READY_TO_PICK', query: 'READY_TO_PICK,PICKING,PICKED', label: 'Chờ lấy hàng', icon: 'outbox', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
+  { key: 'TRANSPORTING', query: 'STORING,TRANSPORTING,SORTING,DELIVERING,DELIVERY_FAIL', label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  { key: 'DELIVERED', query: 'DELIVERED,RECEIVED', label: 'Thành công', icon: 'done_all', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
+  { key: 'REFUSED', query: 'WAITING_TO_RETURN,RETURN,RETURN_TRANSPORTING,RETURNING,RETURN_FAIL,RETURNED,REFUSED', label: 'Từ chối nhận hàng', icon: 'cancel', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
+  { key: 'CANCELLED', query: 'CANCELLED', label: 'Đã hủy', icon: 'block', tone: 'bg-gray-100 text-gray-700 border-gray-200' }
+]
 
 function money(value) {
   if (value === null || value === undefined) return '0đ'
@@ -192,7 +217,7 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
   if (!change) return null
   const config = STATUS[change.newStatus]
   const isCancel = change.newStatus === 'CANCELLED'
-  const isReadyToShip = change.newStatus === 'READY_TO_SHIP'
+  const isReadyToPick = change.newStatus === 'READY_TO_PICK'
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -220,7 +245,7 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
           </div>
         )}
 
-        {isReadyToShip && (
+        {isReadyToPick && (
           <div className="mt-4 text-left space-y-3">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">Khối lượng kiện hàng (gram) <span className="text-rose-500">*</span></label>
@@ -310,12 +335,14 @@ export default function AdminOrdersPage() {
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [totalElements, setTotalElements] = useState(0)
+  const [syncingGhn, setSyncingGhn] = useState(false)
   const pageSize = 10
 
   async function fetchOrders() {
     setLoading(true)
     try {
-      const data = await httpClient.get(`/orders?page=${page}&size=${pageSize}&status=${filter}`)
+      const activeTabObj = TABS.find(t => t.key === filter) || TABS[0]
+      const data = await httpClient.get(`/orders?page=${page}&size=${pageSize}&status=${activeTabObj.query}`)
       setOrders(data.content || [])
       setTotalPages(data.totalPages || 1)
       setTotalElements(data.totalElements || 0)
@@ -323,6 +350,20 @@ export default function AdminOrdersPage() {
       console.error('Fetch orders failed:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleSyncGhn = async () => {
+    try {
+      setSyncingGhn(true)
+      await httpClient.post('/orders/sync-ghn')
+      message.success('Đồng bộ trạng thái từ GHN thành công')
+      await fetchOrders()
+    } catch (err) {
+      console.error('GHN sync failed:', err)
+      message.error(err.response?.data?.message || err?.message || 'Đồng bộ GHN thất bại')
+    } finally {
+      setSyncingGhn(false)
     }
   }
 
@@ -362,7 +403,7 @@ export default function AdminOrdersPage() {
       await fetchOrders()
     } catch (err) {
       console.error('Update order status failed:', err)
-      message.error(err?.message || 'Cập nhật trạng thái thất bại')
+      message.error(err.response?.data?.message || err?.message || 'Cập nhật trạng thái thất bại')
     } finally {
       setUpdating(null)
     }
@@ -378,34 +419,45 @@ export default function AdminOrdersPage() {
             Theo dõi, lọc và cập nhật trạng thái xử lý đơn hàng. Đơn đã hủy sẽ bị khóa trạng thái.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={fetchOrders}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-        >
-          <Icon name="refresh" className={loading ? 'animate-spin text-lg' : 'text-lg'} />
-          Làm mới
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSyncGhn}
+            disabled={syncingGhn}
+            className="inline-flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-4 py-2.5 text-sm font-semibold text-purple-700 hover:bg-purple-100 disabled:opacity-50"
+          >
+            <Icon name="sync" className={syncingGhn ? 'animate-spin text-lg' : 'text-lg'} />
+            Đồng bộ GHN
+          </button>
+          <button
+            type="button"
+            onClick={fetchOrders}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            <Icon name="refresh" className={loading ? 'animate-spin text-lg' : 'text-lg'} />
+            Làm mới
+          </button>
+        </div>
       </div>
 
 
 
       <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
         <div className="flex flex-wrap gap-2">
-          {Object.entries(STATUS).map(([key, config]) => (
+          {TABS.map((tab) => (
             <button
-              key={key}
+              key={tab.key}
               type="button"
-              onClick={() => changeFilter(key)}
+              onClick={() => changeFilter(tab.key)}
               className={[
                 'inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-all',
-                filter === key 
-                  ? `${config.tone} shadow-sm ring-1 ring-current` 
+                filter === tab.key 
+                  ? `${tab.tone} shadow-sm ring-1 ring-current` 
                   : 'border-transparent text-gray-500 hover:bg-gray-50',
               ].join(' ')}
             >
-              <Icon name={config.icon} className={`text-lg ${filter === key ? '' : 'opacity-60'}`} />
-              {config.label}
+              <Icon name={tab.icon} className={`text-lg ${filter === tab.key ? '' : 'opacity-60'}`} />
+              {tab.label}
             </button>
           ))}
         </div>
@@ -461,6 +513,14 @@ export default function AdminOrdersPage() {
                             <Icon name="sync" className="animate-spin text-lg" />
                             Đang lưu
                           </div>
+                        ) : order.trackingCode ? (
+                          <div className="space-y-1">
+                            <StatusBadge status={order.status} />
+                            <p className="text-xs text-blue-600 flex items-center gap-1">
+                              <Icon name="sync" className="text-[14px]" /> 
+                              GHN tự động cập nhật
+                            </p>
+                          </div>
                         ) : locked ? (
                           <div className="space-y-1">
                             <StatusBadge status="CANCELLED" />
@@ -472,17 +532,17 @@ export default function AdminOrdersPage() {
                               items: (order.status === 'PENDING' 
                                 ? ['PROCESSING', 'CANCELLED'] 
                                 : order.status === 'PROCESSING' 
-                                  ? ['READY_TO_SHIP'] 
-                                  : STATUS_OPTIONS).map(status => ({
-                                    key: status,
-                                    label: (
-                                      <div className="flex items-center gap-2 px-1">
-                                        <Icon name={STATUS[status].icon} className={`text-[15px] ${STATUS[status].tone.split(' ')[1]}`} />
-                                        <span className="font-semibold text-sm">{STATUS[status].label}</span>
-                                      </div>
-                                    ),
-                                    onClick: () => handleStatusChange(order, status)
-                                  }))
+                                  ? ['READY_TO_PICK'] 
+                                  : ['READY_TO_PICK', 'CANCELLED']).map(status => ({
+                                  key: status,
+                                  label: (
+                                    <div className="flex items-center gap-2 px-1">
+                                      <Icon name={STATUS[status].icon} className={`text-[15px] ${STATUS[status].tone.split(' ')[1]}`} />
+                                      <span className="font-semibold text-sm">{STATUS[status].label}</span>
+                                    </div>
+                                  ),
+                                  onClick: () => handleStatusChange(order, status)
+                                }))
                             }}
                             trigger={['click']}
                           >

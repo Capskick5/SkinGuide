@@ -6,9 +6,11 @@ import org.springframework.context.annotation.Configuration;
 
 @Data
 @Configuration
-@ConfigurationProperties(prefix = "ghn")
-public class GhnConfig {
-    private String apiUrl = "https://dev-online-gateway.ghn.vn/shiip/public-api/v2";
-    private String token;
-    private String shopId;
+@ConfigurationProperties(prefix = "vnpay")
+public class VnpayConfig {
+    private String tmnCode;
+    private String hashSecret;
+    private String url;
+    private String returnUrl;
+    private String apiUrl;
 }
