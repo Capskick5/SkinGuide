@@ -20,6 +20,7 @@ import CartPage from '@/page/cart/CartPage'
 import CheckoutPage from '@/page/cart/CheckoutPage'
 import MomoReturnPage from '@/page/cart/MomoReturnPage'
 import OrdersPage from '@/page/orders/OrdersPage'
+import OrderDetailPage from '@/page/orders/OrderDetailPage'
 import HistoryPage from '@/page/history/HistoryPage'
 import HistoryDetailPage from '@/page/history/HistoryDetailPage'
 import ProfilePage from '@/page/profile/ProfilePage'
@@ -67,6 +68,7 @@ export default function AppRoutes() {
             <Route path={PATHS.CART} element={<CartPage />} />
             <Route path={PATHS.CHECKOUT} element={<CheckoutPage />} />
             <Route path={PATHS.ORDERS} element={<OrdersPage />} />
+            <Route path={PATHS.ORDER_DETAIL} element={<OrderDetailPage />} />
             <Route path={PATHS.MOMO_RETURN} element={<MomoReturnPage />} />
             <Route path={PATHS.HISTORY} element={<HistoryPage />} />
             <Route path={PATHS.HISTORY_DETAIL} element={<HistoryDetailPage />} />

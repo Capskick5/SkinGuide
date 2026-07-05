@@ -30,16 +30,24 @@ public class Order {
     private String customerName;
     private String customerPhone;
     private String shippingAddress;
+    private Integer ghnDistrictId;
+    private String ghnWardCode;
     
     // Items & Pricing
     private List<OrderItem> items;
     private BigDecimal totalAmount;
+    private BigDecimal shippingFee;
+    
+    // Shipping
+    private String trackingCode; // Mã vận đơn GHN
     
     // Status
     private OrderStatus status;
     private PaymentMethod paymentMethod; // COD, MOMO, VNPAY
     private PaymentStatus paymentStatus; // UNPAID, PAID, FAILED, REFUNDED
     
+    private String cancelReason;
+
     // Timestamps
     @CreatedDate
     private LocalDateTime createdAt;
@@ -48,7 +56,7 @@ public class Order {
     private LocalDateTime updatedAt;
     
     public enum OrderStatus {
-        PENDING, PAID, PROCESSING, SHIPPED, DELIVERED, CANCELLED
+        PENDING, PROCESSING, READY_TO_SHIP, DELIVERING, DELIVERED, RECEIVED, REFUSED, DELIVERY_FAILED, RETURNED, CANCELLED
     }
     
     public enum PaymentMethod {

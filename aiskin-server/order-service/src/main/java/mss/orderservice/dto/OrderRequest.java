@@ -12,6 +12,10 @@ public class OrderRequest {
     private String customerPhone;
     private String shippingAddress;
     
+    private Integer ghnDistrictId;
+    private String ghnWardCode;
+    private java.math.BigDecimal shippingFee;
+    
     private List<OrderItemRequest> items;
     private PaymentMethod paymentMethod;
 }
