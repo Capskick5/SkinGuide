@@ -9,6 +9,8 @@ spring:
 
 server:
   port: ${ORDER_SERVICE_PORT}
+  error:
+    include-message: always
 
 eureka:
   client:

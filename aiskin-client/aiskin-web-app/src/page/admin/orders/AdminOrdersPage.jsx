@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
-import { App as AntApp } from 'antd'
+import { App as AntApp, Dropdown, Select } from 'antd'
 import Icon from '@/components/common/Icon'
 import httpClient from '@/api/httpClient'
 import { resolveImageUrl } from '@/page/products/productUtils'
 
 const STATUS = {
-  ALL: { label: 'Tất cả', icon: 'apps' },
-  PENDING: { label: 'Chờ thanh toán', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-  PAID: { label: 'Đã thanh toán', icon: 'check_circle', tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
-  PROCESSING: { label: 'Đang xử lý', icon: 'inventory_2', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
-  SHIPPED: { label: 'Đang giao', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  DELIVERED: { label: 'Đã giao', icon: 'done_all', tone: 'bg-green-50 text-green-700 border-green-100' },
-  CANCELLED: { label: 'Đã hủy', icon: 'cancel', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
+  PENDING: { label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
+  PROCESSING: { label: 'Đang chuẩn bị', icon: 'inventory_2', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
+  READY_TO_SHIP: { label: 'Chờ lấy hàng', icon: 'outbox', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
+  DELIVERING: { label: 'Đang giao hàng', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  DELIVERED: { label: 'Đã giao hàng', icon: 'done_all', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
+  RECEIVED: { label: 'Hoàn tất', icon: 'check_circle', tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+  REFUSED: { label: 'Từ chối nhận', icon: 'cancel', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
+  DELIVERY_FAILED: { label: 'Giao thất bại', icon: 'error_outline', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
+  RETURNED: { label: 'Đã hoàn trả', icon: 'keyboard_return', tone: 'bg-gray-100 text-gray-700 border-gray-200' },
+  CANCELLED: { label: 'Đã hủy', icon: 'block', tone: 'bg-gray-100 text-gray-700 border-gray-200' },
 }
 
-const STATUS_OPTIONS = ['PENDING', 'PAID', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
+const STATUS_OPTIONS = Object.keys(STATUS)
 
 function money(value) {
   if (value === null || value === undefined) return '0đ'
@@ -109,6 +112,11 @@ function OrderDetailModal({ order, onClose }) {
               {order.status === 'CANCELLED' && (
                 <p className="mt-2 text-xs text-rose-600">Đơn đã hủy, không thể đổi trạng thái.</p>
               )}
+              {order.cancelReason && (
+                <div className="mt-2 text-xs bg-rose-50 p-2 rounded-md border border-rose-100 text-rose-700">
+                  <span className="font-semibold">Lý do hủy:</span> {order.cancelReason}
+                </div>
+              )}
             </div>
             <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
               <p className="text-xs font-semibold uppercase text-gray-400">Thanh toán</p>
@@ -119,9 +127,20 @@ function OrderDetailModal({ order, onClose }) {
             </div>
           </div>
 
-          <div className="mt-4 rounded-lg border border-gray-100 p-4">
-            <p className="text-xs font-semibold uppercase text-gray-400">Địa chỉ giao hàng</p>
-            <p className="mt-2 text-sm leading-6 text-gray-700">{order.shippingAddress || 'Chưa có địa chỉ'}</p>
+          <div className="mt-4 rounded-lg border border-gray-100 p-4 flex flex-col md:flex-row justify-between md:items-start gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-400">Địa chỉ giao hàng</p>
+              <p className="mt-2 text-sm leading-6 text-gray-700">{order.shippingAddress || 'Chưa có địa chỉ'}</p>
+            </div>
+            {order.trackingCode && (
+              <div className="md:text-right shrink-0">
+                <p className="text-xs font-semibold uppercase text-gray-400">Mã Vận Đơn GHN</p>
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-3 py-1.5 text-sm font-bold text-blue-700 border border-blue-200">
+                  <Icon name="local_shipping" className="text-base" />
+                  {order.trackingCode}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mt-4 overflow-hidden rounded-lg border border-gray-100">
@@ -163,8 +182,17 @@ function OrderDetailModal({ order, onClose }) {
 }
 
 function ConfirmUpdateModal({ change, onClose, onConfirm }) {
+  const [reason, setReason] = useState('')
+  const [weight, setWeight] = useState(500)
+  const [length, setLength] = useState(15)
+  const [width, setWidth] = useState(15)
+  const [height, setHeight] = useState(10)
+  const [requiredNote, setRequiredNote] = useState('CHOXEMHANGKHONGTHU')
+
   if (!change) return null
   const config = STATUS[change.newStatus]
+  const isCancel = change.newStatus === 'CANCELLED'
+  const isReadyToShip = change.newStatus === 'READY_TO_SHIP'
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -178,6 +206,77 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
           Chuyển đơn <span className="font-semibold text-gray-800">{change.orderCode}</span> sang trạng thái{' '}
           <span className="font-semibold text-gray-950">{config?.label || change.newStatus}</span>?
         </p>
+
+        {isCancel && (
+          <div className="mt-4 text-left">
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Lý do hủy đơn <span className="text-rose-500">*</span></label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full rounded-md border border-gray-300 p-3 text-sm outline-none focus:border-gray-950 focus:ring-1 focus:ring-gray-950"
+              rows={3}
+              placeholder="Nhập lý do hủy..."
+            />
+          </div>
+        )}
+
+        {isReadyToShip && (
+          <div className="mt-4 text-left space-y-3">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Khối lượng kiện hàng (gram) <span className="text-rose-500">*</span></label>
+              <input
+                type="number"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+                className="w-full rounded-md border border-gray-300 p-2.5 text-sm outline-none focus:border-gray-950 focus:ring-1 focus:ring-gray-950"
+                placeholder="VD: 500"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Dài (cm) <span className="text-rose-500">*</span></label>
+                <input
+                  type="number"
+                  value={length}
+                  onChange={(e) => setLength(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 p-2.5 text-sm outline-none focus:border-gray-950 focus:ring-1 focus:ring-gray-950"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Rộng (cm) <span className="text-rose-500">*</span></label>
+                <input
+                  type="number"
+                  value={width}
+                  onChange={(e) => setWidth(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 p-2.5 text-sm outline-none focus:border-gray-950 focus:ring-1 focus:ring-gray-950"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Cao (cm) <span className="text-rose-500">*</span></label>
+                <input
+                  type="number"
+                  value={height}
+                  onChange={(e) => setHeight(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 p-2.5 text-sm outline-none focus:border-gray-950 focus:ring-1 focus:ring-gray-950"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Tùy chọn kiểm hàng <span className="text-rose-500">*</span></label>
+              <Select
+                value={requiredNote}
+                onChange={setRequiredNote}
+                className="w-full h-[42px]"
+                options={[
+                  { value: 'CHOXEMHANGKHONGTHU', label: 'Cho xem hàng không cho thử' },
+                  { value: 'KHONGCHOXEMHANG', label: 'Không cho xem hàng' },
+                  { value: 'CHOTHUHANG', label: 'Cho thử hàng' }
+                ]}
+              />
+            </div>
+          </div>
+        )}
+
         <div className="mt-6 flex gap-3">
           <button
             type="button"
@@ -188,8 +287,9 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
           </button>
           <button
             type="button"
-            onClick={onConfirm}
-            className="flex-1 rounded-lg bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
+            onClick={() => onConfirm(isCancel ? { cancelReason: reason } : isReadyToShip ? { weight, length, width, height, requiredNote } : {})}
+            disabled={(isCancel && !reason.trim()) || (isReadyToShip && (!weight || weight <= 0 || !length || !width || !height))}
+            className="flex-1 rounded-lg bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cập nhật
           </button>
@@ -203,7 +303,7 @@ export default function AdminOrdersPage() {
   const { message } = AntApp.useApp()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('ALL')
+  const [filter, setFilter] = useState('PENDING')
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [updating, setUpdating] = useState(null)
   const [confirmUpdate, setConfirmUpdate] = useState(null)
@@ -243,13 +343,22 @@ export default function AdminOrdersPage() {
     setConfirmUpdate({ orderId: order.id, orderCode: order.orderCode, newStatus })
   }
 
-  async function executeUpdateStatus() {
+  async function executeUpdateStatus(payload) {
     if (!confirmUpdate) return
     const { orderId, newStatus } = confirmUpdate
     setConfirmUpdate(null)
     setUpdating(orderId)
     try {
-      await httpClient.put(`/orders/${orderId}/status`, { status: newStatus })
+      await httpClient.put(`/orders/${orderId}/status`, { 
+        status: newStatus, 
+        cancelReason: payload?.cancelReason,
+        weight: payload?.weight ? String(payload.weight) : null,
+        length: payload?.length ? String(payload.length) : null,
+        width: payload?.width ? String(payload.width) : null,
+        height: payload?.height ? String(payload.height) : null,
+        requiredNote: payload?.requiredNote
+      })
+      message.success('Cập nhật trạng thái thành công')
       await fetchOrders()
     } catch (err) {
       console.error('Update order status failed:', err)
@@ -281,19 +390,21 @@ export default function AdminOrdersPage() {
 
 
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white p-2 shadow-sm">
-        <div className="flex min-w-max gap-2">
+      <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap gap-2">
           {Object.entries(STATUS).map(([key, config]) => (
             <button
               key={key}
               type="button"
               onClick={() => changeFilter(key)}
               className={[
-                'inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition',
-                filter === key ? 'bg-gray-950 text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-950',
+                'inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-all',
+                filter === key 
+                  ? `${config.tone} shadow-sm ring-1 ring-current` 
+                  : 'border-transparent text-gray-500 hover:bg-gray-50',
               ].join(' ')}
             >
-              <Icon name={config.icon} className="text-lg" />
+              <Icon name={config.icon} className={`text-lg ${filter === key ? '' : 'opacity-60'}`} />
               {config.label}
             </button>
           ))}
@@ -317,7 +428,8 @@ export default function AdminOrdersPage() {
                 <tr>
                   <th className="px-5 py-3">Đơn hàng</th>
                   <th className="px-5 py-3">Khách hàng</th>
-                  <th className="px-5 py-3">Thanh toán</th>
+                  <th className="px-5 py-3">Phương thức</th>
+                  <th className="px-5 py-3">TT Thanh toán</th>
                   <th className="px-5 py-3 text-right">Tổng tiền</th>
                   <th className="px-5 py-3">Trạng thái</th>
                   <th className="px-5 py-3 text-right">Thao tác</th>
@@ -337,7 +449,9 @@ export default function AdminOrdersPage() {
                         <p className="mt-1 text-xs text-gray-500">{order.customerPhone || 'Chưa có SĐT'}</p>
                       </td>
                       <td className="px-5 py-4 align-top">
-                        <p className="mb-2 text-xs font-semibold text-gray-500">{order.paymentMethod || 'COD'}</p>
+                        <p className="font-semibold text-gray-950">{order.paymentMethod || 'COD'}</p>
+                      </td>
+                      <td className="px-5 py-4 align-top">
                         <PaymentBadge status={order.paymentStatus} />
                       </td>
                       <td className="px-5 py-4 text-right align-top font-bold text-gray-950">{money(order.totalAmount)}</td>
@@ -353,17 +467,33 @@ export default function AdminOrdersPage() {
                             <p className="text-xs text-rose-600">Đã khóa</p>
                           </div>
                         ) : (
-                          <select
-                            value={order.status}
-                            onChange={(event) => handleStatusChange(order, event.target.value)}
-                            className="h-10 min-w-44 rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold text-gray-700 outline-none hover:bg-gray-50 focus:border-secondary"
+                          <Dropdown
+                            menu={{
+                              items: (order.status === 'PENDING' 
+                                ? ['PROCESSING', 'CANCELLED'] 
+                                : order.status === 'PROCESSING' 
+                                  ? ['READY_TO_SHIP'] 
+                                  : STATUS_OPTIONS).map(status => ({
+                                    key: status,
+                                    label: (
+                                      <div className="flex items-center gap-2 px-1">
+                                        <Icon name={STATUS[status].icon} className={`text-[15px] ${STATUS[status].tone.split(' ')[1]}`} />
+                                        <span className="font-semibold text-sm">{STATUS[status].label}</span>
+                                      </div>
+                                    ),
+                                    onClick: () => handleStatusChange(order, status)
+                                  }))
+                            }}
+                            trigger={['click']}
                           >
-                            {STATUS_OPTIONS.map((status) => (
-                              <option key={status} value={status}>
-                                {STATUS[status].label}
-                              </option>
-                            ))}
-                          </select>
+                            <button className={`inline-flex items-center justify-between min-w-36 gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition hover:opacity-80 ${STATUS[order.status]?.tone || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                              <div className="flex items-center gap-1.5">
+                                <Icon name={STATUS[order.status]?.icon || 'info'} className="text-[15px]" />
+                                {STATUS[order.status]?.label || order.status}
+                              </div>
+                              <Icon name="expand_more" className="text-lg opacity-60" />
+                            </button>
+                          </Dropdown>
                         )}
                       </td>
                       <td className="px-5 py-4 text-right align-top">

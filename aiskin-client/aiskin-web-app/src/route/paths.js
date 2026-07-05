@@ -26,6 +26,7 @@ export const PATHS = {
   CART: '/cart',
   CHECKOUT: '/checkout',
   ORDERS: '/orders',
+  ORDER_DETAIL: '/orders/:id',
   MOMO_RETURN: '/payment/momo-return',
   HISTORY: '/history',
   HISTORY_DETAIL: '/history/:id',

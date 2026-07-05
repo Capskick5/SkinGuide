@@ -25,6 +25,13 @@ public class OrderController {
         return ResponseEntity.ok(orderService.createOrder(request));
     }
 
+    @PostMapping("/{id}/cancel")
+    @Operation(summary = "Cancel an order", description = "Customer cancels their order before it is processed")
+    public ResponseEntity<OrderResponse> cancelOrder(@PathVariable String id, @RequestBody Map<String, String> body) {
+        String reason = body.get("cancelReason");
+        return ResponseEntity.ok(orderService.cancelOrder(id, reason));
+    }
+
     @PostMapping("/payment/momo-ipn")
     @Operation(summary = "MoMo IPN Callback", description = "Server-to-server callback for Momo payment status")
     public ResponseEntity<?> momoIpn(@RequestBody Map<String, Object> requestBody) {
@@ -58,13 +65,20 @@ public class OrderController {
         return null;
     }
 
+    @GetMapping("/{id}")
+    @Operation(summary = "Get order details", description = "Fetch details of a specific order")
+    public ResponseEntity<?> getOrderById(@PathVariable String id) {
+        return ResponseEntity.ok(orderService.getOrderById(id));
+    }
+
     @GetMapping("/user/{customerId}")
     @Operation(summary = "Get orders by customer", description = "Fetch all orders for a given customer id with pagination")
     public ResponseEntity<?> getOrdersByCustomer(
             @PathVariable String customerId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(orderService.getOrdersByCustomerId(customerId, page, size));
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false, defaultValue = "ALL") String status) {
+        return ResponseEntity.ok(orderService.getOrdersByCustomerId(customerId, page, size, status));
     }
 
     @GetMapping
@@ -82,9 +96,26 @@ public class OrderController {
             @PathVariable String id,
             @RequestBody Map<String, String> body) {
         String newStatus = body.get("status");
+        String cancelReason = body.get("cancelReason");
+        String requiredNote = body.get("requiredNote");
+        
+        Integer weight = parseInteger(body.get("weight"));
+        Integer length = parseInteger(body.get("length"));
+        Integer width = parseInteger(body.get("width"));
+        Integer height = parseInteger(body.get("height"));
+        
         if (newStatus == null) {
             return ResponseEntity.badRequest().body("Status is required");
         }
-        return ResponseEntity.ok(orderService.updateOrderStatus(id, newStatus));
+        return ResponseEntity.ok(orderService.updateOrderStatus(id, newStatus, cancelReason, weight, length, width, height, requiredNote));
+    }
+
+    private Integer parseInteger(String value) {
+        if (value != null && !value.trim().isEmpty()) {
+            try {
+                return Integer.parseInt(value);
+            } catch (NumberFormatException ignored) {}
+        }
+        return null;
     }
 }

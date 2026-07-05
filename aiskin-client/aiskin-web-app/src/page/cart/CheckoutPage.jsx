@@ -7,8 +7,6 @@ import { useAuth } from '@/hook/useAuth'
 import httpClient from '@/api/httpClient'
 import { resolveImageUrl } from '@/page/products/productUtils'
 
-const ADDRESS_API_URL = 'https://provinces.open-api.vn/api'
-
 function money(value) {
   if (!value && value !== 0) return '-'
   return `${Number(value).toLocaleString('vi-VN')}đ`
@@ -105,20 +103,18 @@ function AddressStep({ formData, onChange, onNext }) {
     async function load() {
       setLoading((current) => ({ ...current, provinces: true }))
       try {
-        const res = await fetch(`${ADDRESS_API_URL}/p/`)
-        if (!res.ok) throw new Error('Cannot load provinces')
-        const data = await res.json()
-        if (!cancelled) setProvinces(Array.isArray(data) ? data : [])
+        const res = await httpClient.get('/ghn/provinces')
+        if (!cancelled && Array.isArray(res)) {
+            setProvinces(res.map(p => ({ code: p.ProvinceID, name: p.ProvinceName })))
+        }
       } catch {
-        if (!cancelled) setAddressApiError('Không tải được danh sách tỉnh thành. Bạn có thể nhập tay.')
+        if (!cancelled) setAddressApiError('Không tải được danh sách tỉnh thành.')
       } finally {
         if (!cancelled) setLoading((current) => ({ ...current, provinces: false }))
       }
     }
     load()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
@@ -127,20 +123,18 @@ function AddressStep({ formData, onChange, onNext }) {
     async function load() {
       setLoading((current) => ({ ...current, districts: true }))
       try {
-        const res = await fetch(`${ADDRESS_API_URL}/p/${formData.provinceCode}?depth=2`)
-        if (!res.ok) throw new Error('Cannot load districts')
-        const data = await res.json()
-        if (!cancelled) setDistricts(Array.isArray(data.districts) ? data.districts : [])
+        const res = await httpClient.get(`/ghn/districts?provinceId=${formData.provinceCode}`)
+        if (!cancelled && Array.isArray(res)) {
+            setDistricts(res.map(d => ({ code: d.DistrictID, name: d.DistrictName })))
+        }
       } catch {
-        if (!cancelled) setAddressApiError('Không tải được danh sách quận huyện. Bạn có thể nhập tay.')
+        if (!cancelled) setAddressApiError('Không tải được danh sách quận huyện.')
       } finally {
         if (!cancelled) setLoading((current) => ({ ...current, districts: false }))
       }
     }
     load()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [formData.provinceCode])
 
   useEffect(() => {
@@ -149,21 +143,40 @@ function AddressStep({ formData, onChange, onNext }) {
     async function load() {
       setLoading((current) => ({ ...current, wards: true }))
       try {
-        const res = await fetch(`${ADDRESS_API_URL}/d/${formData.districtCode}?depth=2`)
-        if (!res.ok) throw new Error('Cannot load wards')
-        const data = await res.json()
-        if (!cancelled) setWards(Array.isArray(data.wards) ? data.wards : [])
+        const res = await httpClient.get(`/ghn/wards?districtId=${formData.districtCode}`)
+        if (!cancelled && Array.isArray(res)) {
+            setWards(res.map(w => ({ code: w.WardCode, name: w.WardName })))
+        }
       } catch {
-        if (!cancelled) setAddressApiError('Không tải được danh sách phường xã. Bạn có thể nhập tay.')
+        if (!cancelled) setAddressApiError('Không tải được danh sách phường xã.')
       } finally {
         if (!cancelled) setLoading((current) => ({ ...current, wards: false }))
       }
     }
     load()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [formData.districtCode])
+  
+  useEffect(() => {
+    if (!formData.districtCode || !formData.wardCode) return
+    let cancelled = false
+    async function calcFee() {
+      try {
+        const res = await httpClient.post('/ghn/fee', {
+            to_district_id: Number(formData.districtCode),
+            to_ward_code: String(formData.wardCode),
+            weight: 500, // Mặc định 500g
+        })
+        if (!cancelled && res?.total) {
+            emit('shippingFee', res.total)
+        }
+      } catch (err) {
+        console.error('Không tính được phí ship', err)
+      }
+    }
+    calcFee()
+    return () => { cancelled = true }
+  }, [formData.districtCode, formData.wardCode])
 
   function emit(name, value) {
     onChange({ target: { name, value } })
@@ -180,6 +193,7 @@ function AddressStep({ formData, onChange, onNext }) {
     emit('district', '')
     emit('wardCode', '')
     emit('ward', '')
+    emit('shippingFee', 0)
   }
 
   function handleDistrictChange(event) {
@@ -190,6 +204,7 @@ function AddressStep({ formData, onChange, onNext }) {
     emit('district', district?.name || '')
     emit('wardCode', '')
     emit('ward', '')
+    emit('shippingFee', 0)
   }
 
   function handleWardChange(event) {
@@ -270,62 +285,64 @@ function AddressStep({ formData, onChange, onNext }) {
   )
 }
 
-function PaymentStep({ selectedMethod, onSelect, onNext, onBack }) {
+function PaymentMethodStep({ selectedMethod, onSelect, onBack, onNext }) {
   const methods = [
     {
-      id: 'MOMO',
-      label: 'MoMo Sandbox',
-      desc: 'Chuyển sang cổng test-payment.momo.vn để thanh toán thử.',
-      icon: 'account_balance_wallet',
-      badge: 'Khuyên dùng',
-      accent: 'border-pink-500 bg-pink-50 text-pink-700',
+      id: 'COD',
+      label: 'Thanh toán khi nhận hàng (COD)',
+      desc: 'Thanh toán bằng tiền mặt khi giao hàng',
+      icon: 'local_shipping',
+      badge: 'Phổ biến',
+      accent: 'border-primary bg-primary/5 text-primary',
     },
     {
-      id: 'COD',
-      label: 'Thanh toán khi nhận hàng',
-      desc: 'Đơn được ghi nhận trước, thanh toán trực tiếp khi giao.',
-      icon: 'payments',
-      badge: 'COD',
-      accent: 'border-emerald-500 bg-emerald-50 text-emerald-700',
+      id: 'MOMO',
+      label: 'Ví MoMo',
+      desc: 'Quét mã QR qua ứng dụng MoMo',
+      icon: 'qr_code_scanner',
+      badge: 'Nhanh chóng',
+      accent: 'border-pink-600 bg-pink-50 text-pink-700',
     },
   ]
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-pink-200 bg-pink-50 px-4 py-3 text-sm text-pink-700">
-        <div className="flex items-center gap-2 font-semibold">
-          <Icon name="verified" className="text-lg" />
-          MoMo đang chạy ở môi trường sandbox
-        </div>
-        <p className="mt-1 text-pink-700/80">Sau khi xác nhận, hệ thống sẽ tạo đơn và chuyển bạn sang trang thanh toán thử của MoMo.</p>
+      <div className="rounded-lg border border-border-pink bg-white p-4">
+        <p className="mb-1 flex items-center gap-2 font-bold text-on-surface">
+          <Icon name="payments" className="text-primary" />
+          Chọn phương thức thanh toán
+        </p>
+        <p className="text-sm text-on-surface-variant">Chọn một trong các phương thức thanh toán có sẵn</p>
       </div>
 
-      {methods.map((method) => {
-        const active = selectedMethod === method.id
-        return (
-          <button
-            key={method.id}
-            type="button"
-            onClick={() => onSelect(method.id)}
-            className={[
-              'flex w-full items-center gap-4 rounded-lg border-2 p-4 text-left transition-all',
-              active ? method.accent : 'border-border-pink bg-white hover:border-primary/40',
-            ].join(' ')}
-          >
-            <span className={['flex h-12 w-12 shrink-0 items-center justify-center rounded-lg', active ? 'bg-white/80' : 'bg-surface-soft'].join(' ')}>
-              <Icon name={method.icon} className="text-2xl" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex flex-wrap items-center gap-2 font-bold text-on-surface">
-                {method.label}
-                <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant">{method.badge}</span>
+      <div className="space-y-3">
+        {methods.map((method) => {
+          const active = selectedMethod === method.id
+          return (
+            <button
+              key={method.id}
+              type="button"
+              onClick={() => onSelect(method.id)}
+              className={[
+                'flex w-full items-center gap-4 rounded-lg border-2 p-4 text-left transition-all',
+                active ? method.accent : 'border-border-pink bg-white hover:border-primary/40',
+              ].join(' ')}
+            >
+              <span className={['flex h-12 w-12 shrink-0 items-center justify-center rounded-lg', active ? 'bg-white/80' : 'bg-surface-soft'].join(' ')}>
+                <Icon name={method.icon} className="text-2xl" />
               </span>
-              <span className="mt-1 block text-sm text-on-surface-variant">{method.desc}</span>
-            </span>
-            <Icon name={active ? 'radio_button_checked' : 'radio_button_unchecked'} className="text-2xl" />
-          </button>
-        )
-      })}
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-center gap-2 font-bold text-on-surface">
+                  {method.label}
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant">{method.badge}</span>
+                </span>
+                <span className="mt-1 block text-sm text-on-surface-variant">{method.desc}</span>
+              </span>
+              <Icon name={active ? 'radio_button_checked' : 'radio_button_unchecked'} className="text-2xl" />
+            </button>
+          )
+        })}
+      </div>
 
       <div className="grid grid-cols-[1fr_2fr] gap-3 pt-2">
         <button type="button" onClick={onBack} className="flex h-12 items-center justify-center gap-2 rounded-lg border border-border-pink bg-white font-semibold text-on-surface-variant transition hover:bg-surface-soft">
@@ -333,7 +350,7 @@ function PaymentStep({ selectedMethod, onSelect, onNext, onBack }) {
           Quay lại
         </button>
         <button type="button" onClick={onNext} disabled={!selectedMethod} className="flex h-12 items-center justify-center gap-2 rounded-lg bg-primary font-bold text-white transition hover:bg-tertiary disabled:cursor-not-allowed disabled:opacity-50">
-          Tiếp tục
+          Xác nhận
           <Icon name="arrow_forward" className="text-xl" />
         </button>
       </div>
@@ -341,37 +358,31 @@ function PaymentStep({ selectedMethod, onSelect, onNext, onBack }) {
   )
 }
 
-function ConfirmStep({ formData, paymentMethod, items, totalPrice, onBack, onConfirm, loading }) {
-  const payLabel = paymentMethod === 'MOMO' ? 'MoMo Sandbox' : 'Thanh toán khi nhận hàng'
+function ConfirmStep({ formData, items, paymentMethod, onBack, onConfirm, loading }) {
   const fullAddress = [formData.addressDetail, formData.ward, formData.district, formData.city].filter(Boolean).join(', ')
+  const isMomo = paymentMethod === 'MOMO'
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border border-border-pink bg-white p-4">
-          <p className="mb-3 flex items-center gap-2 font-bold text-on-surface">
-            <Icon name="local_shipping" className="text-primary" />
-            Thông tin nhận hàng
-          </p>
-          <p className="font-semibold text-on-surface">{formData.customerName}</p>
-          <p className="text-sm text-on-surface-variant">{formData.customerPhone}</p>
-          <p className="mt-2 text-sm leading-6 text-on-surface-variant">{fullAddress}</p>
-          {formData.note ? <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">{formData.note}</p> : null}
-        </div>
+      <div className="rounded-lg border border-border-pink bg-white p-4">
+        <p className="mb-3 flex items-center gap-2 font-bold text-on-surface">
+          <Icon name="local_shipping" className="text-primary" />
+          Thông tin nhận hàng
+        </p>
+        <p className="font-semibold text-on-surface">{formData.customerName}</p>
+        <p className="text-sm text-on-surface-variant">{formData.customerPhone}</p>
+        <p className="mt-2 text-sm leading-6 text-on-surface-variant">{fullAddress}</p>
+        {formData.note ? <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">{formData.note}</p> : null}
+      </div>
 
-        <div className="rounded-lg border border-border-pink bg-white p-4">
-          <p className="mb-3 flex items-center gap-2 font-bold text-on-surface">
-            <Icon name="payments" className="text-primary" />
-            Thanh toán
-          </p>
-          <p className="font-semibold text-on-surface">{payLabel}</p>
-          {paymentMethod === 'MOMO' ? (
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">Bạn sẽ được chuyển sang MoMo sandbox sau khi bấm đặt hàng.</p>
-          ) : (
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">Đơn hàng được xử lý trước, thanh toán khi nhận hàng.</p>
-          )}
-          <p className="mt-4 text-2xl font-bold text-primary">{money(totalPrice)}</p>
-        </div>
+      <div className="rounded-lg border border-border-pink bg-white p-4">
+        <p className="mb-3 flex items-center gap-2 font-bold text-on-surface">
+          <Icon name="payments" className="text-primary" />
+          Phương thức thanh toán
+        </p>
+        <p className="font-semibold text-on-surface">
+          {isMomo ? 'Ví MoMo' : 'Thanh toán khi nhận hàng (COD)'}
+        </p>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border-pink bg-white">
@@ -402,16 +413,57 @@ function ConfirmStep({ formData, paymentMethod, items, totalPrice, onBack, onCon
           <Icon name="arrow_back" className="text-xl" />
           Quay lại
         </button>
-        <button type="button" onClick={onConfirm} disabled={loading} className="flex h-12 items-center justify-center gap-2 rounded-lg bg-primary font-bold text-white transition hover:bg-tertiary disabled:opacity-50">
-          <Icon name={loading ? 'hourglass_empty' : paymentMethod === 'MOMO' ? 'open_in_new' : 'check_circle'} className={loading ? 'animate-spin text-xl' : 'text-xl'} />
-          {loading ? 'Đang xử lý...' : paymentMethod === 'MOMO' ? 'Thanh toán với MoMo' : 'Đặt hàng'}
+        <button type="button" onClick={onConfirm} disabled={loading} className="flex h-12 items-center justify-center gap-2 rounded-lg bg-primary font-bold text-white transition hover:bg-tertiary disabled:cursor-not-allowed disabled:opacity-50">
+          <Icon name={loading ? 'hourglass_empty' : 'check_circle'} className={loading ? 'animate-spin text-xl' : 'text-xl'} />
+          {loading ? 'Đang xử lý...' : 'Xác nhận & Đặt hàng'}
         </button>
       </div>
     </div>
   )
 }
 
-function OrderSummary({ items, totalPrice }) {
+function ProceedPaymentStep({ paymentUrl }) {
+  return (
+    <div className="flex flex-col items-center justify-center space-y-6 py-8 text-center">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
+        <Icon name="check_circle" className="text-5xl" />
+      </div>
+      <div>
+        <h2 className="text-xl font-bold text-on-surface">Đơn hàng đã được tạo!</h2>
+        <p className="mt-2 text-on-surface-variant max-w-md">
+          Vui lòng thanh toán qua MoMo trong vòng <span className="font-bold text-error">30 phút</span> để hoàn tất đặt hàng. Quá thời gian này, hệ thống sẽ tự động hủy đơn.
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-pink-200 bg-pink-50 p-4 text-sm text-pink-700 max-w-md text-left">
+        <div className="flex items-center gap-2 font-semibold">
+          <Icon name="verified" className="text-lg" />
+          Lưu ý thanh toán MoMo Sandbox
+        </div>
+        <ul className="mt-2 list-disc list-inside space-y-1 opacity-90">
+          <li>Đây là môi trường thử nghiệm (Sandbox), KHÔNG dùng tiền thật.</li>
+          <li>Bạn sẽ được chuyển hướng sang trang thanh toán của MoMo.</li>
+          <li>Dùng ứng dụng MoMo để quét mã hoặc thanh toán bằng thẻ (tùy chọn thẻ thử nghiệm).</li>
+        </ul>
+      </div>
+
+      <a
+        href={paymentUrl}
+        className="inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-pink-600 px-8 font-bold text-white transition hover:bg-pink-700 shadow-lg shadow-pink-600/30"
+      >
+        <Icon name="open_in_new" className="text-xl" />
+        Tiến hành thanh toán
+      </a>
+      
+      <Link to="/orders" className="text-sm font-semibold text-primary hover:underline">
+        Thanh toán sau (Vào lịch sử đơn hàng)
+      </Link>
+    </div>
+  )
+}
+
+function OrderSummary({ items, totalPrice, shippingFee = 0 }) {
+  const finalPrice = totalPrice + shippingFee
   return (
     <aside className="sticky top-4 rounded-lg border border-border-pink bg-white">
       <div className="border-b border-border-pink px-4 py-3">
@@ -440,11 +492,11 @@ function OrderSummary({ items, totalPrice }) {
         </div>
         <div className="flex justify-between text-sm text-on-surface-variant">
           <span>Vận chuyển</span>
-          <span className="font-semibold text-success">Miễn phí</span>
+          <span className="font-semibold text-on-surface">{shippingFee > 0 ? money(shippingFee) : 'Miễn phí'}</span>
         </div>
         <div className="flex justify-between border-t border-border-pink pt-3 text-lg font-bold text-on-surface">
           <span>Tổng cộng</span>
-          <span className="text-primary">{money(totalPrice)}</span>
+          <span className="text-primary">{money(finalPrice)}</span>
         </div>
       </div>
     </aside>
@@ -459,6 +511,7 @@ export default function CheckoutPage() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('MOMO')
+  const [paymentUrl, setPaymentUrl] = useState('')
   const [formData, setFormData] = useState({
     customerName: user?.fullName || '',
     customerPhone: user?.phone || '',
@@ -470,6 +523,7 @@ export default function CheckoutPage() {
     ward: '',
     addressDetail: '',
     note: '',
+    shippingFee: 0,
   })
 
   function handleChange(event) {
@@ -485,6 +539,9 @@ export default function CheckoutPage() {
         customerName: formData.customerName,
         customerPhone: formData.customerPhone,
         shippingAddress,
+        ghnDistrictId: formData.districtCode ? Number(formData.districtCode) : null,
+        ghnWardCode: formData.wardCode ? String(formData.wardCode) : null,
+        shippingFee: formData.shippingFee,
         paymentMethod,
         items: items.map((item) => ({
           productId: item.id,
@@ -502,7 +559,9 @@ export default function CheckoutPage() {
         if (!result?.paymentUrl) {
           throw new Error('MoMo sandbox chưa trả về đường dẫn thanh toán. Kiểm tra MOMO_* trong .env và log order-service.')
         }
-        window.location.href = result.paymentUrl
+        setPaymentUrl(result.paymentUrl)
+        setStep(4)
+        clearCart()
         return
       }
 
@@ -547,15 +606,16 @@ export default function CheckoutPage() {
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <main>
-          <Stepper currentStep={step} />
+          {step <= 3 && <Stepper currentStep={step} />}
           <section className="rounded-lg border border-border-pink bg-white p-5 shadow-[0_4px_24px_rgba(255,107,158,0.06)]">
             {step === 1 ? <AddressStep formData={formData} onChange={handleChange} onNext={() => setStep(2)} /> : null}
-            {step === 2 ? <PaymentStep selectedMethod={paymentMethod} onSelect={setPaymentMethod} onNext={() => setStep(3)} onBack={() => setStep(1)} /> : null}
-            {step === 3 ? <ConfirmStep formData={formData} paymentMethod={paymentMethod} items={items} totalPrice={totalPrice} onBack={() => setStep(2)} onConfirm={handlePlaceOrder} loading={loading} /> : null}
+            {step === 2 ? <PaymentMethodStep selectedMethod={paymentMethod} onSelect={setPaymentMethod} onBack={() => setStep(1)} onNext={() => setStep(3)} /> : null}
+            {step === 3 ? <ConfirmStep formData={formData} items={items} paymentMethod={paymentMethod} onBack={() => setStep(2)} onConfirm={handlePlaceOrder} loading={loading} /> : null}
+            {step === 4 ? <ProceedPaymentStep paymentUrl={paymentUrl} /> : null}
           </section>
         </main>
 
-        <OrderSummary items={items} totalPrice={totalPrice} />
+        {step <= 3 && <OrderSummary items={items} totalPrice={totalPrice} shippingFee={formData.shippingFee} />}
       </div>
     </div>
   )
