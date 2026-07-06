@@ -200,6 +200,46 @@ function OrderDetailModal({ order, onClose }) {
               <span className="text-xl font-bold text-gray-950">{money(order.totalAmount)}</span>
             </div>
           </div>
+
+          {/* Hành trình đơn hàng */}
+          <div className="mt-4 rounded-lg border border-gray-100 p-5 bg-white">
+            <h3 className="text-sm font-semibold text-gray-950 mb-4 flex items-center gap-2">
+              <Icon name="route" className="text-primary text-lg" />
+              Lịch sử trạng thái
+            </h3>
+            <div className="relative pl-3 border-l-2 border-gray-200 space-y-5">
+              {(order.statusHistory?.length > 0
+                ? [...order.statusHistory].reverse()
+                : [{ status: order.status, note: order.cancelReason || 'Cập nhật trạng thái', createdAt: order.updatedAt || order.createdAt }]
+              ).map((h, idx) => {
+                const isLatest = idx === 0;
+                const hConfig = STATUS[h.status] || STATUS.PENDING;
+                return (
+                  <div key={idx} className="relative">
+                    <div className={`absolute -left-[19px] w-2.5 h-2.5 rounded-full border-2 border-white ${isLatest ? 'bg-primary ring-2 ring-primary/20' : 'bg-gray-300'}`}></div>
+                    <div className="pl-3 -mt-1.5">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-1">
+                        <span className={`font-semibold text-sm ${isLatest ? 'text-primary' : 'text-gray-600'}`}>
+                          {hConfig.label}
+                        </span>
+                        <span className="text-xs text-gray-400 font-medium">
+                          {new Date(h.createdAt).toLocaleString('vi-VN', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      {h.note && (
+                        <p className={`text-xs mt-1 p-2 rounded-md border ${isLatest ? 'bg-purple-50 border-purple-100 text-purple-700' : 'bg-gray-50 border-gray-100 text-gray-500'}`}>
+                          {h.note}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -312,8 +352,8 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(isCancel ? { cancelReason: reason } : isReadyToShip ? { weight, length, width, height, requiredNote } : {})}
-            disabled={(isCancel && !reason.trim()) || (isReadyToShip && (!weight || weight <= 0 || !length || !width || !height))}
+            onClick={() => onConfirm(isCancel ? { cancelReason: reason } : isReadyToPick ? { weight, length, width, height, requiredNote } : {})}
+            disabled={(isCancel && !reason.trim()) || (isReadyToPick && (!weight || weight <= 0 || !length || !width || !height))}
             className="flex-1 rounded-lg bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cập nhật

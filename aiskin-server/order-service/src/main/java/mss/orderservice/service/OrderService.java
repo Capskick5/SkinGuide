@@ -97,6 +97,7 @@ public class OrderService {
                 .updatedAt(LocalDateTime.now())
                 .build();
 
+        order.addStatusHistory(Order.OrderStatus.PENDING, "Khách hàng đặt đơn thành công");
         orderRepository.save(order);
 
         // 4. Handle Payment Method
@@ -274,7 +275,7 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp lý do hủy đơn");
         }
         
-        order.setStatus(Order.OrderStatus.CANCELLED);
+        order.addStatusHistory(Order.OrderStatus.CANCELLED, "Hủy đơn: " + cancelReason);
         order.setCancelReason(cancelReason);
         
         if (order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
@@ -293,7 +294,7 @@ public class OrderService {
         orderRepository.findByOrderCode(orderId).ifPresent(order -> {
             if (resultCode == 0) {
                 order.setPaymentStatus(Order.PaymentStatus.PAID);
-                order.setStatus(Order.OrderStatus.PROCESSING); // Move to next step
+                order.addStatusHistory(Order.OrderStatus.PROCESSING, "Thanh toán thành công qua Momo"); // Move to next step
             } else {
                 order.setPaymentStatus(Order.PaymentStatus.FAILED);
             }
@@ -473,7 +474,11 @@ public class OrderService {
                     }
                 }
                 
-                order.setStatus(status);
+                String note = "Admin cập nhật trạng thái";
+                if (status == Order.OrderStatus.CANCELLED && cancelReason != null && !cancelReason.trim().isEmpty()) {
+                    note = "Hủy đơn: " + cancelReason;
+                }
+                order.addStatusHistory(status, note);
                 
                 // Update payment status for CANCELLED/REFUSED
                 if ((status == Order.OrderStatus.CANCELLED || status == Order.OrderStatus.REFUSED) 
@@ -498,7 +503,7 @@ public class OrderService {
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(30);
         List<Order> expiredOrders = orderRepository.findExpiredUnpaidOrders(threshold);
         for (Order order : expiredOrders) {
-            order.setStatus(Order.OrderStatus.CANCELLED);
+            order.addStatusHistory(Order.OrderStatus.CANCELLED, "Hủy tự động do quá hạn thanh toán 30 phút");
             order.setCancelReason("Hủy tự động do quá hạn thanh toán 30 phút");
             order.setPaymentStatus(Order.PaymentStatus.FAILED);
             orderRepository.save(order);
@@ -516,7 +521,7 @@ public class OrderService {
                     String ghnStatus = (String) detail.get("status");
                     Order.OrderStatus newStatus = mapGhnStatusToSystemStatus(ghnStatus);
                     if (newStatus != null && newStatus != order.getStatus()) {
-                        order.setStatus(newStatus);
+                        order.addStatusHistory(newStatus, "Hệ thống tự động cập nhật từ GHN");
                         
                         // Update payment status if needed
                         if ((newStatus == Order.OrderStatus.CANCELLED || newStatus == Order.OrderStatus.REFUSED) 

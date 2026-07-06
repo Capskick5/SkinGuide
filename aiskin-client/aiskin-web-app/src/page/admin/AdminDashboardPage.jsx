@@ -93,6 +93,15 @@ export default function AdminDashboardPage() {
     scans: 0,
     scanUsers: 0,
     scansToday: 0,
+    // Tài chính mới
+    totalRefundAmount: 0,
+    totalReturnShippingFee: 0,
+    estimatedProfit: 0,
+    totalReturnCount: 0,
+    pendingReturnCount: 0,
+    refundedReturnCount: 0,
+    receivedReturnCount: 0,
+    completedRefundCount: 0,
   })
   const [recentUsers, setRecentUsers] = useState([])
   const [recentOrders, setRecentOrders] = useState([])
@@ -107,13 +116,14 @@ export default function AdminDashboardPage() {
     async function fetchDashboard() {
       setLoading(true)
       try {
-        const [usersPage, productsPage, brands, categories, ordersPage, scanStats] = await Promise.allSettled([
+        const [usersPage, productsPage, brands, categories, ordersPage, scanStats, financialData] = await Promise.allSettled([
           isAdmin ? adminApi.listUsers({ page: 0, size: 6, sort: 'createdAt,desc' }) : Promise.resolve({}),
           productApi.searchAdvancedProducts({ size: 1 }),
           productApi.listBrands(),
           productApi.listCategories(),
           httpClient.get('/orders?page=0&size=1000&status=ALL'),
           isAdmin ? httpClient.get('/scans/admin/stats') : Promise.resolve({}),
+          httpClient.get('/orders/admin/dashboard'),
         ])
 
         if (ignore) return
@@ -122,6 +132,7 @@ export default function AdminDashboardPage() {
         const products = productsPage.status === 'fulfilled' ? productsPage.value : {}
         const allOrders = ordersPage.status === 'fulfilled' ? ordersPage.value?.content || [] : []
         const scans = scanStats.status === 'fulfilled' ? scanStats.value || {} : {}
+        const financial = financialData.status === 'fulfilled' ? financialData.value || {} : {}
 
         const statusCounts = {}
         const dayMap = new Map()
@@ -158,11 +169,19 @@ export default function AdminDashboardPage() {
           brands: Array.isArray(brands.value) ? brands.value.length : 0,
           categories: Array.isArray(categories.value) ? categories.value.length : 0,
           orders: ordersPage.status === 'fulfilled' ? ordersPage.value?.totalElements || allOrders.length : 0,
-          revenue: totalRevenue,
-          paidOrders: paidOrders.length,
+          revenue: financial.totalRevenue ?? totalRevenue,
+          paidOrders: financial.paidOrderCount ?? paidOrders.length,
           scans: scans.totalScans || 0,
           scanUsers: scans.uniqueScanUsers || 0,
           scansToday: scans.scansToday || 0,
+          totalRefundAmount: Number(financial.totalRefundAmount || 0),
+          totalReturnShippingFee: Number(financial.totalReturnShippingFee || 0),
+          estimatedProfit: Number(financial.estimatedProfit || 0),
+          totalReturnCount: financial.totalReturnCount || 0,
+          pendingReturnCount: financial.pendingReturnCount || 0,
+          refundedReturnCount: financial.refundedReturnCount || 0,
+          receivedReturnCount: financial.receivedReturnCount || 0,
+          completedRefundCount: financial.completedRefundCount || 0,
         })
       } catch (err) {
         console.error('Admin dashboard fetch error:', err)
@@ -273,6 +292,68 @@ export default function AdminDashboardPage() {
             to={PATHS.ADMIN_SCANS}
           />
         )}
+      </div>
+
+      {/* Khu vực tài chính mới */}
+      <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between gap-4 border-b border-gray-100 px-5 py-4">
+          <h2 className="text-base font-semibold text-gray-950">📊 Tóm tắt Tài chính</h2>
+          <Link to="/admin/returns" className="text-sm font-semibold text-primary">Xem đơn khiếu nại</Link>
+        </div>
+        <div className="grid grid-cols-1 divide-y divide-gray-100 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          {/* Cột 1: Doanh thu */}
+          <div className="p-5 space-y-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Doanh thu</p>
+            <div className="flex items-baseline justify-between">
+              <p className="text-sm text-gray-600">Tổng doanh thu</p>
+              <p className="text-base font-bold text-emerald-700">{money(stats.revenue)}</p>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <p className="text-sm text-gray-600">Số đơn đã thanh toán</p>
+              <p className="text-base font-bold text-gray-950">{number(stats.paidOrders)}</p>
+            </div>
+          </div>
+
+          {/* Cột 2: Chi phí */}
+          <div className="p-5 space-y-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Chi phí phát sinh</p>
+            <div className="flex items-baseline justify-between">
+              <p className="text-sm text-gray-600">Hoàn tiền cho khách</p>
+              <p className="text-base font-bold text-rose-600">-{money(stats.totalRefundAmount)}</p>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <p className="text-sm text-gray-600">Phí ship trả hàng (GHN)</p>
+              <p className="text-base font-bold text-orange-600">-{money(stats.totalReturnShippingFee)}</p>
+            </div>
+            <div className="border-t border-gray-100 pt-3 flex items-baseline justify-between">
+              <p className="text-sm font-semibold text-gray-700">Lợi nhuận ước tính</p>
+              <p className={`text-base font-extrabold ${stats.estimatedProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                {stats.estimatedProfit >= 0 ? '' : '-'}{money(Math.abs(stats.estimatedProfit))}
+              </p>
+            </div>
+          </div>
+
+          {/* Cột 3: Khiếu nại */}
+          <div className="p-5 space-y-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Khiếu nại / Trả hàng</p>
+            <div className="flex items-baseline justify-between">
+              <p className="text-sm text-gray-600">Tổng đơn khiếu nại</p>
+              <p className="text-base font-bold text-gray-950">{number(stats.totalReturnCount)}</p>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <p className="text-sm text-gray-600">Chờ xử lý</p>
+              <p className="text-base font-bold text-amber-600">{number(stats.pendingReturnCount)}</p>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <p className="text-sm text-gray-600">Chờ xác nhận hoàn tiền</p>
+              <p className="text-base font-bold text-blue-600">{number(stats.receivedReturnCount)}</p>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <p className="text-sm text-gray-600">Hoàn tiền thành công</p>
+              <p className="text-base font-bold text-teal-600">{number(stats.refundedReturnCount)}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">

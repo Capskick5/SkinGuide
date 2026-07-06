@@ -36,7 +36,9 @@ import AdminProductsPage from '@/page/admin/AdminProductsPage'
 import AdminBrandsPage from '@/page/admin/AdminBrandsPage'
 import AdminCategoriesPage from '@/page/admin/AdminCategoriesPage'
 import AdminIngredientsPage from '@/page/admin/AdminIngredientsPage'
+import ReturnRequestPage from '@/page/orders/ReturnRequestPage'
 import AdminOrdersPage from '@/page/admin/orders/AdminOrdersPage'
+import AdminReturnOrdersPage from '@/page/admin/orders/AdminReturnOrdersPage'
 import AdminScansPage from '@/page/admin/AdminScansPage'
 
 export default function AppRoutes() {
@@ -70,6 +72,7 @@ export default function AppRoutes() {
             <Route path={PATHS.CHECKOUT} element={<CheckoutPage />} />
             <Route path={PATHS.ORDERS} element={<OrdersPage />} />
             <Route path={PATHS.ORDER_DETAIL} element={<OrderDetailPage />} />
+            <Route path={PATHS.ORDER_RETURN} element={<ReturnRequestPage />} />
             <Route path={PATHS.MOMO_RETURN} element={<MomoReturnPage />} />
             <Route path={PATHS.VNPAY_RETURN} element={<VnpayReturnPage />} />
             <Route path={PATHS.HISTORY} element={<HistoryPage />} />
@@ -91,6 +94,7 @@ export default function AppRoutes() {
             <Route path={PATHS.ADMIN_DASHBOARD} element={<AdminDashboardPage />} />
             <Route path={PATHS.ADMIN_PRODUCTS} element={<AdminProductsPage />} />
             <Route path={PATHS.ADMIN_ORDERS} element={<AdminOrdersPage />} />
+            <Route path={PATHS.ADMIN_RETURNS} element={<AdminReturnOrdersPage />} />
             <Route path={PATHS.ADMIN_SCANS} element={<AdminScansPage />} />
             <Route path={PATHS.ADMIN_BRANDS} element={<AdminBrandsPage />} />
             <Route path={PATHS.ADMIN_CATEGORIES} element={<AdminCategoriesPage />} />

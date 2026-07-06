@@ -11,6 +11,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -55,6 +56,39 @@ public class Order {
     
     @LastModifiedDate
     private LocalDateTime updatedAt;
+    
+    // Status History
+    private List<OrderStatusHistory> statusHistory;
+    
+    public void addStatusHistory(OrderStatus newStatus, String note) {
+        if (this.statusHistory == null) {
+            this.statusHistory = new ArrayList<>();
+        }
+        // Tránh bị duplicate liên tiếp cùng trạng thái
+        if (!this.statusHistory.isEmpty()) {
+            OrderStatusHistory lastHistory = this.statusHistory.get(this.statusHistory.size() - 1);
+            if (lastHistory.getStatus() == newStatus && (note == null || note.equals(lastHistory.getNote()))) {
+                return; // Bỏ qua nếu hoàn toàn trùng lặp trạng thái và ghi chú so với lần cuối
+            }
+        }
+        
+        OrderStatusHistory history = new OrderStatusHistory();
+        history.setStatus(newStatus);
+        history.setNote(note);
+        history.setCreatedAt(LocalDateTime.now());
+        
+        this.statusHistory.add(history);
+        this.setStatus(newStatus); // Tự động cập nhật field status chính
+    }
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class OrderStatusHistory {
+        private OrderStatus status;
+        private String note;
+        private LocalDateTime createdAt;
+    }
     
     public enum OrderStatus {
         PENDING, PROCESSING, 

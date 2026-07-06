@@ -162,6 +162,7 @@ function getVisiblePages(currentPage, totalPages) {
 export default function OrdersPage() {
   const { user } = useAuth()
   const [orders, setOrders] = useState([])
+  const [returnRequests, setReturnRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [confirmCancel, setConfirmCancel] = useState(null)
   const [activeTab, setActiveTab] = useState('PENDING')
@@ -197,6 +198,17 @@ export default function OrdersPage() {
         if (cancelled) return
         setOrders(data.content || [])
         setTotalPages(data.totalPages || 1)
+        
+        if (activeTab === 'DELIVERED') {
+          try {
+            const returnsData = await httpClient.get(`/returns/user/${user.id}`)
+            if (!cancelled) setReturnRequests(returnsData || [])
+          } catch (e) {
+            console.error('Failed to load returns', e)
+          }
+        } else {
+          setReturnRequests([])
+        }
       } catch (err) {
         if (!cancelled) console.error(err)
       } finally {
@@ -287,6 +299,14 @@ export default function OrdersPage() {
                     <h3 className="font-bold text-on-surface text-body-md">
                       Mã đơn: <span className="text-primary">{order.orderCode}</span>
                     </h3>
+                    
+                    {returnRequests.find(r => r.orderId === order.id && r.status !== 'REFUNDED') && (
+                      <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                        <Icon name="gavel" className="text-[13px]" />
+                        Đang khiếu nại
+                      </span>
+                    )}
+
                     <span className="hidden sm:inline text-border-pink">|</span>
                     <p className="text-caption text-on-surface-variant flex items-center gap-1.5">
                       <Icon name="calendar_today" className="text-sm" />

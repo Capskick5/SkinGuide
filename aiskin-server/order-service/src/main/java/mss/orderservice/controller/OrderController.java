@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import mss.orderservice.dto.OrderRequest;
 import mss.orderservice.dto.OrderResponse;
+import mss.orderservice.service.DashboardService;
 import mss.orderservice.service.OrderService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +19,7 @@ import java.util.Map;
 public class OrderController {
 
     private final OrderService orderService;
+    private final DashboardService dashboardService;
 
     @PostMapping
     @Operation(summary = "Create a new order", description = "Creates an order and returns payment URL if applicable")
@@ -164,5 +166,11 @@ public class OrderController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("message", "Lỗi đồng bộ: " + e.getMessage()));
         }
+    }
+
+    @GetMapping("/admin/dashboard")
+    @Operation(summary = "Dashboard tài chính", description = "Thống kê doanh thu, chi phí hoàn tiền, chi phí vận chuyển trả hàng")
+    public ResponseEntity<?> getFinancialDashboard() {
+        return ResponseEntity.ok(dashboardService.getFinancialSummary());
     }
 }

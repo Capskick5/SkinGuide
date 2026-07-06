@@ -84,7 +84,7 @@ spring:
             - id: order-service
               uri: lb://order-service
               predicates:
-                - Path=/api/orders/**,/api/payments/**,/api/ghn/**
+                - Path=/api/orders/**,/api/payments/**,/api/ghn/**,/api/returns/**,/api/refunds/**
 
             # Expose order-service OpenAPI doc through the gateway
             - id: order-service-api-docs
