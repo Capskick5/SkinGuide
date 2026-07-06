@@ -29,4 +29,10 @@ public interface OrderRepository extends MongoRepository<Order, String> {
 
     @Query("{ 'trackingCode': { $ne: null }, 'status': { $nin: ['DELIVERED', 'DELIVERY_FAILED', 'CANCELLED', 'REFUSED', 'RETURNED'] } }")
     List<Order> findActiveGhnOrders();
+
+    @Query("{ 'paymentStatus': 'PAID', 'createdAt': { $gte: ?0, $lte: ?1 } }")
+    List<Order> findPaidOrdersBetween(LocalDateTime from, LocalDateTime to);
+
+    @Query("{ 'paymentStatus': { $in: ['PAID'] }, 'status': { $nin: ['CANCELLED', 'REFUSED'] } }")
+    List<Order> findAllPaidOrders();
 }
