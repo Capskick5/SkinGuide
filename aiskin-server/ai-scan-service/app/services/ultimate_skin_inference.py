@@ -29,8 +29,11 @@ class UltimateSkinDetector:
         if model_path is None:
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             model_path = os.path.join(base_dir, "models", "ultimate_skin_resnet.pth")
+
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Không tìm thấy file trọng số Ultimate Skin tại {model_path}.")
             
-        logger.info("Đang khởi tạo Siêu AI chuẩn đoán 7 bệnh (Ultimate Skin)...")
+        logger.info("Đang khởi tạo AI hỗ trợ nhận diện vấn đề da thường gặp (Ultimate Skin)...")
         self.model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
         num_ftrs = self.model.fc.in_features
         self.model.fc = nn.Linear(num_ftrs, 7) # 7 classes
@@ -38,14 +41,11 @@ class UltimateSkinDetector:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = self.model.to(self.device)
         
-        if os.path.exists(model_path):
-            try:
-                self.model.load_state_dict(torch.load(model_path, map_location=self.device))
-                logger.info("Nạp bộ nhớ Ultimate Skin thành công!")
-            except Exception as e:
-                logger.error(f"Lỗi khi load weight Ultimate Skin: {e}")
-        else:
-            logger.warning(f"[CẢNH BÁO] Không tìm thấy file trọng số tại {model_path}. Hệ thống sẽ chạy dự phòng cho đến khi quá trình Train hoàn tất!")
+        try:
+            self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+            logger.info("Nạp bộ nhớ Ultimate Skin thành công!")
+        except Exception as e:
+            raise RuntimeError(f"Lỗi khi load weight Ultimate Skin: {e}") from e
             
         self.model.eval()
         

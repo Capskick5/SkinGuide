@@ -18,3 +18,4 @@ pandas
 scikit-learn
 
 python-dotenv==1.0.1
+pymongo

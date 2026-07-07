@@ -8,6 +8,9 @@ models/
 *.pt
 *.pth
 *.onnx
+!models/
+!models/skin_type_mobilenetv2_best.pt
+!models/face_detection_yunet_2023mar.onnx
 
 # Datasets
 datasets/
