@@ -28,6 +28,8 @@ APP_NAME = "ai-scan-service"
 APP_PORT = 5000
 MONGO_URI = os.getenv("MONGODB_URI_SCAN")
 UPLOAD_DIR = "uploads"
+MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+ALLOWED_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Global AI model & DB instance
@@ -40,6 +42,39 @@ from app.security import verify_token, has_permission
 
 def get_current_user_id(payload: dict = Depends(verify_token)):
     return payload.get("sub", "unknown_user")
+
+
+def _round_probability(value):
+    return round(float(value), 4)
+
+
+def _fallback_skin_issue_analysis(reason: str):
+    fallback_issue = {
+        "name": "Healthy",
+        "probability": 1.0,
+        "severity": "Clear",
+        "severityScore": 1,
+        "source": "fallback",
+    }
+    return {
+        "modelStatus": "unavailable",
+        "reason": reason,
+        "t_zone": {"issues": [fallback_issue]},
+        "u_zone": {"issues": [fallback_issue]},
+    }
+
+
+def _read_upload_image(image: UploadFile) -> bytes:
+    content_type = (image.content_type or "").lower()
+    if content_type and content_type not in ALLOWED_IMAGE_CONTENT_TYPES:
+        raise ValueError("File tải lên phải là ảnh JPG, PNG hoặc WEBP.")
+
+    bytes_data = image.file.read()
+    if not bytes_data:
+        raise ValueError("File ảnh đang rỗng. Vui lòng tải lên ảnh hợp lệ.")
+    if len(bytes_data) > MAX_UPLOAD_BYTES:
+        raise ValueError("Ảnh vượt quá dung lượng 8MB. Vui lòng chọn ảnh nhỏ hơn.")
+    return bytes_data
 
 
 
@@ -59,10 +94,17 @@ async def lifespan(app: FastAPI):
     # 2. Khởi tạo mô hình AI (Load weight tốn khoảng vài giây)
     try:
         skin_detector = SkinTypeDetector()
-        ultimate_detector = UltimateSkinDetector()
-        logger.info("AI Model nạp thành công.")
+        logger.info("Model A phân loại loại da nạp thành công.")
     except Exception as e:
-        logger.error(f"Lỗi khi khởi tạo AI: {e}")
+        skin_detector = None
+        logger.error(f"Lỗi khi khởi tạo Model A: {e}")
+
+    try:
+        ultimate_detector = UltimateSkinDetector()
+        logger.info("Model B nhận diện vấn đề da nạp thành công.")
+    except Exception as e:
+        ultimate_detector = None
+        logger.warning(f"Model B không khả dụng, API sẽ trả fallback minh bạch: {e}")
         
     # 2. Register to Eureka on startup
     try:
@@ -105,32 +147,42 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
     """
     Nhận file ảnh từ người dùng, chạy các mô hình AI để đánh giá tổng quan tình trạng da, lưu lịch sử quét.
     """
-    if skin_detector is None or ultimate_detector is None:
+    if skin_detector is None:
         raise HTTPException(status_code=503, detail="AI Model chưa được nạp sẵn sàng.")
         
     try:
-        # Đọc mảng byte của file ảnh gốc
-        bytes_data = image.file.read()
-        
-        # 1. Lưu file ảnh vật lý xuống thư mục uploads/
-        file_ext = image.filename.split(".")[-1] if image.filename and "." in image.filename else "jpg"
-        unique_filename = f"{uuid.uuid4()}.{file_ext}"
-        filepath = os.path.join(UPLOAD_DIR, unique_filename)
-        
-        with open(filepath, "wb") as f:
-            f.write(bytes_data)
-            
-        base_url = str(request.base_url).rstrip("/")
-        image_url = f"{base_url}/uploads/{unique_filename}"
+        # Đọc và chặn file upload không hợp lệ trước khi decode ảnh.
+        bytes_data = _read_upload_image(image)
         
         # Áp dụng Face Cropping để cắt rác hậu cảnh trước khi đưa cho các mô hình ResNet50
         cropped_bytes_data = crop_face_from_bytes(bytes_data)
         
         # Gọi mô hình phân loại da (Dùng ảnh đã cắt)
-        skin_type = skin_detector.predict(cropped_bytes_data)
+        skin_type_result = skin_detector.predict_with_probabilities(cropped_bytes_data)
+        skin_type = skin_type_result["predicted"]
+        skin_type_confidence = _round_probability(skin_type_result["confidence"])
+        skin_type_probabilities = {
+            label: _round_probability(probability)
+            for label, probability in skin_type_result["probabilities"].items()
+        }
         
-        # Gọi Siêu AI 7 Lớp phân tích top 3 vấn đề (Dùng ảnh đã cắt)
-        ultimate_analysis = ultimate_detector.predict(cropped_bytes_data, top_k=3)
+        # Gọi Model B phân tích vấn đề da. Nếu chưa có weight thật, trả fallback minh bạch thay vì chạy random.
+        if ultimate_detector is not None:
+            ultimate_analysis = ultimate_detector.predict(cropped_bytes_data, top_k=3)
+            skin_issue_model_status = "loaded"
+        else:
+            ultimate_analysis = _fallback_skin_issue_analysis("Ultimate Skin model weight is not available.")
+            skin_issue_model_status = "unavailable"
+
+        # Chỉ lưu ảnh sau khi pass AI guard và chạy model thành công.
+        # Ảnh lưu là bản đã crop/chuẩn hóa đúng với đầu vào model.
+        unique_filename = f"{uuid.uuid4()}.jpg"
+        filepath = os.path.join(UPLOAD_DIR, unique_filename)
+        with open(filepath, "wb") as f:
+            f.write(cropped_bytes_data)
+
+        base_url = str(request.base_url).rstrip("/")
+        image_url = f"{base_url}/uploads/{unique_filename}"
         
         # 3. Lưu lịch sử vào MongoDB (Chỉ lưu kết quả Scan)
         scan_id = str(uuid.uuid4())
@@ -140,8 +192,17 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
             "_id": scan_id,
             "userId": user_id,
             "imageUrl": image_url,
-            "skinType": {"predicted": skin_type, "probability": 0.85},
+            "skinType": {
+                "predicted": skin_type,
+                "probability": skin_type_confidence,
+                "confidence": skin_type_confidence,
+                "probabilities": skin_type_probabilities,
+            },
             "facialZones": ultimate_analysis,
+            "modelHealth": {
+                "skinTypeModel": "loaded",
+                "skinIssueModel": skin_issue_model_status,
+            },
             "analyzedAt": now_utc
         }
         
@@ -169,7 +230,7 @@ def validate_skin_image(image: UploadFile = File(...), user_id: str = Depends(ge
     Nếu lỗi sẽ trả về 400. Nếu thành công sẽ trả về ảnh đã xử lý dưới dạng Base64.
     """
     try:
-        bytes_data = image.file.read()
+        bytes_data = _read_upload_image(image)
         
         # Áp dụng Face Cropping để kiểm tra và lấy ảnh đã xử lý (Cắt mặt + CLAHE)
         processed_bytes_data = crop_face_from_bytes(bytes_data)
