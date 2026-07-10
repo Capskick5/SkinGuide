@@ -42,6 +42,7 @@ export const PATHS = {
   ADMIN_USERS: '/admin/users',
   ADMIN_ROLES: '/admin/roles',
   ADMIN_PRODUCTS: '/admin/products',
+  ADMIN_INVENTORY: '/admin/inventory',
   ADMIN_ORDERS: '/admin/orders',
   ADMIN_RETURNS: '/admin/returns',
   ADMIN_SCANS: '/admin/scans',

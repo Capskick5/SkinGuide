@@ -1,4 +1,4 @@
-package mss.orderservice.model;
+package mss.productservice.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -8,18 +8,28 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class OrderItem {
+public class InventoryReservationItemResponse {
+
     private String productId;
-    private String variantId;
-    private String sku;
-    private String variantName;
+
     private String productName;
+
+    private String variantId;
+
+    private String variantName;
+
+    private String sku;
+
     private String imageUrl;
-    private Integer quantity;
+
     private String unit;
+
+    private Integer quantity;
+
     private BigDecimal unitPrice;
+
     private BigDecimal subTotal;
 }

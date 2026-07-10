@@ -28,6 +28,11 @@ public class ProductSummaryResponse {
     private List<String> targetConcerns;
     private List<String> targetSkinTypes;
     private List<String> keyIngredientIds;
+    private Integer variantCount;
+    private Integer totalOnHandQuantity;
+    private Integer totalReservedQuantity;
+    private Integer totalAvailableQuantity;
+    private Boolean hasLowStock;
     
     private Instant createdAt;
     private Instant updatedAt;

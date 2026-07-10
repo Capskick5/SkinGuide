@@ -50,6 +50,14 @@ public class Order {
     
     private String cancelReason;
 
+    @Builder.Default
+    private Boolean inventoryReserved = false;
+
+    @Builder.Default
+    private Boolean inventoryCommitted = false;
+
+    private LocalDateTime reservationExpiresAt;
+
     // Timestamps
     @CreatedDate
     private LocalDateTime createdAt;

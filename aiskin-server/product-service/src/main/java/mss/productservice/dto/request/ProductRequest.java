@@ -43,4 +43,6 @@ public class ProductRequest {
     private List<String> keyIngredientIds;
 
     private List<ProductIngredientRequest> ingredients;
+
+    private List<ProductVariantRequest> variants;
 }

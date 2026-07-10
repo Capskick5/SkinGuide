@@ -24,7 +24,7 @@ public interface OrderRepository extends MongoRepository<Order, String> {
     Page<Order> findByStatusInOrderByCreatedAtDesc(List<Order.OrderStatus> statuses, Pageable pageable);
     Page<Order> findByCustomerIdAndStatusInOrderByCreatedAtDesc(String customerId, List<Order.OrderStatus> statuses, Pageable pageable);
 
-    @Query("{ 'status': 'PENDING', 'paymentMethod': { $ne: 'COD' }, 'paymentStatus': 'UNPAID', 'createdAt': { $lt: ?0 } }")
+    @Query("{ 'status': 'PENDING', 'paymentMethod': { $ne: 'COD' }, 'paymentStatus': 'UNPAID', 'inventoryReserved': true, 'reservationExpiresAt': { $lt: ?0 } }")
     List<Order> findExpiredUnpaidOrders(LocalDateTime threshold);
 
     @Query("{ 'trackingCode': { $ne: null }, 'status': { $nin: ['DELIVERED', 'DELIVERY_FAILED', 'CANCELLED', 'REFUSED', 'RETURNED'] } }")

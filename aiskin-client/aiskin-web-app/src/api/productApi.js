@@ -56,6 +56,15 @@ export const productApi = {
     params.append('size', size)
     return request(`/products/search/advanced?${params.toString()}`, { auth: false })
   },
+  async listInventoryMovements({ productId = '', variantId = '', page = 0, size = 20 } = {}) {
+    const params = new URLSearchParams({ page: String(page), size: String(size) })
+    if (productId) params.append('productId', productId)
+    if (variantId) params.append('variantId', variantId)
+    return request(`/products/inventory/movements?${params.toString()}`)
+  },
+  async adjustInventory(data) {
+    return request('/products/inventory/adjust', { method: 'POST', body: data })
+  },
 
   // ---------- Brands ----------
   async listBrands() {
@@ -129,4 +138,3 @@ export const productApi = {
     return request(`/ingredients/${id}`, { method: 'DELETE' })
   },
 }
-

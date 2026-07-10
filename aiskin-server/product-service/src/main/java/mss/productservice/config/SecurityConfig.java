@@ -1,6 +1,7 @@
 package mss.productservice.config;
 
 import mss.productservice.security.JwtAuthFilter;
+import mss.productservice.security.InternalServiceAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -30,9 +31,11 @@ public class SecurityConfig {
     };
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final InternalServiceAuthFilter internalServiceAuthFilter;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, InternalServiceAuthFilter internalServiceAuthFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.internalServiceAuthFilter = internalServiceAuthFilter;
     }
 
     @Bean
@@ -47,9 +50,11 @@ public class SecurityConfig {
                                 "/api/brands/**",
                                 "/api/categories/**",
                                 "/api/ingredients/**").permitAll()
+                        .requestMatchers("/api/products/inventory/internal/**").hasAuthority("INTERNAL_SERVICE")
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                .addFilterBefore(internalServiceAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
