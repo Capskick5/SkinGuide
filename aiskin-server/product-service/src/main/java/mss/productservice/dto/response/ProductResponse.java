@@ -29,6 +29,11 @@ public class ProductResponse {
     private List<String> targetSkinTypes;
     private List<String> keyIngredientIds;
     private List<ProductIngredientResponse> ingredients;
+    private List<ProductVariantResponse> variants;
+    private Integer totalOnHandQuantity;
+    private Integer totalReservedQuantity;
+    private Integer totalAvailableQuantity;
+    private Boolean hasLowStock;
     private Boolean isActive;
     private Instant createdAt;
     private Instant updatedAt;

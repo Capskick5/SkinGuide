@@ -16,6 +16,7 @@ const ADMIN_NAV_GROUPS = [
       { key: 'orders', label: 'Đơn hàng', icon: 'receipt_long', path: PATHS.ADMIN_ORDERS },
       { key: 'returns', label: 'Đơn khiếu nại', icon: 'assignment_return', path: PATHS.ADMIN_RETURNS },
       { key: 'products', label: 'Sản phẩm', icon: 'inventory_2', path: PATHS.ADMIN_PRODUCTS },
+      { key: 'inventory', label: 'Quản lý kho', icon: 'warehouse', path: PATHS.ADMIN_INVENTORY },
       { key: 'scans', label: 'Quét da', icon: 'document_scanner', path: PATHS.ADMIN_SCANS },
     ],
   },

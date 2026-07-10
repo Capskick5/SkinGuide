@@ -8,9 +8,15 @@ import mss.orderservice.dto.MomoPaymentRequest;
 import mss.orderservice.dto.MomoPaymentResponse;
 import mss.orderservice.dto.OrderRequest;
 import mss.orderservice.dto.OrderResponse;
+import mss.orderservice.dto.ProductInventoryApiResponse;
+import mss.orderservice.dto.ProductInventoryItemRequest;
+import mss.orderservice.dto.ProductInventoryItemResponse;
+import mss.orderservice.dto.ProductInventoryRequest;
+import mss.orderservice.dto.ProductInventoryResponse;
 import mss.orderservice.model.Order;
 import mss.orderservice.model.OrderItem;
 import mss.orderservice.repository.OrderRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -41,41 +47,40 @@ public class OrderService {
     private final VnpayConfig vnpayConfig;
     private final GhnService ghnService;
     private final RestTemplate restTemplate;
+    private final String productServiceBaseUrl;
+    private final String internalServiceToken;
 
-    public OrderService(OrderRepository orderRepository, MomoConfig momoConfig, VnpayConfig vnpayConfig, GhnService ghnService) {
+    public OrderService(OrderRepository orderRepository,
+                        MomoConfig momoConfig,
+                        VnpayConfig vnpayConfig,
+                        GhnService ghnService,
+                        @Value("${product-service.base-url}") String productServiceBaseUrl,
+                        @Value("${product-service.internal-token}") String internalServiceToken) {
         this.orderRepository = orderRepository;
         this.momoConfig = momoConfig;
         this.vnpayConfig = vnpayConfig;
         this.ghnService = ghnService;
         this.restTemplate = new RestTemplate();
+        this.productServiceBaseUrl = productServiceBaseUrl;
+        this.internalServiceToken = internalServiceToken;
     }
 
     public OrderResponse createOrder(OrderRequest request) {
-        // 1. Calculate Total Amount
-        BigDecimal totalAmount = BigDecimal.ZERO;
-        List<OrderItem> items = request.getItems().stream().map(req -> {
-            BigDecimal subTotal = req.getUnitPrice().multiply(new BigDecimal(req.getQuantity()));
-            return OrderItem.builder()
-                    .productId(req.getProductId())
-                    .productName(req.getProductName())
-                    .imageUrl(req.getImageUrl())
-                    .quantity(req.getQuantity())
-                    .unit(req.getUnit())
-                    .unitPrice(req.getUnitPrice())
-                    .subTotal(subTotal)
-                    .build();
-        }).collect(Collectors.toList());
-
-        for (OrderItem item : items) {
-            totalAmount = totalAmount.add(item.getSubTotal());
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng phải có ít nhất một sản phẩm");
         }
+
+        // 1. Generate Order Code before reserving inventory, so stock logs can reference the order.
+        String orderCode = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+
+        // 2. Reserve inventory and resolve trusted product/variant prices from product-service.
+        ProductInventoryResponse inventory = callInventoryService("reserve", toInventoryRequest(orderCode, request));
+        List<OrderItem> items = inventory.getItems().stream().map(this::toOrderItem).collect(Collectors.toList());
+        BigDecimal totalAmount = inventory.getTotalAmount() != null ? inventory.getTotalAmount() : BigDecimal.ZERO;
         
         if (request.getShippingFee() != null) {
             totalAmount = totalAmount.add(request.getShippingFee());
         }
-
-        // 2. Generate Order Code
-        String orderCode = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
         // 3. Save Order
         Order order = Order.builder()
@@ -93,6 +98,9 @@ public class OrderService {
                 .status(Order.OrderStatus.PENDING)
                 .paymentMethod(request.getPaymentMethod())
                 .paymentStatus(Order.PaymentStatus.UNPAID)
+                .inventoryReserved(true)
+                .inventoryCommitted(false)
+                .reservationExpiresAt(request.getPaymentMethod() == Order.PaymentMethod.COD ? null : LocalDateTime.now().plusMinutes(15))
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -113,6 +121,101 @@ public class OrderService {
                 .status(order.getStatus().name())
                 .paymentUrl(paymentUrl)
                 .build();
+    }
+
+    private ProductInventoryRequest toInventoryRequest(String orderCode, OrderRequest request) {
+        return ProductInventoryRequest.builder()
+                .orderCode(orderCode)
+                .items(request.getItems().stream()
+                        .map(item -> ProductInventoryItemRequest.builder()
+                                .productId(item.getProductId())
+                                .variantId(item.getVariantId())
+                                .quantity(item.getQuantity())
+                                .build())
+                        .toList())
+                .build();
+    }
+
+    private ProductInventoryRequest toInventoryRequest(Order order) {
+        return ProductInventoryRequest.builder()
+                .orderCode(order.getOrderCode())
+                .items(order.getItems().stream()
+                        .map(item -> ProductInventoryItemRequest.builder()
+                                .productId(item.getProductId())
+                                .variantId(item.getVariantId())
+                                .quantity(item.getQuantity())
+                                .build())
+                        .toList())
+                .build();
+    }
+
+    private OrderItem toOrderItem(ProductInventoryItemResponse item) {
+        return OrderItem.builder()
+                .productId(item.getProductId())
+                .variantId(item.getVariantId())
+                .sku(item.getSku())
+                .variantName(item.getVariantName())
+                .productName(item.getProductName())
+                .imageUrl(item.getImageUrl())
+                .quantity(item.getQuantity())
+                .unit(item.getUnit())
+                .unitPrice(item.getUnitPrice())
+                .subTotal(item.getSubTotal())
+                .build();
+    }
+
+    private ProductInventoryResponse callInventoryService(String action, ProductInventoryRequest request) {
+        String url = productServiceBaseUrl + "/api/products/inventory/internal/" + action;
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Internal-Service-Token", internalServiceToken);
+        HttpEntity<ProductInventoryRequest> entity = new HttpEntity<>(request, headers);
+
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                ProductInventoryApiResponse response = restTemplate.postForObject(
+                        url,
+                        entity,
+                        ProductInventoryApiResponse.class);
+                if (response == null || !Boolean.TRUE.equals(response.getSuccess()) || response.getData() == null) {
+                    String message = response != null && response.getMessage() != null
+                            ? response.getMessage()
+                            : "Inventory service did not return a valid response";
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+                }
+                return response.getData();
+            } catch (ResponseStatusException e) {
+                throw e;
+            } catch (org.springframework.web.client.HttpStatusCodeException e) {
+                if (e.getStatusCode().value() == HttpStatus.CONFLICT.value() && attempt == 1) {
+                    log.warn("Retrying inventory action {} for order {} after stock conflict", action, request.getOrderCode());
+                    continue;
+                }
+                HttpStatus status = e.getStatusCode().value() == HttpStatus.UNAUTHORIZED.value()
+                        ? HttpStatus.SERVICE_UNAVAILABLE
+                        : HttpStatus.BAD_REQUEST;
+                throw new ResponseStatusException(status, "Không thể cập nhật tồn kho: " + e.getResponseBodyAsString());
+            } catch (Exception e) {
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "Không kết nối được product-service để xử lý tồn kho: " + e.getMessage());
+            }
+        }
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "Tồn kho vừa thay đổi, vui lòng thử lại");
+    }
+
+    private void releaseInventoryIfNeeded(Order order) {
+        if (Boolean.TRUE.equals(order.getInventoryReserved()) && !Boolean.TRUE.equals(order.getInventoryCommitted())) {
+            callInventoryService("release", toInventoryRequest(order));
+            order.setInventoryReserved(false);
+        }
+    }
+
+    private void commitInventoryIfNeeded(Order order) {
+        if (Boolean.TRUE.equals(order.getInventoryReserved()) && !Boolean.TRUE.equals(order.getInventoryCommitted())) {
+            callInventoryService("commit", toInventoryRequest(order));
+            order.setInventoryReserved(false);
+            order.setInventoryCommitted(true);
+        }
     }
 
     private String generateMomoPaymentUrl(Order order) {
@@ -281,6 +384,7 @@ public class OrderService {
         if (order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
             order.setPaymentStatus(Order.PaymentStatus.FAILED);
         }
+        releaseInventoryIfNeeded(order);
         
         orderRepository.save(order);
         
@@ -405,6 +509,7 @@ public class OrderService {
                             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cần cung cấp lý do hủy đơn");
                         }
                         order.setCancelReason(cancelReason);
+                        releaseInventoryIfNeeded(order);
                     }
                 }
 
@@ -485,10 +590,16 @@ public class OrderService {
                     && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
                     order.setPaymentStatus(Order.PaymentStatus.FAILED);
                 }
+                if (status == Order.OrderStatus.CANCELLED || status == Order.OrderStatus.REFUSED) {
+                    releaseInventoryIfNeeded(order);
+                }
                 
                 // Update payment status for DELIVERED COD
                 if (status == Order.OrderStatus.DELIVERED && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
                     order.setPaymentStatus(Order.PaymentStatus.PAID);
+                }
+                if (status == Order.OrderStatus.DELIVERED) {
+                    commitInventoryIfNeeded(order);
                 }
 
                 return orderRepository.save(order);
@@ -500,12 +611,13 @@ public class OrderService {
 
     @Scheduled(fixedRate = 60000) // Chạy mỗi 1 phút
     public void autoCancelUnpaidOrders() {
-        LocalDateTime threshold = LocalDateTime.now().minusMinutes(30);
+        LocalDateTime threshold = LocalDateTime.now();
         List<Order> expiredOrders = orderRepository.findExpiredUnpaidOrders(threshold);
         for (Order order : expiredOrders) {
-            order.addStatusHistory(Order.OrderStatus.CANCELLED, "Hủy tự động do quá hạn thanh toán 30 phút");
-            order.setCancelReason("Hủy tự động do quá hạn thanh toán 30 phút");
+            order.addStatusHistory(Order.OrderStatus.CANCELLED, "Hủy tự động do quá hạn thanh toán 15 phút");
+            order.setCancelReason("Hủy tự động do quá hạn thanh toán 15 phút");
             order.setPaymentStatus(Order.PaymentStatus.FAILED);
+            releaseInventoryIfNeeded(order);
             orderRepository.save(order);
             log.info("Auto-cancelled unpaid order: {}", order.getOrderCode());
         }
@@ -528,8 +640,14 @@ public class OrderService {
                             && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
                             order.setPaymentStatus(Order.PaymentStatus.FAILED);
                         }
+                        if (newStatus == Order.OrderStatus.CANCELLED || newStatus == Order.OrderStatus.REFUSED) {
+                            releaseInventoryIfNeeded(order);
+                        }
                         if (newStatus == Order.OrderStatus.DELIVERED && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
                             order.setPaymentStatus(Order.PaymentStatus.PAID);
+                        }
+                        if (newStatus == Order.OrderStatus.DELIVERED) {
+                            commitInventoryIfNeeded(order);
                         }
                         
                         orderRepository.save(order);

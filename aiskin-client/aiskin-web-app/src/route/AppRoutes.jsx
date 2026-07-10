@@ -33,6 +33,7 @@ import AdminDashboardPage from '@/page/admin/AdminDashboardPage'
 import AdminUsersPage from '@/page/admin/AdminUsersPage'
 import RolePermissionPage from '@/page/admin/RolePermissionPage'
 import AdminProductsPage from '@/page/admin/AdminProductsPage'
+import AdminInventoryPage from '@/page/admin/AdminInventoryPage'
 import AdminBrandsPage from '@/page/admin/AdminBrandsPage'
 import AdminCategoriesPage from '@/page/admin/AdminCategoriesPage'
 import AdminIngredientsPage from '@/page/admin/AdminIngredientsPage'
@@ -93,6 +94,7 @@ export default function AppRoutes() {
           <Route element={<AdminLayout />}>
             <Route path={PATHS.ADMIN_DASHBOARD} element={<AdminDashboardPage />} />
             <Route path={PATHS.ADMIN_PRODUCTS} element={<AdminProductsPage />} />
+            <Route path={PATHS.ADMIN_INVENTORY} element={<AdminInventoryPage />} />
             <Route path={PATHS.ADMIN_ORDERS} element={<AdminOrdersPage />} />
             <Route path={PATHS.ADMIN_RETURNS} element={<AdminReturnOrdersPage />} />
             <Route path={PATHS.ADMIN_SCANS} element={<AdminScansPage />} />

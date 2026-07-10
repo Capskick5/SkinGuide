@@ -56,6 +56,8 @@ public class Product {
 
     private List<ProductIngredient> ingredients;
 
+    private List<ProductVariant> variants;
+
     @Builder.Default
     private Boolean isActive = true;
 

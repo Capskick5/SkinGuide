@@ -5,12 +5,15 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 @Data
-public class OrderItemRequest {
+public class ProductInventoryItemResponse {
     private String productId;
-    private String variantId;
     private String productName;
+    private String variantId;
+    private String variantName;
+    private String sku;
     private String imageUrl;
-    private Integer quantity;
     private String unit;
+    private Integer quantity;
     private BigDecimal unitPrice;
+    private BigDecimal subTotal;
 }

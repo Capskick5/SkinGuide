@@ -19,6 +19,7 @@ server:
 
 app:
   upload-dir: ${UPLOAD_DIR}
+  internal-service-token: ${INTERNAL_SERVICE_TOKEN:${JWT_SECRET}}
   jwt:
     secret: ${JWT_SECRET}
     issuer: aiskin-user-service

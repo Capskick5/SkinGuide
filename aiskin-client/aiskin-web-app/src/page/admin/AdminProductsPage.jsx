@@ -25,16 +25,37 @@ const EMPTY_FORM = {
   targetConcerns: [],
   targetSkinTypes: [],
   keyIngredientIds: [],
+  variants: [],
+}
+
+function createEmptyVariant() {
+  return {
+    id: '',
+    name: '',
+    sku: '',
+    price: '',
+    imageUrl: '',
+    volume: '',
+    unit: '',
+    isActive: true,
+    trackInventory: true,
+    lowStockThreshold: '5',
+    inventoryLevels: [
+      {
+        warehouseId: 'MAIN_WAREHOUSE',
+        warehouseName: 'Kho chính',
+        onHandQuantity: '0',
+        reservedQuantity: '0',
+        soldQuantity: '0',
+      },
+    ],
+  }
 }
 
 function toArray(value) {
   if (Array.isArray(value)) return value
   if (Array.isArray(value?.data)) return value.data
   return []
-}
-
-function normalize(value) {
-  return String(value || '').toLowerCase()
 }
 
 function parseTokens(text) {
@@ -46,23 +67,6 @@ function parseTokens(text) {
 
 function uniqueTokens(items) {
   return [...new Set(items.filter(Boolean))]
-}
-
-function makeSearchBlob(product, brandName, categoryName) {
-  const ingredientNames = (product.ingredients || []).map((ingredient) => ingredient.name).join(' ')
-  const ingredientIds = (product.ingredients || []).map((ingredient) => ingredient.ingredientId).join(' ')
-  return normalize([
-    product.name,
-    product.slug,
-    brandName,
-    categoryName,
-    product.description,
-    ingredientNames,
-    ingredientIds,
-    (product.targetConcerns || []).join(' '),
-    (product.targetSkinTypes || []).join(' '),
-    (product.keyIngredientIds || []).join(' '),
-  ].join(' '))
 }
 
 export default function AdminProductsPage() {
@@ -122,11 +126,13 @@ export default function AdminProductsPage() {
   }, [debouncedSearch, searchField, statusFilter, page])
 
   useEffect(() => {
-    void fetchData()
+    const timer = window.setTimeout(() => void fetchData(), 0)
+    return () => window.clearTimeout(timer)
   }, [fetchData])
 
   useEffect(() => {
-    void fetchProducts()
+    const timer = window.setTimeout(() => void fetchProducts(), 0)
+    return () => window.clearTimeout(timer)
   }, [fetchProducts])
 
   useEffect(() => {
@@ -144,19 +150,51 @@ export default function AdminProductsPage() {
     setShowForm(true)
   }
 
-  const openEdit = (product) => {
-    setEditing(product)
+  const openEdit = async (product) => {
+    let source = product
+    try {
+      source = await productApi.getProduct(product.id)
+    } catch {
+      message.warning('Không tải được chi tiết sản phẩm, đang dùng dữ liệu trên danh sách')
+    }
+
+    setEditing(source)
     setForm({
-      name: product.name || '',
-      description: product.description || '',
-      price: product.price?.toString() || '',
-      imageUrl: product.imageUrl || '',
-      images: product.images || [],
-      brandId: product.brandId || '',
-      categoryId: product.categoryId || '',
-      targetConcerns: product.targetConcerns || [],
-      targetSkinTypes: product.targetSkinTypes || [],
-      keyIngredientIds: product.keyIngredientIds || [],
+      name: source.name || '',
+      description: source.description || '',
+      price: source.price?.toString() || '',
+      imageUrl: source.imageUrl || '',
+      images: source.images || [],
+      brandId: source.brandId || '',
+      categoryId: source.categoryId || '',
+      targetConcerns: source.targetConcerns || [],
+      targetSkinTypes: source.targetSkinTypes || [],
+      keyIngredientIds: source.keyIngredientIds || [],
+      variants: (source.variants || []).map((variant) => ({
+        id: variant.id || '',
+        name: variant.name || '',
+        sku: variant.sku || '',
+        price: variant.price?.toString() || '',
+        imageUrl: variant.imageUrl || '',
+        volume: variant.volume || '',
+        unit: variant.unit || '',
+        isActive: variant.isActive !== false,
+        trackInventory: variant.trackInventory !== false,
+        lowStockThreshold: variant.lowStockThreshold?.toString() || '5',
+        inventoryLevels: (variant.inventoryLevels?.length ? variant.inventoryLevels : [{
+          warehouseId: 'MAIN_WAREHOUSE',
+          warehouseName: 'Kho chính',
+          onHandQuantity: 0,
+          reservedQuantity: 0,
+          soldQuantity: 0,
+        }]).map((level) => ({
+          warehouseId: level.warehouseId || 'MAIN_WAREHOUSE',
+          warehouseName: level.warehouseName || 'Kho chính',
+          onHandQuantity: level.onHandQuantity?.toString() || '0',
+          reservedQuantity: level.reservedQuantity?.toString() || '0',
+          soldQuantity: level.soldQuantity?.toString() || '0',
+        })),
+      })),
     })
     setShowForm(true)
   }
@@ -174,6 +212,25 @@ export default function AdminProductsPage() {
       targetConcerns: form.targetConcerns,
       targetSkinTypes: form.targetSkinTypes,
       keyIngredientIds: form.keyIngredientIds,
+      variants: form.variants.map((variant) => ({
+        id: variant.id || null,
+        name: variant.name || 'Default',
+        sku: variant.sku,
+        price: parseFloat(variant.price) || parseFloat(form.price) || 0,
+        imageUrl: variant.imageUrl || form.imageUrl,
+        volume: variant.volume,
+        unit: variant.unit,
+        isActive: variant.isActive,
+        trackInventory: variant.trackInventory,
+        lowStockThreshold: parseInt(variant.lowStockThreshold, 10) || 0,
+        inventoryLevels: (variant.inventoryLevels || []).map((level) => ({
+          warehouseId: level.warehouseId || 'MAIN_WAREHOUSE',
+          warehouseName: level.warehouseName || 'Kho chính',
+          onHandQuantity: parseInt(level.onHandQuantity, 10) || 0,
+          reservedQuantity: parseInt(level.reservedQuantity, 10) || 0,
+          soldQuantity: parseInt(level.soldQuantity, 10) || 0,
+        })),
+      })),
     }
 
     try {
@@ -288,6 +345,7 @@ export default function AdminProductsPage() {
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Thương hiệu</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Danh mục</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Giá</th>
+                  <th className="text-left px-5 py-3 font-medium text-gray-500">Kho</th>
                   <th className="text-left px-5 py-3 font-medium text-gray-500">Trạng thái</th>
                   <th className="text-right px-5 py-3 font-medium text-gray-500">Hành động</th>
                 </tr>
@@ -314,6 +372,13 @@ export default function AdminProductsPage() {
                     <td className="px-5 py-3 text-gray-600">{categoryMap.get(product.categoryId)?.name || '—'}</td>
                     <td className="px-5 py-3 text-gray-800 font-medium">
                       {product.price ? `${product.price.toLocaleString('vi-VN')}đ` : '—'}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="text-xs">
+                        <p className="font-semibold text-gray-800">Còn bán: {product.totalAvailableQuantity ?? 0}</p>
+                        <p className="text-gray-400">Tồn: {product.totalOnHandQuantity ?? 0} · Giữ: {product.totalReservedQuantity ?? 0}</p>
+                        {product.hasLowStock ? <p className="mt-1 text-amber-600 font-medium">Sắp hết hàng</p> : null}
+                      </div>
                     </td>
                     <td className="px-5 py-3">
                       {product.isActive ? (
@@ -350,7 +415,7 @@ export default function AdminProductsPage() {
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-5 py-8 text-center text-gray-400">
+                    <td colSpan={7} className="px-5 py-8 text-center text-gray-400">
                       Không có sản phẩm
                     </td>
                   </tr>
@@ -436,6 +501,11 @@ export default function AdminProductsPage() {
                 suggestionLabel={(ingredient) => `${ingredient.name} (${ingredient.id})`}
                 suggestionValue={(ingredient) => ingredient.id}
               />
+
+              <VariantField
+                value={form.variants}
+                onChange={(value) => setForm((prev) => ({ ...prev, variants: value }))}
+              />
             </div>
 
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 sticky bottom-0 bg-white">
@@ -457,6 +527,110 @@ export default function AdminProductsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function VariantField({ value, onChange }) {
+  const variants = value || []
+
+  const updateVariant = (index, patch) => {
+    onChange(variants.map((variant, currentIndex) => (
+      currentIndex === index ? { ...variant, ...patch } : variant
+    )))
+  }
+
+  const updateInventory = (variantIndex, levelIndex, patch) => {
+    const variant = variants[variantIndex]
+    const levels = variant.inventoryLevels || []
+    updateVariant(variantIndex, {
+      inventoryLevels: levels.map((level, currentIndex) => (
+        currentIndex === levelIndex ? { ...level, ...patch } : level
+      )),
+    })
+  }
+
+  const addVariant = () => {
+    onChange([...variants, createEmptyVariant()])
+  }
+
+  const removeVariant = (index) => {
+    onChange(variants.filter((_, currentIndex) => currentIndex !== index))
+  }
+
+  return (
+    <section className="border border-gray-100 rounded-xl p-4">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div>
+          <h4 className="text-sm font-semibold text-gray-900">Biến thể & tồn kho</h4>
+          <p className="text-xs text-gray-500 mt-1">Ví dụ: chai 50ml, chai 100ml. Mỗi biến thể có SKU và tồn kho riêng.</p>
+        </div>
+        <button
+          type="button"
+          onClick={addVariant}
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-pink-200 text-xs font-medium text-pink-600 hover:bg-pink-50"
+        >
+          <Icon name="add" className="text-sm" />
+          Thêm variant
+        </button>
+      </div>
+
+      {variants.length === 0 ? (
+        <div className="rounded-lg bg-gray-50 px-3 py-3 text-xs text-gray-500">
+          Chưa có variant. Nếu để trống, backend sẽ tự tạo variant mặc định cho sản phẩm mới.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {variants.map((variant, index) => {
+            const level = variant.inventoryLevels?.[0] || createEmptyVariant().inventoryLevels[0]
+            return (
+              <div key={variant.id || index} className="rounded-xl border border-gray-100 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-800">Variant #{index + 1}</p>
+                  <button
+                    type="button"
+                    onClick={() => removeVariant(index)}
+                    className="text-xs text-red-500 hover:text-red-600"
+                  >
+                    Xóa variant
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Field label="Tên variant" value={variant.name} onChange={(name) => updateVariant(index, { name })} placeholder="Chai 100ml" />
+                  <Field label="SKU" value={variant.sku} onChange={(sku) => updateVariant(index, { sku })} placeholder="SRM-A-100ML" />
+                  <Field label="Giá variant" value={variant.price} onChange={(price) => updateVariant(index, { price })} type="number" />
+                  <Field label="Ảnh variant URL" value={variant.imageUrl} onChange={(imageUrl) => updateVariant(index, { imageUrl })} />
+                  <Field label="Dung tích" value={variant.volume} onChange={(volume) => updateVariant(index, { volume })} placeholder="100" />
+                  <Field label="Đơn vị" value={variant.unit} onChange={(unit) => updateVariant(index, { unit })} placeholder="ml" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <Field label="Tồn kho" value={level.onHandQuantity} onChange={(onHandQuantity) => updateInventory(index, 0, { onHandQuantity })} type="number" />
+                  <Field label="Đang giữ" value={level.reservedQuantity} onChange={(reservedQuantity) => updateInventory(index, 0, { reservedQuantity })} type="number" />
+                  <Field label="Đã bán" value={level.soldQuantity} onChange={(soldQuantity) => updateInventory(index, 0, { soldQuantity })} type="number" />
+                  <Field label="Cảnh báo thấp" value={variant.lowStockThreshold} onChange={(lowStockThreshold) => updateVariant(index, { lowStockThreshold })} type="number" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Field label="Warehouse ID" value={level.warehouseId} onChange={(warehouseId) => updateInventory(index, 0, { warehouseId })} />
+                  <Field label="Tên kho" value={level.warehouseName} onChange={(warehouseName) => updateInventory(index, 0, { warehouseName })} />
+                </div>
+
+                <label className="inline-flex items-center gap-2 text-xs text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={variant.trackInventory}
+                    onChange={(e) => updateVariant(index, { trackInventory: e.target.checked })}
+                    className="rounded border-gray-300 text-pink-500 focus:ring-pink-500"
+                  />
+                  Theo dõi tồn kho cho variant này
+                </label>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </section>
   )
 }
 
