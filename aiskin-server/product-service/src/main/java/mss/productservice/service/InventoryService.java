@@ -149,15 +149,17 @@ public class InventoryService {
 
     @Transactional
     public synchronized InventoryMovementResponse adjust(InventoryAdjustmentRequest request) {
-        if (request.getQuantityDelta() == null || request.getQuantityDelta() == 0) {
-            throw new IllegalArgumentException("Quantity delta must be different from zero");
-        }
+        InventoryAdjustmentRequest.OperationType operationType = request.getOperationType() == null
+                ? InventoryAdjustmentRequest.OperationType.ADJUSTMENT
+                : request.getOperationType();
 
         Product product = findProduct(request.getProductId());
         ProductVariant variant = findVariant(product, request.getVariantId());
         InventoryLevel level = findLevel(variant, warehouseId(request.getWarehouseId()));
         InventorySnapshot before = snapshot(level);
-        int adjustedOnHand = before.onHand() + request.getQuantityDelta();
+        int quantityDelta = resolveQuantityDelta(request, operationType, before);
+        validateAdjustmentDirection(operationType, quantityDelta);
+        int adjustedOnHand = before.onHand() + quantityDelta;
 
         if (adjustedOnHand < 0) {
             throw new IllegalArgumentException("Tồn kho sau điều chỉnh không được âm");
@@ -171,15 +173,63 @@ public class InventoryService {
         publishProductsAfterCommit(List.of(saved));
 
         InventoryMovement movement = movementRepository.save(buildMovement(
-                new InventoryContext(product, variant, level, Math.abs(request.getQuantityDelta())),
+                new InventoryContext(product, variant, level, Math.abs(quantityDelta)),
                 before,
-                InventoryMovement.MovementType.ADJUSTMENT,
-                "ADMIN_ADJUSTMENT",
+                movementType(operationType),
+                referenceType(operationType),
                 UUID.randomUUID().toString(),
                 request.getReason(),
-                request.getQuantityDelta()
+                quantityDelta
         ));
         return toMovementResponse(movement);
+    }
+
+    private int resolveQuantityDelta(
+            InventoryAdjustmentRequest request,
+            InventoryAdjustmentRequest.OperationType operationType,
+            InventorySnapshot before) {
+        int quantityDelta;
+        if (operationType == InventoryAdjustmentRequest.OperationType.COUNT && request.getTargetQuantity() != null) {
+            if (request.getTargetQuantity() < 0) {
+                throw new IllegalArgumentException("Tồn thực tế sau kiểm kê không được âm");
+            }
+            quantityDelta = request.getTargetQuantity() - before.onHand();
+        } else {
+            quantityDelta = request.getQuantityDelta() == null ? 0 : request.getQuantityDelta();
+        }
+        if (quantityDelta == 0) {
+            throw new IllegalArgumentException("Tồn kho không thay đổi");
+        }
+        return quantityDelta;
+    }
+
+    private void validateAdjustmentDirection(
+            InventoryAdjustmentRequest.OperationType operationType,
+            int quantityDelta) {
+        if (operationType == InventoryAdjustmentRequest.OperationType.RECEIPT && quantityDelta < 0) {
+            throw new IllegalArgumentException("Số lượng nhập kho phải lớn hơn 0");
+        }
+        if (operationType == InventoryAdjustmentRequest.OperationType.WRITE_OFF && quantityDelta > 0) {
+            throw new IllegalArgumentException("Số lượng xuất hủy phải làm giảm tồn kho");
+        }
+    }
+
+    private InventoryMovement.MovementType movementType(InventoryAdjustmentRequest.OperationType operationType) {
+        return switch (operationType) {
+            case RECEIPT -> InventoryMovement.MovementType.STOCK_RECEIPT;
+            case COUNT -> InventoryMovement.MovementType.STOCK_COUNT;
+            case WRITE_OFF -> InventoryMovement.MovementType.STOCK_WRITE_OFF;
+            case ADJUSTMENT -> InventoryMovement.MovementType.ADJUSTMENT;
+        };
+    }
+
+    private String referenceType(InventoryAdjustmentRequest.OperationType operationType) {
+        return switch (operationType) {
+            case RECEIPT -> "STOCK_RECEIPT";
+            case COUNT -> "STOCK_COUNT";
+            case WRITE_OFF -> "STOCK_WRITE_OFF";
+            case ADJUSTMENT -> "ADMIN_ADJUSTMENT";
+        };
     }
 
     public Page<InventoryMovementResponse> getMovements(String productId, String variantId, int page, int size) {

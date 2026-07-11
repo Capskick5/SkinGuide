@@ -70,6 +70,9 @@ public class InventoryMovement {
         RESERVE,
         RELEASE,
         COMMIT_SALE,
+        STOCK_RECEIPT,
+        STOCK_COUNT,
+        STOCK_WRITE_OFF,
         ADJUSTMENT
     }
 }

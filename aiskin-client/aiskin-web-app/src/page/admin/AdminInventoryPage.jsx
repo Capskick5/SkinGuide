@@ -13,8 +13,17 @@ const MOVEMENT_LABELS = {
   RESERVE: 'Giữ hàng',
   RELEASE: 'Trả hàng giữ',
   COMMIT_SALE: 'Chốt bán',
+  STOCK_RECEIPT: 'Nhập hàng',
+  STOCK_COUNT: 'Kiểm kê',
+  STOCK_WRITE_OFF: 'Xuất hủy',
   ADJUSTMENT: 'Điều chỉnh',
 }
+
+const INVENTORY_OPERATIONS = [
+  { value: 'RECEIPT', label: 'Nhập hàng', inputLabel: 'Số lượng nhận thêm', placeholder: 'Ví dụ: 20' },
+  { value: 'COUNT', label: 'Kiểm kê', inputLabel: 'Tồn thực tế đếm được', placeholder: 'Ví dụ: 35' },
+  { value: 'WRITE_OFF', label: 'Xuất hủy', inputLabel: 'Số lượng loại bỏ', placeholder: 'Ví dụ: 3' },
+]
 
 function toArray(value) {
   if (Array.isArray(value)) return value
@@ -44,7 +53,7 @@ export default function AdminInventoryPage() {
   const [filter, setFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [adjustTarget, setAdjustTarget] = useState(null)
-  const [adjustment, setAdjustment] = useState({ quantityDelta: '', reason: '' })
+  const [adjustment, setAdjustment] = useState({ operationType: 'RECEIPT', quantity: '', reason: '' })
   const [submitting, setSubmitting] = useState(false)
 
   const loadProducts = useCallback(async () => {
@@ -84,7 +93,8 @@ export default function AdminInventoryPage() {
   const filteredProducts = useMemo(() => {
     const keyword = query.trim().toLowerCase()
     return products.filter((product) => {
-      const matchesQuery = !keyword || [product.name, product.slug, product.brandName]
+      const variantSearchValues = (product.variants || []).flatMap((variant) => [variant.name, variant.sku])
+      const matchesQuery = !keyword || [product.name, product.slug, product.brandName, ...variantSearchValues]
         .some((value) => String(value || '').toLowerCase().includes(keyword))
       const available = product.totalAvailableQuantity || 0
       const matchesFilter = filter === 'all'
@@ -122,19 +132,28 @@ export default function AdminInventoryPage() {
       variantName: variant.name,
       sku: variant.sku,
       warehouseId: level?.warehouseId || 'MAIN_WAREHOUSE',
+      onHand: variant.onHandQuantity || 0,
+      reserved: variant.reservedQuantity || 0,
     })
-    setAdjustment({ quantityDelta: '', reason: '' })
+    setAdjustment({ operationType: 'RECEIPT', quantity: '', reason: '' })
   }
 
   const submitAdjustment = async (event) => {
     event.preventDefault()
-    const quantityDelta = Number.parseInt(adjustment.quantityDelta, 10)
-    if (!Number.isInteger(quantityDelta) || quantityDelta === 0) {
-      message.error('Số lượng điều chỉnh phải là số nguyên khác 0')
+    const quantity = Number.parseInt(adjustment.quantity, 10)
+    if (!Number.isInteger(quantity) || quantity < 0 || (adjustment.operationType !== 'COUNT' && quantity === 0)) {
+      message.error('Vui lòng nhập số lượng nguyên hợp lệ')
+      return
+    }
+    const quantityDelta = adjustment.operationType === 'COUNT'
+      ? quantity - adjustTarget.onHand
+      : adjustment.operationType === 'WRITE_OFF' ? -quantity : quantity
+    if (quantityDelta === 0) {
+      message.info('Tồn kho không thay đổi')
       return
     }
     if (!adjustment.reason.trim()) {
-      message.error('Vui lòng nhập lý do điều chỉnh')
+      message.error('Vui lòng nhập lý do cập nhật kho')
       return
     }
 
@@ -144,17 +163,19 @@ export default function AdminInventoryPage() {
         productId: adjustTarget.productId,
         variantId: adjustTarget.variantId,
         warehouseId: adjustTarget.warehouseId,
+        operationType: adjustment.operationType,
         quantityDelta,
+        targetQuantity: adjustment.operationType === 'COUNT' ? quantity : null,
         reason: adjustment.reason.trim(),
       })
-      message.success('Đã cập nhật tồn kho và ghi lịch sử')
+      message.success('Đã cập nhật kho và ghi lịch sử')
       setAdjustTarget(null)
       await loadProducts()
       const detail = await productApi.getProduct(adjustTarget.productId)
       setSelectedProduct(detail)
       await loadMovements(adjustTarget.productId)
     } catch (error) {
-      message.error(error?.message || 'Điều chỉnh tồn kho thất bại')
+      message.error(error?.message || 'Cập nhật kho thất bại')
     } finally {
       setSubmitting(false)
     }
@@ -252,7 +273,7 @@ export default function AdminInventoryPage() {
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <h2 className="font-bold text-gray-950">Variants: {selectedProduct.name}</h2>
-              <p className="text-xs text-gray-500">Điều chỉnh tồn kho theo từng SKU và warehouse.</p>
+              <p className="text-xs text-gray-500">Nhập hàng, kiểm kê hoặc xuất hủy theo từng SKU.</p>
             </div>
             <button type="button" onClick={showAllMovements} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100" title="Đóng chi tiết">
               <Icon name="close" className="text-lg" />
@@ -268,7 +289,7 @@ export default function AdminInventoryPage() {
                   <th className="px-3 py-2">Reserved</th>
                   <th className="px-3 py-2">Available</th>
                   <th className="px-3 py-2">Sold</th>
-                  <th className="px-3 py-2 text-right">Điều chỉnh</th>
+                  <th className="px-3 py-2 text-right">Thao tác kho</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -282,7 +303,7 @@ export default function AdminInventoryPage() {
                     <td className="px-3 py-3">{variant.soldQuantity || 0}</td>
                     <td className="px-3 py-3 text-right">
                       <button type="button" onClick={() => openAdjustment(selectedProduct, variant)} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">
-                        <Icon name="tune" className="text-sm" /> Cập nhật
+                        <Icon name="inventory" className="text-sm" /> Cập nhật kho
                       </button>
                     </td>
                   </tr>
@@ -333,17 +354,39 @@ export default function AdminInventoryPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <form onSubmit={submitAdjustment} className="w-full max-w-md rounded-lg bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-              <div><h3 className="font-bold text-gray-950">Điều chỉnh tồn kho</h3><p className="text-xs text-gray-500">{adjustTarget.productName} · {adjustTarget.sku}</p></div>
+              <div><h3 className="font-bold text-gray-950">Cập nhật kho</h3><p className="text-xs text-gray-500">{adjustTarget.productName} · {adjustTarget.sku}</p></div>
               <button type="button" onClick={() => setAdjustTarget(null)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100" title="Đóng"><Icon name="close" /></button>
             </div>
             <div className="space-y-4 p-5">
+              <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Loại cập nhật kho">
+                {INVENTORY_OPERATIONS.map((operation) => (
+                  <button
+                    key={operation.value}
+                    type="button"
+                    onClick={() => setAdjustment((current) => ({ ...current, operationType: operation.value, quantity: '' }))}
+                    className={`rounded-lg border px-2 py-2 text-xs font-semibold ${adjustment.operationType === operation.value ? 'border-gray-950 bg-gray-950 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    {operation.label}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-3 gap-2 rounded-lg bg-gray-50 p-3 text-center text-xs">
+                <div><p className="text-gray-400">Tồn vật lý</p><p className="mt-1 font-bold text-gray-900">{adjustTarget.onHand}</p></div>
+                <div><p className="text-gray-400">Đang giữ</p><p className="mt-1 font-bold text-indigo-600">{adjustTarget.reserved}</p></div>
+                <div><p className="text-gray-400">Có thể bán</p><p className="mt-1 font-bold text-emerald-600">{adjustTarget.onHand - adjustTarget.reserved}</p></div>
+              </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-gray-600">Số lượng cộng/trừ</label>
-                <input type="number" value={adjustment.quantityDelta} onChange={(event) => setAdjustment((current) => ({ ...current, quantityDelta: event.target.value }))} placeholder="Ví dụ: 20 hoặc -3" className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100" />
+                <label className="mb-1 block text-xs font-semibold text-gray-600">{INVENTORY_OPERATIONS.find((item) => item.value === adjustment.operationType)?.inputLabel}</label>
+                <input type="number" min="0" step="1" value={adjustment.quantity} onChange={(event) => setAdjustment((current) => ({ ...current, quantity: event.target.value }))} placeholder={INVENTORY_OPERATIONS.find((item) => item.value === adjustment.operationType)?.placeholder} className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100" />
+                <p className="mt-1 text-xs text-gray-400">
+                  {adjustment.operationType === 'RECEIPT' && 'Số này được cộng thêm vào tồn hiện tại.'}
+                  {adjustment.operationType === 'COUNT' && 'Nhập tổng số thực tế đang có sau khi đếm.'}
+                  {adjustment.operationType === 'WRITE_OFF' && 'Dùng cho hàng hỏng, mất hoặc không còn bán được.'}
+                </p>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-gray-600">Lý do</label>
-                <textarea value={adjustment.reason} onChange={(event) => setAdjustment((current) => ({ ...current, reason: event.target.value }))} rows={3} placeholder="Nhập hàng, kiểm kê thiếu, hàng hư hỏng..." className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100" />
+                <textarea value={adjustment.reason} onChange={(event) => setAdjustment((current) => ({ ...current, reason: event.target.value }))} rows={3} placeholder="Ví dụ: Nhận lô hàng tháng 7, kiểm kê cuối ngày..." className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100" />
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t border-gray-200 px-5 py-4">
