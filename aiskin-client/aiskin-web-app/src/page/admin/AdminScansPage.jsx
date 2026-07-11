@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Icon from '@/components/common/Icon'
 import httpClient from '@/api/httpClient'
 import { adminApi } from '@/api/adminApi'
@@ -41,7 +41,7 @@ export default function AdminScansPage() {
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
 
-  async function fetchStats() {
+  const fetchStats = useCallback(async () => {
     setLoading(true)
     try {
       const [scanData, usersPage] = await Promise.all([
@@ -56,20 +56,21 @@ export default function AdminScansPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    fetchStats()
   }, [])
 
-  const scans = stats?.latestScans || []
+  useEffect(() => {
+    const timer = setTimeout(() => void fetchStats(), 0)
+    return () => clearTimeout(timer)
+  }, [fetchStats])
+
   const filteredScans = useMemo(() => {
+    const scans = stats?.latestScans || []
     const keyword = query.trim().toLowerCase()
     if (!keyword) return scans
     return scans.filter((scan) =>
       [scan.userId, scan.skinType, scan.id].some((value) => String(value || '').toLowerCase().includes(keyword)),
     )
-  }, [query, scans])
+  }, [query, stats?.latestScans])
 
   const skinBreakdown = Object.entries(stats?.skinTypeBreakdown || {})
   const conversionRate = totalUsers ? Math.round((stats?.uniqueScanUsers / totalUsers) * 100) : 0

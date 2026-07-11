@@ -194,7 +194,7 @@ export default function AdminDashboardPage() {
     return () => {
       ignore = true
     }
-  }, [])
+  }, [isAdmin])
 
   const maxRevenue = useMemo(
     () => Math.max(...revenueByDay.map((item) => item.value), 1),

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { App as AntApp } from 'antd';
 import { roleApi } from '@/api/roleApi';
 import { permissionApi } from '@/api/permissionApi';
@@ -98,17 +98,7 @@ export default function RolePermissionPage() {
     const [permPage, setPermPage] = useState(1);
     const ITEMS_PER_PAGE = 15;
 
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    // Reset pagination when search or selected role changes
-    useEffect(() => {
-        setRolePage(1);
-        setPermPage(1);
-    }, [searchPath, selectedRole]);
-
-    const loadData = async () => {
+    const loadData = useCallback(async (selectedRoleId = null) => {
         setLoading(true);
         try {
             const [rolesData, permsData] = await Promise.all([
@@ -118,8 +108,8 @@ export default function RolePermissionPage() {
             setRoles(rolesData || []);
             setPermissions(permsData || []);
             
-            if (selectedRole) {
-                const updatedRole = rolesData.find(r => r.id === selectedRole.id);
+            if (selectedRoleId) {
+                const updatedRole = rolesData.find(r => r.id === selectedRoleId);
                 if (updatedRole) {
                     setSelectedRole(updatedRole);
                     setRolePermissions(new Set(updatedRole.permissions || []));
@@ -131,7 +121,12 @@ export default function RolePermissionPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [message]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => void loadData(), 0);
+        return () => clearTimeout(timer);
+    }, [loadData]);
 
     // === HANDLERS FOR ROLES ===
     const handleCreateRole = async (e) => {
@@ -141,7 +136,7 @@ export default function RolePermissionPage() {
             await roleApi.createRole({ name: newRoleName, description: newRoleDesc });
             setNewRoleName('');
             setNewRoleDesc('');
-            loadData();
+            loadData(selectedRole?.id);
         } catch (error) {
             message.error('Lỗi tạo role: ' + (error.message || ''));
         }
@@ -150,6 +145,7 @@ export default function RolePermissionPage() {
     const handleSelectRole = (role) => {
         setSelectedRole(role);
         setRolePermissions(new Set(role.permissions || []));
+        setRolePage(1);
     };
 
     const togglePermissionForRole = (permId) => {
@@ -167,8 +163,8 @@ export default function RolePermissionPage() {
         try {
             await roleApi.assignPermissions(selectedRole.id, Array.from(rolePermissions));
             message.success('Cập nhật quyền thành công!');
-            loadData();
-        } catch (error) {
+            loadData(selectedRole.id);
+        } catch {
             message.error('Lỗi cập nhật quyền');
         }
     };
@@ -188,7 +184,7 @@ export default function RolePermissionPage() {
             if (scanEps.length > 0) await permissionApi.syncEndpoints({ service: 'ai-scan-service', endpoints: scanEps });
 
             message.success('Đồng bộ API thành công!');
-            loadData();
+            loadData(selectedRole?.id);
         } catch (error) {
             console.error('Sync failed', error);
             message.error('Lỗi khi đồng bộ API');
@@ -207,7 +203,7 @@ export default function RolePermissionPage() {
             await permissionApi.createPermission(newPerm);
             message.success('Thêm permission thành công');
             setNewPerm({ name: '', resource: '', method: 'GET', service: '', description: '' });
-            loadData();
+            loadData(selectedRole?.id);
         } catch (error) {
             message.error('Lỗi thêm permission: ' + (error.message || ''));
         }
@@ -267,7 +263,11 @@ export default function RolePermissionPage() {
                             placeholder="🔍 Tìm kiếm theo Resource Path hoặc Tên quyền..." 
                             className="w-full border border-gray-300 p-2 text-sm rounded outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-sm"
                             value={searchPath}
-                            onChange={e => setSearchPath(e.target.value)}
+                            onChange={e => {
+                                setSearchPath(e.target.value);
+                                setRolePage(1);
+                                setPermPage(1);
+                            }}
                         />
                     </div>
 

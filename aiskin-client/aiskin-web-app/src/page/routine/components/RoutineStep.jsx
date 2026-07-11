@@ -13,7 +13,7 @@ const COLOR_MAP = {
   primary: { bg: 'bg-primary/10', text: 'text-primary', border: 'border-border-pink/50' }
 }
 
-export default function RoutineStep({ step, icon, category, title, instruction, frequency, isLast, colorTheme = 'primary', time = 'morning', recommendedProducts = [], onQuickView }) {
+export default function RoutineStep({ step, icon, category, title, instruction, frequency, isLast, colorTheme = 'primary', recommendedProducts = [], onQuickView }) {
   const theme = COLOR_MAP[colorTheme] || COLOR_MAP.primary
   const markerStyle = 'bg-black shadow-[0_2px_10px_rgba(0,0,0,0.15)]'
 

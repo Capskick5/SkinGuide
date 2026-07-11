@@ -34,9 +34,6 @@ export default function HistoryDetailPage() {
     )
   }
 
-  const scoreColor =
-    scan.score >= 80 ? 'text-green-600' : scan.score >= 65 ? 'text-amber-500' : 'text-red-500'
-
   return (
     <div>
       {/* Header */}

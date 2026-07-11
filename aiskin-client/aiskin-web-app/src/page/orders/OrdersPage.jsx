@@ -43,6 +43,16 @@ function getStatusLabel(status) {
   return map[status] || { label: status, color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'info' }
 }
 
+const TABS = [
+  { key: 'PENDING', query: 'PENDING', label: 'Chờ duyệt' },
+  { key: 'PROCESSING', query: 'PROCESSING', label: 'Đang chuẩn bị' },
+  { key: 'READY_TO_PICK', query: 'READY_TO_PICK,PICKING,PICKED', label: 'Chờ lấy hàng' },
+  { key: 'TRANSPORTING', query: 'STORING,TRANSPORTING,SORTING,DELIVERING,DELIVERY_FAIL', label: 'Đang vận chuyển' },
+  { key: 'DELIVERED', query: 'DELIVERED,RECEIVED', label: 'Thành công' },
+  { key: 'REFUSED', query: 'WAITING_TO_RETURN,RETURN,RETURN_TRANSPORTING,RETURNING,RETURN_FAIL,RETURNED,REFUSED', label: 'Từ chối nhận hàng' },
+  { key: 'CANCELLED', query: 'CANCELLED', label: 'Đã hủy' },
+]
+
 /* ─────────────────────────────────────────────
    Modal Xác nhận Hủy đơn hàng
 ───────────────────────────────────────────── */
@@ -163,7 +173,7 @@ export default function OrdersPage() {
   const { user } = useAuth()
   const [orders, setOrders] = useState([])
   const [returnRequests, setReturnRequests] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(null)
   const [activeTab, setActiveTab] = useState('PENDING')
   
@@ -172,19 +182,8 @@ export default function OrdersPage() {
   const [totalPages, setTotalPages] = useState(1)
   const pageSize = 5 // 5 đơn mỗi trang cho client
 
-  const TABS = [
-    { key: 'PENDING', query: 'PENDING', label: 'Chờ duyệt' },
-    { key: 'PROCESSING', query: 'PROCESSING', label: 'Đang chuẩn bị' },
-    { key: 'READY_TO_PICK', query: 'READY_TO_PICK,PICKING,PICKED', label: 'Chờ lấy hàng' },
-    { key: 'TRANSPORTING', query: 'STORING,TRANSPORTING,SORTING,DELIVERING,DELIVERY_FAIL', label: 'Đang vận chuyển' },
-    { key: 'DELIVERED', query: 'DELIVERED,RECEIVED', label: 'Thành công' },
-    { key: 'REFUSED', query: 'WAITING_TO_RETURN,RETURN,RETURN_TRANSPORTING,RETURNING,RETURN_FAIL,RETURNED,REFUSED', label: 'Từ chối nhận hàng' },
-    { key: 'CANCELLED', query: 'CANCELLED', label: 'Đã hủy' }
-  ]
-
   useEffect(() => {
     if (!user?.id) {
-      setLoading(false)
       return
     }
     

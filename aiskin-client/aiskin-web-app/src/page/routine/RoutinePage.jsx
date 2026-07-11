@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import RoutineStep from './components/RoutineStep'
@@ -121,6 +121,61 @@ export default function RoutinePage() {
   
   const { addMultipleItems, addItem } = useCart()
 
+  const selectScan = useCallback(async (scan) => {
+    setSelectedScanId(scan._id)
+    const typeLabel = scan.skinType === 'Dry' ? 'Da khô' : scan.skinType === 'Oily' ? 'Da dầu' : 'Da thường'
+    setSkinType(typeLabel)
+
+    setAiRoutine(null)
+    setTopIngredients([])
+    setFocusAreas([])
+    setProductRecommendations([])
+    setSelectedRoutineId('')
+
+    if (scan.hasRoutine) {
+      setIsLoadingRoutine(true)
+      try {
+        const routineRes = await getScanRoutine(scan._id)
+        if (routineRes.status === 'success' && routineRes.data) {
+          const routineData = routineRes.data
+          setAiRoutine(routineData.routine || null)
+          setTopIngredients(routineData.topIngredients || [])
+          setFocusAreas(routineData.focusAreas || [])
+          setSelectedRoutineId(routineData._id || '')
+
+          const recommendations = await getRoutineRecommendations(routineData._id)
+          if (recommendations.status === 'success' && recommendations.data) {
+            setProductRecommendations(recommendations.data)
+          }
+        }
+      } catch (err) {
+        console.error('Lỗi khi fetch chi tiết routine:', err)
+      } finally {
+        setIsLoadingRoutine(false)
+      }
+    }
+  }, [])
+
+  const generateRoutineForScan = useCallback(async (scanId) => {
+    setIsGenerating(true)
+    setError(null)
+    try {
+      const res = await generateRoutine(scanId)
+      if (res.status === 'success') {
+        const history = await getScanHistory()
+        if (history.data) {
+          setHistoryList(history.data)
+          const updatedScan = history.data.find((scan) => scan._id === scanId)
+          if (updatedScan) await selectScan(updatedScan)
+        }
+      }
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setIsGenerating(false)
+    }
+  }, [selectScan])
+
   const handleAddTierToCart = (tier) => {
     setIsAddingToCart(tier)
     const selectedProducts = []
@@ -171,16 +226,16 @@ export default function RoutinePage() {
           if (location.state?.scanId) {
             const targetScan = res.data.find(h => h._id === location.state.scanId)
             if (targetScan) {
-              await handleSelectScan(targetScan)
+              await selectScan(targetScan)
               if (location.state?.needsGeneration && !targetScan.hasRoutine) {
                 // Auto generate if coming from scan page
-                handleGenerateRoutine(targetScan._id)
+                generateRoutineForScan(targetScan._id)
               }
             } else {
-              await handleSelectScan(res.data[0])
+              await selectScan(res.data[0])
             }
           } else {
-            await handleSelectScan(res.data[0])
+            await selectScan(res.data[0])
           }
         }
       } catch (err) {
@@ -191,30 +246,7 @@ export default function RoutinePage() {
     }
 
     fetchHistory()
-  }, [])
-
-  async function handleGenerateRoutine(scanId) {
-    setIsGenerating(true)
-    setError(null)
-    try {
-      const res = await generateRoutine(scanId)
-      if (res.status === 'success') {
-        // Tải lại lịch sử để cập nhật lộ trình mới
-        const histRes = await getScanHistory()
-        if (histRes.data) {
-          setHistoryList(histRes.data)
-          const updatedScan = histRes.data.find(h => h._id === scanId)
-          if (updatedScan) {
-            await handleSelectScan(updatedScan)
-          }
-        }
-      }
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setIsGenerating(false)
-    }
-  }
+  }, [generateRoutineForScan, location.state?.needsGeneration, location.state?.scanId, selectScan])
 
   async function handleGenerateRecommendations() {
     if (!selectedRoutineId) return
@@ -243,13 +275,11 @@ export default function RoutinePage() {
     if (!topIngredients || topIngredients.length === 0) return
 
     const translateAll = async () => {
-      const newTranslations = { ...translatedDescriptions }
+      const newTranslations = {}
       let changed = false
 
       for (const ing of topIngredients) {
         if (!ing.description) continue
-        if (newTranslations[ing.name]) continue // Đã dịch rồi thì bỏ qua
-
         try {
           const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=${encodeURIComponent(ing.description)}`)
           const data = await res.json()
@@ -270,49 +300,12 @@ export default function RoutinePage() {
       }
 
       if (changed) {
-        setTranslatedDescriptions(newTranslations)
+        setTranslatedDescriptions((current) => ({ ...current, ...newTranslations }))
       }
     }
 
     translateAll()
   }, [topIngredients])
-
-  async function handleSelectScan(scan) {
-    setSelectedScanId(scan._id)
-    const typeLabel = scan.skinType === 'Dry' ? 'Da khô' : scan.skinType === 'Oily' ? 'Da dầu' : 'Da thường'
-    setSkinType(typeLabel)
-    
-    // Reset state before loading new data
-    setAiRoutine(null)
-    setTopIngredients([])
-    setFocusAreas([])
-    setProductRecommendations([])
-    setSelectedRoutineId('')
-    
-    if (scan.hasRoutine) {
-      setIsLoadingRoutine(true)
-      try {
-        const routineRes = await getScanRoutine(scan._id)
-        if (routineRes.status === 'success' && routineRes.data) {
-          const rData = routineRes.data
-          setAiRoutine(rData.routine || null)
-          setTopIngredients(rData.topIngredients || [])
-          setFocusAreas(rData.focusAreas || [])
-          setSelectedRoutineId(rData._id || '')
-          
-          // Fetch recommendations
-          const recRes = await getRoutineRecommendations(rData._id)
-          if (recRes.status === 'success' && recRes.data) {
-             setProductRecommendations(recRes.data)
-          }
-        }
-      } catch(err) {
-        console.error("Lỗi khi fetch chi tiết routine:", err)
-      } finally {
-        setIsLoadingRoutine(false)
-      }
-    }
-  }
 
   const formatDate = (isoString) => {
     const d = new Date(isoString)
@@ -425,13 +418,13 @@ export default function RoutinePage() {
                           className={`w-full flex items-center gap-3 p-2 rounded-xl text-left transition-colors hover:bg-surface-soft mb-1 last:mb-0 ${isSelected ? 'bg-primary/5 border border-primary/20' : 'border border-transparent'}`}
                         >
                           <div className="w-10 h-10 rounded-lg bg-surface-container overflow-hidden shrink-0 border border-border-pink/30 cursor-pointer" onClick={() => {
-                            handleSelectScan(h);
+                            selectScan(h);
                             setIsDropdownOpen(false);
                           }}>
                             <img src={h.imageUrl} alt="thumb" className="w-full h-full object-cover" />
                           </div>
                           <div className="grow cursor-pointer" onClick={() => {
-                            handleSelectScan(h);
+                            selectScan(h);
                             setIsDropdownOpen(false);
                           }}>
                             <p className={`text-label-md font-semibold ${isSelected ? 'text-primary' : 'text-on-surface'}`}>
@@ -462,7 +455,7 @@ export default function RoutinePage() {
             Bản quét này chưa có lộ trình chăm sóc da. Nhấn nút bên dưới để AI tổng hợp dữ liệu và tạo lộ trình chuyên sâu cho bạn.
           </p>
           <button
-            onClick={() => handleGenerateRoutine(selectedScanId)}
+            onClick={() => generateRoutineForScan(selectedScanId)}
             disabled={isGenerating}
             className={`px-8 py-3 rounded-full text-white font-medium shadow-md transition-all flex items-center justify-center gap-2 ${isGenerating ? 'bg-surface-variant text-on-surface-variant cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-blue-500 hover:shadow-lg'}`}
           >
@@ -608,7 +601,6 @@ export default function RoutinePage() {
                     key={s.step}
                     {...s}
                     isLast={i === steps.length - 1}
-                    time={time}
                     recommendedProducts={products}
                     onQuickView={setQuickViewProduct}
                   />

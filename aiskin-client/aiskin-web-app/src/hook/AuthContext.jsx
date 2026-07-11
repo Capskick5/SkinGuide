@@ -1,9 +1,8 @@
-import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { authApi } from '@/api/authApi'
 import { tokenStorage } from '@/api/tokenStorage'
 import { setRefreshHandler } from '@/api/httpClient'
-
-export const AuthContext = createContext(null)
+import { AuthContext } from './authContextBase'
 
 /**
  * Cung cấp trạng thái xác thực cho toàn app:

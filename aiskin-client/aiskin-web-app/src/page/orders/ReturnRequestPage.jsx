@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { App as AntApp, Select, InputNumber } from 'antd'
@@ -55,13 +55,13 @@ export default function ReturnRequestPage() {
             setReturnItems(itemsObj)
           }
         }
-      } catch (err) {
+      } catch {
         message.error('Không tìm thấy thông tin')
         navigate('/orders')
       }
     }
     loadOrderAndReturn()
-  }, [id, navigate, isEdit])
+  }, [id, isEdit, message, navigate])
 
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files)
@@ -110,7 +110,7 @@ export default function ReturnRequestPage() {
     }
 
     const itemsPayload = Object.entries(returnItems)
-      .filter(([_, qty]) => qty > 0)
+      .filter((entry) => entry[1] > 0)
       .map(([key, qty]) => {
         const [productId, unit] = key.split('_')
         return { productId, unit, quantity: qty }
