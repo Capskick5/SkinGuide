@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { App as AntApp, Dropdown } from 'antd'
 import Icon from '@/components/common/Icon'
@@ -404,24 +404,22 @@ export default function AdminReturnOrdersPage() {
   const [syncingGhn, setSyncingGhn] = useState(false)
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
-  const [totalElements, setTotalElements] = useState(0)
   const pageSize = 10
 
-  const fetchReturns = async () => {
+  const fetchReturns = useCallback(async () => {
     try {
       setLoading(true)
       const activeTabObj = TABS.find(t => t.key === filter) || TABS[0]
       const data = await httpClient.get(`/returns?page=${page}&size=${pageSize}&status=${activeTabObj.query}`)
       setReturns(data.content || [])
       setTotalPages(data.totalPages || 1)
-      setTotalElements(data.totalElements || 0)
     } catch (err) {
       console.error('Fetch returns failed:', err)
       message.error('Lỗi khi tải danh sách')
     } finally {
       setLoading(false)
     }
-  }
+  }, [filter, message, page])
 
   const handleSyncGhn = async () => {
     try {
@@ -438,8 +436,9 @@ export default function AdminReturnOrdersPage() {
   }
 
   useEffect(() => {
-    fetchReturns()
-  }, [page, filter])
+    const timer = setTimeout(() => void fetchReturns(), 0)
+    return () => clearTimeout(timer)
+  }, [fetchReturns])
 
   function changeFilter(status) {
     setFilter(status)

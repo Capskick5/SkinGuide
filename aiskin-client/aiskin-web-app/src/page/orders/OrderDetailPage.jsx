@@ -265,15 +265,15 @@ export default function OrderDetailPage() {
             try {
               const refundData = await httpClient.get(`/refunds/return-order/${returnData.id}`)
               setRefundRequest(refundData)
-            } catch (err) {
+            } catch {
               // Ignore if no refund request exists yet
             }
           }
-        } catch (e) {
+        } catch {
           // If 404, it means no return request, ignore
         }
 
-      } catch (err) {
+      } catch {
         message.error('Không tìm thấy đơn hàng')
         navigate('/orders')
       } finally {

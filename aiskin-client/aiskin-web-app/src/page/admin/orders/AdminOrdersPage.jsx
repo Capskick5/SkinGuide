@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { App as AntApp, Dropdown, Select } from 'antd'
 import Icon from '@/components/common/Icon'
 import httpClient from '@/api/httpClient'
@@ -374,24 +374,22 @@ export default function AdminOrdersPage() {
   const [confirmUpdate, setConfirmUpdate] = useState(null)
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
-  const [totalElements, setTotalElements] = useState(0)
   const [syncingGhn, setSyncingGhn] = useState(false)
   const pageSize = 10
 
-  async function fetchOrders() {
+  const fetchOrders = useCallback(async () => {
     setLoading(true)
     try {
       const activeTabObj = TABS.find(t => t.key === filter) || TABS[0]
       const data = await httpClient.get(`/orders?page=${page}&size=${pageSize}&status=${activeTabObj.query}`)
       setOrders(data.content || [])
       setTotalPages(data.totalPages || 1)
-      setTotalElements(data.totalElements || 0)
     } catch (err) {
       console.error('Fetch orders failed:', err)
     } finally {
       setLoading(false)
     }
-  }
+  }, [filter, page])
 
   const handleSyncGhn = async () => {
     try {
@@ -408,8 +406,9 @@ export default function AdminOrdersPage() {
   }
 
   useEffect(() => {
-    fetchOrders()
-  }, [page, filter])
+    const timer = setTimeout(() => void fetchOrders(), 0)
+    return () => clearTimeout(timer)
+  }, [fetchOrders])
 
 
 

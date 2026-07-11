@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { App as AntApp, Select } from 'antd'
 import Icon from '@/components/common/Icon'
@@ -92,6 +92,9 @@ function AddressStep({ formData, onChange, onNext }) {
   const [wards, setWards] = useState([])
   const [loading, setLoading] = useState({ provinces: false, districts: false, wards: false })
   const [addressApiError, setAddressApiError] = useState('')
+  const emit = useCallback((name, value) => {
+    onChange({ target: { name, value } })
+  }, [onChange])
 
   useEffect(() => {
     let cancelled = false
@@ -171,11 +174,7 @@ function AddressStep({ formData, onChange, onNext }) {
     }
     calcFee()
     return () => { cancelled = true }
-  }, [formData.districtCode, formData.wardCode])
-
-  function emit(name, value) {
-    onChange({ target: { name, value } })
-  }
+  }, [emit, formData.districtCode, formData.wardCode])
 
   function handleProvinceChange(event) {
     const code = event.target.value
@@ -433,46 +432,6 @@ function ConfirmStep({ formData, items, paymentMethod, onBack, onConfirm, loadin
   )
 }
 
-function ProceedPaymentStep({ paymentUrl }) {
-  return (
-    <div className="flex flex-col items-center justify-center space-y-6 py-8 text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 text-emerald-500">
-        <Icon name="check_circle" className="text-5xl" />
-      </div>
-      <div>
-        <h2 className="text-xl font-bold text-on-surface">Đơn hàng đã được tạo!</h2>
-        <p className="mt-2 text-on-surface-variant max-w-md">
-          Vui lòng thanh toán trong vòng <span className="font-bold text-error">15 phút</span> để hoàn tất đặt hàng. Quá thời gian này, hệ thống sẽ tự động hủy đơn.
-        </p>
-      </div>
-
-      <div className="rounded-lg border border-pink-200 bg-pink-50 p-4 text-sm text-pink-700 max-w-md text-left">
-        <div className="flex items-center gap-2 font-semibold">
-          <Icon name="verified" className="text-lg" />
-          Lưu ý thanh toán MoMo Sandbox
-        </div>
-        <ul className="mt-2 list-disc list-inside space-y-1 opacity-90">
-          <li>Đây là môi trường thử nghiệm (Sandbox), KHÔNG dùng tiền thật.</li>
-          <li>Bạn sẽ được chuyển hướng sang trang thanh toán của MoMo.</li>
-          <li>Dùng ứng dụng MoMo để quét mã hoặc thanh toán bằng thẻ (tùy chọn thẻ thử nghiệm).</li>
-        </ul>
-      </div>
-
-      <a
-        href={paymentUrl}
-        className="inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-pink-600 px-8 font-bold text-white transition hover:bg-pink-700 shadow-lg shadow-pink-600/30"
-      >
-        <Icon name="open_in_new" className="text-xl" />
-        Tiến hành thanh toán
-      </a>
-      
-      <Link to="/orders" className="text-sm font-semibold text-primary hover:underline">
-        Thanh toán sau (Vào lịch sử đơn hàng)
-      </Link>
-    </div>
-  )
-}
-
 function OrderSummary({ items, totalPrice, shippingFee = 0 }) {
   const finalPrice = totalPrice + shippingFee
   return (
@@ -522,7 +481,6 @@ export default function CheckoutPage() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('MOMO')
-  const [paymentUrl, setPaymentUrl] = useState('')
   const [formData, setFormData] = useState({
     customerName: user?.fullName || '',
     customerPhone: user?.phone || '',
@@ -537,9 +495,9 @@ export default function CheckoutPage() {
     shippingFee: 0,
   })
 
-  function handleChange(event) {
+  const handleChange = useCallback((event) => {
     setFormData((current) => ({ ...current, [event.target.name]: event.target.value }))
-  }
+  }, [])
 
   async function handlePlaceOrder() {
     setLoading(true)

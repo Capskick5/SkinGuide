@@ -1,7 +1,7 @@
 import { useAuth } from '@/hook/useAuth'
 import { useNavigate } from 'react-router-dom'
 import { App as AntApp } from 'antd'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { PATHS } from '@/route/paths'
 
 /**
@@ -13,7 +13,7 @@ export default function SocialButtons() {
   const { message } = AntApp.useApp()
   const googleButtonRef = useRef(null)
 
-  const handleGoogleCredential = async (credential) => {
+  const handleGoogleCredential = useCallback(async (credential) => {
     try {
       const loggedUser = await loginWithGoogle(credential)
       message.success('Đăng nhập bằng Google thành công')
@@ -24,7 +24,7 @@ export default function SocialButtons() {
     } catch (err) {
       message.error(err.message || 'Đăng nhập Google thất bại, vui lòng thử lại')
     }
-  }
+  }, [loginWithGoogle, message, navigate])
 
   useEffect(() => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
@@ -64,7 +64,7 @@ export default function SocialButtons() {
       }, 100)
       return () => clearInterval(scriptInterval)
     }
-  }, [])
+  }, [handleGoogleCredential])
 
   return (
     <div className="mt-8">

@@ -27,7 +27,7 @@ export default function AdminUsersPage() {
       setUsers(data.content || [])
       setTotalPages(data.totalPages || 0)
       setTotalElements(data.totalElements || 0)
-    } catch (err) {
+    } catch {
       message.error('Không tải được danh sách người dùng')
     } finally {
       setLoading(false)
@@ -38,21 +38,19 @@ export default function AdminUsersPage() {
     try {
       const data = await roleApi.getAllRoles()
       setRolesList(data || [])
-    } catch (err) {
+    } catch {
       message.error('Không tải được danh sách role')
     }
   }, [])
 
   useEffect(() => {
-    fetchRoles()
+    const timer = setTimeout(() => void fetchRoles(), 0)
+    return () => clearTimeout(timer)
   }, [fetchRoles])
 
   useEffect(() => {
-    setPage(0)
-  }, [activeTab])
-
-  useEffect(() => {
-    fetchUsers()
+    const timer = setTimeout(() => void fetchUsers(), 0)
+    return () => clearTimeout(timer)
   }, [fetchUsers])
 
   const handleToggleActive = async (user) => {
@@ -138,7 +136,10 @@ export default function AdminUsersPage() {
         {availableRoles.map((role) => (
           <button
             key={role.name}
-            onClick={() => setActiveTab(role.name)}
+            onClick={() => {
+              setActiveTab(role.name)
+              setPage(0)
+            }}
             className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === role.name
                 ? 'border-pink-500 text-pink-600'

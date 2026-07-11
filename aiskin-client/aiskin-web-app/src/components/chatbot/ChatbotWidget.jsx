@@ -143,10 +143,14 @@ export default function ChatbotWidget() {
   // ─── Auto scroll ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (open) {
-      setUnread(0)
       setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
     }
   }, [open, messages])
+
+  const handleToggle = () => {
+    if (!open) setUnread(0)
+    setOpen((current) => !current)
+  }
 
   // ─── Send message ───────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text) => {
@@ -234,7 +238,7 @@ export default function ChatbotWidget() {
       <button
         type="button"
         id="chatbot-toggle-btn"
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleToggle}
         className={[
           'fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full gradient-bg text-white',
           'flex items-center justify-center shadow-[0_8px_30px_rgba(177,14,107,0.4)]',
