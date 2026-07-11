@@ -2,6 +2,7 @@ package mss.productservice.service;
 
 import mss.productservice.dto.request.InventoryReservationItemRequest;
 import mss.productservice.dto.request.InventoryReservationRequest;
+import mss.productservice.dto.request.InventoryAdjustmentRequest;
 import mss.productservice.model.InventoryLevel;
 import mss.productservice.model.InventoryMovement;
 import mss.productservice.model.Product;
@@ -23,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -70,7 +72,7 @@ class InventoryServiceTest {
                 .variants(new ArrayList<>(List.of(variant)))
                 .build();
 
-        when(productRepository.findById("product-1")).thenReturn(Optional.of(product));
+        lenient().when(productRepository.findById("product-1")).thenReturn(Optional.of(product));
     }
 
     @Test
@@ -153,6 +155,49 @@ class InventoryServiceTest {
         verify(productRepository, never()).saveAll(any());
     }
 
+    @Test
+    void receiptAddsPhysicalStockAndRecordsReceiptMovement() {
+        stubAdjustmentPersistence();
+        var response = inventoryService.adjust(adjustment(
+                InventoryAdjustmentRequest.OperationType.RECEIPT, 5, "Nhập hàng từ nhà cung cấp"));
+
+        assertThat(level.getOnHandQuantity()).isEqualTo(15);
+        assertThat(response.getType()).isEqualTo("STOCK_RECEIPT");
+        assertThat(response.getQuantity()).isEqualTo(5);
+    }
+
+    @Test
+    void countCanCorrectPhysicalStockDownToReservedQuantity() {
+        level.setReservedQuantity(3);
+        stubAdjustmentPersistence();
+        var request = adjustment(
+                InventoryAdjustmentRequest.OperationType.COUNT, -7, "Kiểm kê cuối ngày");
+        request.setQuantityDelta(-1); // Simulates a stale client-side delta; target quantity remains authoritative.
+
+        var response = inventoryService.adjust(request);
+
+        assertThat(level.getOnHandQuantity()).isEqualTo(3);
+        assertThat(response.getType()).isEqualTo("STOCK_COUNT");
+    }
+
+    @Test
+    void writeOffRejectsPositiveDelta() {
+        assertThatThrownBy(() -> inventoryService.adjust(adjustment(
+                InventoryAdjustmentRequest.OperationType.WRITE_OFF, 2, "Sai chiều")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("làm giảm tồn kho");
+    }
+
+    @Test
+    void adjustmentCannotReduceOnHandBelowReservedStock() {
+        level.setReservedQuantity(4);
+
+        assertThatThrownBy(() -> inventoryService.adjust(adjustment(
+                InventoryAdjustmentRequest.OperationType.WRITE_OFF, -7, "Hàng hỏng")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("thấp hơn số lượng đang giữ");
+    }
+
     private void stubReserveAllowed() {
         when(movementRepository.findByReferenceTypeAndReferenceIdAndType(
                 "ORDER", "ORD-1", InventoryMovement.MovementType.RESERVE)).thenReturn(List.of());
@@ -160,6 +205,11 @@ class InventoryServiceTest {
                 "ORDER", "ORD-1", InventoryMovement.MovementType.RELEASE)).thenReturn(List.of());
         when(movementRepository.findByReferenceTypeAndReferenceIdAndType(
                 "ORDER", "ORD-1", InventoryMovement.MovementType.COMMIT_SALE)).thenReturn(List.of());
+    }
+
+    private void stubAdjustmentPersistence() {
+        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(movementRepository.save(any(InventoryMovement.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     private InventoryReservationRequest request(String orderCode, int quantity) {
@@ -170,6 +220,23 @@ class InventoryServiceTest {
                         .variantId("variant-1")
                         .quantity(quantity)
                         .build()))
+                .build();
+    }
+
+    private InventoryAdjustmentRequest adjustment(
+            InventoryAdjustmentRequest.OperationType operationType,
+            int quantityDelta,
+            String reason) {
+        return InventoryAdjustmentRequest.builder()
+                .productId("product-1")
+                .variantId("variant-1")
+                .warehouseId(InventoryService.DEFAULT_WAREHOUSE_ID)
+                .operationType(operationType)
+                .quantityDelta(quantityDelta)
+                .targetQuantity(operationType == InventoryAdjustmentRequest.OperationType.COUNT
+                        ? level.getOnHandQuantity() + quantityDelta
+                        : null)
+                .reason(reason)
                 .build();
     }
 
