@@ -23,7 +23,7 @@ public class ProductController {
 
     private final ProductService productService;
 
-    @PostMapping("/sync-kafka")
+    @PostMapping("/internal/sync-kafka")
     public ResponseEntity<ApiResponse<String>> syncKafka() {
         productService.syncAllProductsToKafka();
         return ResponseEntity.ok(ApiResponse.ok("Products synced to Kafka successfully", null));

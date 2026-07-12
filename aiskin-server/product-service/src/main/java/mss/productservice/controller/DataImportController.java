@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/products/import")
+@RequestMapping("/api/products/internal/import")
 public class DataImportController {
 
     private final DataImportService dataImportService;
@@ -21,11 +21,10 @@ public class DataImportController {
     }
 
     @PostMapping("/json")
-    public ResponseEntity<String> importProducts(@RequestBody List<Product> products) {
+    public ResponseEntity<DataImportService.ImportResult> importProducts(@RequestBody List<Product> products) {
         if (products == null || products.isEmpty()) {
-            return ResponseEntity.badRequest().body("Payload cannot be empty");
+            return ResponseEntity.badRequest().build();
         }
-        int count = dataImportService.importProducts(products);
-        return ResponseEntity.ok("Successfully imported " + count + " products.");
+        return ResponseEntity.ok(dataImportService.importProducts(products));
     }
 }

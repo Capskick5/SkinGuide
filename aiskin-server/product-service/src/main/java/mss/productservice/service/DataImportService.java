@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import mss.productservice.util.SlugUtil;
+
 @Service
 public class DataImportService {
 
@@ -23,9 +25,20 @@ public class DataImportService {
         this.ingredientRepository = ingredientRepository;
     }
 
-    public int importProducts(List<Product> products) {
-        int count = 0;
+    public ImportResult importProducts(List<Product> products) {
+        int imported = 0;
+        int skipped = 0;
         for (Product p : products) {
+            String slug = p.getSlug();
+            if (slug == null || slug.isBlank()) {
+                slug = SlugUtil.toSlug(p.getName());
+                p.setSlug(slug);
+            }
+            if (productRepository.existsBySlug(slug)) {
+                skipped++;
+                continue;
+            }
+
             // Handle Brand
             if (p.getBrandName() != null && !p.getBrandName().isEmpty()) {
                 String brandSlug = p.getBrandName().toLowerCase().replaceAll("[^a-z0-9\\\\s-]", "").replaceAll("[\\\\s-]+", "-");
@@ -80,8 +93,11 @@ public class DataImportService {
 
             p.setIsActive(true);
             productRepository.save(p);
-            count++;
+            imported++;
         }
-        return count;
+        return new ImportResult(imported, skipped, products.size());
+    }
+
+    public record ImportResult(int imported, int skipped, int total) {
     }
 }
