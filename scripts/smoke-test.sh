@@ -9,7 +9,11 @@ check() {
   local expected="${3:-200}"
   local method="${4:-GET}"
   local code
-  code="$(curl -sS -X "$method" -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)"
+  for attempt in {1..5}; do
+    code="$(curl -sS -X "$method" -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)"
+    [[ "$code" == "$expected" ]] && break
+    sleep 2
+  done
   if [[ "$code" == "$expected" ]]; then
     printf '%-24s PASS (HTTP %s)\n' "$name" "$code"
   else

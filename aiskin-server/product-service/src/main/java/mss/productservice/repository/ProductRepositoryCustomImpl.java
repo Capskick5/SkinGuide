@@ -10,17 +10,37 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
 public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
 
     private final MongoTemplate mongoTemplate;
+
+    @Override
+    public Optional<Product> findByFlexibleId(String id) {
+        if (!StringUtils.hasText(id)) {
+            return Optional.empty();
+        }
+        var collection = mongoTemplate.getCollection(mongoTemplate.getCollectionName(Product.class));
+        Document document = null;
+        if (ObjectId.isValid(id)) {
+            document = collection.find(new Document("_id", new ObjectId(id))).first();
+        }
+        if (document == null) {
+            document = collection.find(new Document("_id", id)).first();
+        }
+        return Optional.ofNullable(document)
+                .map(value -> mongoTemplate.getConverter().read(Product.class, value));
+    }
 
     @Override
     public Page<Product> searchAdvanced(ProductSearchRequest request) {

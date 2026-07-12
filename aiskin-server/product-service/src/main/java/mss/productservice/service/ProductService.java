@@ -65,7 +65,7 @@ public class ProductService {
     }
 
     public ProductResponse getProductById(String id) {
-        Product product = productRepository.findById(id)
+        Product product = productRepository.findByFlexibleId(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
         enrichProduct(product);
         return toResponse(product);
@@ -152,7 +152,7 @@ public class ProductService {
     }
 
     public ProductResponse updateProduct(String id, ProductRequest request) {
-        Product product = productRepository.findById(id)
+        Product product = productRepository.findByFlexibleId(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
 
         String newSlug = SlugUtil.toSlug(request.getName());
@@ -185,7 +185,7 @@ public class ProductService {
     }
 
     public void deleteProduct(String id) {
-        Product product = productRepository.findById(id)
+        Product product = productRepository.findByFlexibleId(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
         product.setIsActive(false);
         Product saved = productRepository.save(product);
@@ -464,8 +464,8 @@ public class ProductService {
                 .price(product.getPrice())
                 .imageUrl(product.getImageUrl())
                 .isActive(product.getIsActive())
-                .trackInventory(false)
-                .lowStockThreshold(0)
+                .trackInventory(true)
+                .lowStockThreshold(5)
                 .inventoryLevels(Collections.emptyList())
                 .build();
     }

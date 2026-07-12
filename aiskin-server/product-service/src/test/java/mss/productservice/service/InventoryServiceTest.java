@@ -72,7 +72,7 @@ class InventoryServiceTest {
                 .variants(new ArrayList<>(List.of(variant)))
                 .build();
 
-        lenient().when(productRepository.findById("product-1")).thenReturn(Optional.of(product));
+        lenient().when(productRepository.findByFlexibleId("product-1")).thenReturn(Optional.of(product));
     }
 
     @Test
