@@ -353,7 +353,7 @@ public class InventoryService {
     }
 
     private Product findProduct(String productId) {
-        return productRepository.findById(productId)
+        return productRepository.findByFlexibleId(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
     }
 
