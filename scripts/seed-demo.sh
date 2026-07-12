@@ -26,6 +26,14 @@ if [[ -z "$TOKEN" ]]; then
   exit 1
 fi
 
+MONGO_URI="${MONGODB_URI_PRODUCT:-}"
+MONGO_TARGET="${MONGO_URI#*://}"
+MONGO_TARGET="${MONGO_TARGET#*@}"
+MONGO_TARGET="${MONGO_TARGET%%\?*}"
+if [[ -n "$MONGO_TARGET" ]]; then
+  echo "Target database: ${MONGO_URI%%://*}://$MONGO_TARGET"
+fi
+
 if ! curl -fsS "$PRODUCT_URL/actuator/health" >/dev/null; then
   echo "Product service is not ready at $PRODUCT_URL. Run scripts/start-dev.sh first."
   exit 1

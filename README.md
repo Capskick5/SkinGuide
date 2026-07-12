@@ -16,6 +16,7 @@ Mở terminal khác để kiểm tra:
 ```bash
 ./scripts/status-dev.sh
 ./scripts/smoke-test.sh
+./scripts/check-demo-data.sh
 ```
 
 Các địa chỉ chính:
@@ -45,6 +46,8 @@ Sau khi product-service đã chạy:
 ```
 
 Script import 500 sản phẩm từ `my-doc/data/product_dataset.json`. Endpoint seed dùng token nội bộ và import theo `slug`, vì vậy chạy lại sẽ bỏ qua sản phẩm đã có thay vì tạo trùng. Số lượng tồn kho được nhập riêng tại trang **Admin > Inventory**, vì tồn kho là giao dịch nghiệp vụ cần có lịch sử movement.
+
+`seed-demo.sh` ghi vào database được cấu hình trong `.env`, không mặc định là local. Script sẽ in hostname và tên database đích trước khi import.
 
 ## Checklist trước khi demo
 
