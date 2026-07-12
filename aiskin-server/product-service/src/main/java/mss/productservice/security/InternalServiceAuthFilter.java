@@ -21,7 +21,10 @@ import java.util.List;
 public class InternalServiceAuthFilter extends OncePerRequestFilter {
 
     public static final String TOKEN_HEADER = "X-Internal-Service-Token";
-    private static final String INTERNAL_PATH = "/api/products/inventory/internal/";
+    private static final List<String> INTERNAL_PATHS = List.of(
+            "/api/products/internal/",
+            "/api/products/inventory/internal/"
+    );
 
     private final byte[] expectedToken;
 
@@ -31,7 +34,7 @@ public class InternalServiceAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
-        return !request.getRequestURI().startsWith(INTERNAL_PATH);
+        return INTERNAL_PATHS.stream().noneMatch(request.getRequestURI()::startsWith);
     }
 
     @Override
@@ -48,7 +51,7 @@ public class InternalServiceAuthFilter extends OncePerRequestFilter {
         }
 
         var authentication = new UsernamePasswordAuthenticationToken(
-                "order-service",
+                "internal-service",
                 null,
                 List.of(new SimpleGrantedAuthority("INTERNAL_SERVICE")));
         SecurityContextHolder.getContext().setAuthentication(authentication);

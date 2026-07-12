@@ -20,14 +20,7 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
-            "/actuator/health",
-            // TODO: Bỏ comment nếu muốn API GET products là public
-            // "/api/v1/products/**",
-            // "/api/v1/categories/**",
-            // "/api/v1/brands/**",
-            // "/api/v1/ingredients/**",
-            "/api/products/import/**",
-            "/api/products/sync-kafka"
+            "/actuator/health"
     };
 
     private final JwtAuthFilter jwtAuthFilter;
@@ -50,6 +43,7 @@ public class SecurityConfig {
                                 "/api/brands/**",
                                 "/api/categories/**",
                                 "/api/ingredients/**").permitAll()
+                        .requestMatchers("/api/products/internal/**").hasAuthority("INTERNAL_SERVICE")
                         .requestMatchers("/api/products/inventory/internal/**").hasAuthority("INTERNAL_SERVICE")
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex

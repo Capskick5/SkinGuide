@@ -41,3 +41,8 @@ springdoc:
     operations-sorter: method
   api-docs:
     path: /v3/api-docs
+
+management:
+  health:
+    mongodb:
+      enabled: false
