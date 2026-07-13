@@ -48,7 +48,7 @@ public class ProductService {
 
     public void syncAllProductsToKafka() {
         List<Product> products = enrichProducts(productRepository.findAll());
-        productRepository.saveAll(products);
+        productRepository.saveAllFlexible(products);
         kafkaProductProducer.sendBulkProducts(products);
     }
 
@@ -178,7 +178,7 @@ public class ProductService {
             product.setVariants(mapVariantsForUpdate(request.getVariants(), product.getVariants(), product.getSlug()));
         }
 
-        Product saved = productRepository.save(product);
+        Product saved = productRepository.saveFlexible(product);
         kafkaProductProducer.sendProduct(saved);
         enrichProduct(saved);
         return toResponse(saved);
@@ -188,7 +188,7 @@ public class ProductService {
         Product product = productRepository.findByFlexibleId(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
         product.setIsActive(false);
-        Product saved = productRepository.save(product);
+        Product saved = productRepository.saveFlexible(product);
         kafkaProductProducer.sendProduct(enrichProduct(saved));
     }
 

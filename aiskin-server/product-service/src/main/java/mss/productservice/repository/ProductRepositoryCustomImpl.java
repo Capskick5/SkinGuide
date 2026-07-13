@@ -12,12 +12,15 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.bson.Document;
 import org.bson.types.ObjectId;
+import com.mongodb.client.model.ReplaceOptions;
 import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collection;
+import java.time.Instant;
 
 @Repository
 @RequiredArgsConstructor
@@ -40,6 +43,44 @@ public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
         }
         return Optional.ofNullable(document)
                 .map(value -> mongoTemplate.getConverter().read(Product.class, value));
+    }
+
+    @Override
+    public Product saveFlexible(Product product) {
+        if (product.getId() == null) {
+            return mongoTemplate.save(product);
+        }
+
+        var collection = mongoTemplate.getCollection(mongoTemplate.getCollectionName(Product.class));
+        Object storedId = product.getId();
+        if (ObjectId.isValid(product.getId())) {
+            ObjectId objectId = new ObjectId(product.getId());
+            if (collection.countDocuments(new Document("_id", objectId)) > 0) {
+                storedId = objectId;
+            }
+        }
+        product.setUpdatedAt(Instant.now());
+        Document replacement = new Document();
+        mongoTemplate.getConverter().write(product, replacement);
+        replacement.put("_id", storedId);
+
+        var result = collection.replaceOne(
+                new Document("_id", storedId),
+                replacement,
+                new ReplaceOptions().upsert(false));
+        if (result.getMatchedCount() != 1) {
+            throw new IllegalStateException("Product no longer exists: " + product.getId());
+        }
+        return product;
+    }
+
+    @Override
+    public List<Product> saveAllFlexible(Collection<Product> products) {
+        List<Product> saved = new ArrayList<>();
+        for (Product product : products) {
+            saved.add(saveFlexible(product));
+        }
+        return saved;
     }
 
     @Override

@@ -84,7 +84,7 @@ class InventoryServiceTest {
         assertThat(level.getOnHandQuantity()).isEqualTo(10);
         assertThat(level.getReservedQuantity()).isEqualTo(3);
         assertThat(response.getTotalAmount()).isEqualByComparingTo("300000");
-        verify(productRepository).saveAll(any());
+        verify(productRepository).saveAllFlexible(any());
         verify(movementRepository).saveAll(anyList());
     }
 
@@ -98,7 +98,7 @@ class InventoryServiceTest {
         inventoryService.reserve(request("ORD-1", 3));
 
         assertThat(level.getReservedQuantity()).isEqualTo(3);
-        verify(productRepository, never()).saveAll(any());
+        verify(productRepository, never()).saveAllFlexible(any());
     }
 
     @Test
@@ -152,7 +152,7 @@ class InventoryServiceTest {
         assertThatThrownBy(() -> inventoryService.reserve(request("ORD-1", 11)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("chỉ còn 10");
-        verify(productRepository, never()).saveAll(any());
+        verify(productRepository, never()).saveAllFlexible(any());
     }
 
     @Test
@@ -208,7 +208,7 @@ class InventoryServiceTest {
     }
 
     private void stubAdjustmentPersistence() {
-        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(productRepository.saveFlexible(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(movementRepository.save(any(InventoryMovement.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
