@@ -169,7 +169,7 @@ public class InventoryService {
         }
 
         level.setOnHandQuantity(adjustedOnHand);
-        Product saved = productRepository.save(product);
+        Product saved = productRepository.saveFlexible(product);
         publishProductsAfterCommit(List.of(saved));
 
         InventoryMovement movement = movementRepository.save(buildMovement(
@@ -418,7 +418,7 @@ public class InventoryService {
     private void saveProducts(List<InventoryContext> contexts) {
         Map<String, Product> uniqueProducts = new LinkedHashMap<>();
         contexts.forEach(context -> uniqueProducts.put(context.product().getId(), context.product()));
-        List<Product> saved = productRepository.saveAll(uniqueProducts.values());
+        List<Product> saved = productRepository.saveAllFlexible(uniqueProducts.values());
         publishProductsAfterCommit(saved);
     }
 

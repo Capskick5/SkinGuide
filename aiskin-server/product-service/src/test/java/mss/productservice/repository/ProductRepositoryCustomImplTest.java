@@ -7,11 +7,14 @@ import org.bson.Document;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.convert.MongoConverter;
+import com.mongodb.client.result.UpdateResult;
+import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 class ProductRepositoryCustomImplTest {
 
@@ -50,6 +53,31 @@ class ProductRepositoryCustomImplTest {
         var result = new ProductRepositoryCustomImpl(mongoTemplate).findByFlexibleId("product-1");
 
         assertThat(result).contains(product);
+    }
+
+    @Test
+    void updatesLegacyObjectIdWithoutInsertingDuplicateProduct() {
+        MongoTemplate mongoTemplate = mock(MongoTemplate.class);
+        MongoCollection<Document> collection = mockCollection(mongoTemplate);
+        MongoConverter converter = mock(MongoConverter.class);
+        UpdateResult updateResult = mock(UpdateResult.class);
+        Product product = Product.builder()
+                .id("6a3e2b70b4a9c15cfa665676")
+                .slug("legacy-product")
+                .build();
+        when(mongoTemplate.getConverter()).thenReturn(converter);
+        when(collection.countDocuments(any(Document.class))).thenReturn(1L);
+        when(collection.replaceOne(any(Document.class), any(Document.class), any()))
+                .thenReturn(updateResult);
+        when(updateResult.getMatchedCount()).thenReturn(1L);
+
+        Product saved = new ProductRepositoryCustomImpl(mongoTemplate).saveFlexible(product);
+
+        ArgumentCaptor<Document> filter = ArgumentCaptor.forClass(Document.class);
+        verify(collection).replaceOne(filter.capture(), any(Document.class), any());
+        assertThat(filter.getValue().get("_id")).isInstanceOf(org.bson.types.ObjectId.class);
+        assertThat(saved).isSameAs(product);
+        assertThat(saved.getUpdatedAt()).isNotNull();
     }
 
     @SuppressWarnings("unchecked")
