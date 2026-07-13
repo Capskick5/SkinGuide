@@ -65,10 +65,19 @@ public class OrderService {
         this.internalServiceToken = internalServiceToken;
     }
 
-    public OrderResponse createOrder(OrderRequest request) {
+    public OrderResponse createOrder(OrderRequest request, String idempotencyKey) {
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng phải có ít nhất một sản phẩm");
         }
+
+        Order existingOrder = orderRepository
+                .findByCustomerIdAndIdempotencyKey(request.getCustomerId(), idempotencyKey)
+                .orElse(null);
+        if (existingOrder != null) {
+            return toOrderResponse(existingOrder);
+        }
+
+        BigDecimal shippingFee = resolveShippingFee(request);
 
         // 1. Generate Order Code before reserving inventory, so stock logs can reference the order.
         String orderCode = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
@@ -78,13 +87,12 @@ public class OrderService {
         List<OrderItem> items = inventory.getItems().stream().map(this::toOrderItem).collect(Collectors.toList());
         BigDecimal totalAmount = inventory.getTotalAmount() != null ? inventory.getTotalAmount() : BigDecimal.ZERO;
         
-        if (request.getShippingFee() != null) {
-            totalAmount = totalAmount.add(request.getShippingFee());
-        }
+        totalAmount = totalAmount.add(shippingFee);
 
         // 3. Save Order
         Order order = Order.builder()
                 .orderCode(orderCode)
+                .idempotencyKey(idempotencyKey)
                 .customerId(request.getCustomerId())
                 .customerName(request.getCustomerName())
                 .customerPhone(request.getCustomerPhone())
@@ -92,7 +100,7 @@ public class OrderService {
                 .customerNote(request.getCustomerNote())
                 .ghnDistrictId(request.getGhnDistrictId())
                 .ghnWardCode(request.getGhnWardCode())
-                .shippingFee(request.getShippingFee())
+                .shippingFee(shippingFee)
                 .items(items)
                 .totalAmount(totalAmount)
                 .status(Order.OrderStatus.PENDING)
@@ -106,7 +114,16 @@ public class OrderService {
                 .build();
 
         order.addStatusHistory(Order.OrderStatus.PENDING, "Khách hàng đặt đơn thành công");
-        orderRepository.save(order);
+        try {
+            orderRepository.save(order);
+        } catch (RuntimeException saveFailure) {
+            try {
+                callInventoryService("release", toInventoryRequest(order));
+            } catch (RuntimeException releaseFailure) {
+                log.error("Failed to compensate inventory for order {} after save failure", orderCode, releaseFailure);
+            }
+            throw saveFailure;
+        }
 
         // 4. Handle Payment Method
         String paymentUrl = "";
@@ -118,6 +135,35 @@ public class OrderService {
 
         return OrderResponse.builder()
                 .orderCode(orderCode)
+                .status(order.getStatus().name())
+                .paymentUrl(paymentUrl)
+                .build();
+    }
+
+    private BigDecimal resolveShippingFee(OrderRequest request) {
+        Map<String, Object> feeResult = ghnService.calculateFee(
+                request.getGhnDistrictId(),
+                request.getGhnWardCode(),
+                500,
+                2);
+        Object rawTotal = feeResult.get("total");
+        if (!(rawTotal instanceof Number number) || number.longValue() < 0) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Không tính được phí giao hàng");
+        }
+        return BigDecimal.valueOf(number.longValue());
+    }
+
+    private OrderResponse toOrderResponse(Order order) {
+        String paymentUrl = "";
+        if (order.getPaymentStatus() != Order.PaymentStatus.PAID) {
+            if (order.getPaymentMethod() == Order.PaymentMethod.MOMO) {
+                paymentUrl = generateMomoPaymentUrl(order);
+            } else if (order.getPaymentMethod() == Order.PaymentMethod.VNPAY) {
+                paymentUrl = generateVnpayPaymentUrl(order);
+            }
+        }
+        return OrderResponse.builder()
+                .orderCode(order.getOrderCode())
                 .status(order.getStatus().name())
                 .paymentUrl(paymentUrl)
                 .build();
@@ -394,33 +440,56 @@ public class OrderService {
                 .build();
     }
 
-    public void processMomoIpn(String orderId, Integer resultCode) {
+    public void processMomoIpn(String orderId, Integer resultCode, long amount) {
         orderRepository.findByOrderCode(orderId).ifPresent(order -> {
+            validatePaymentAmount(order, BigDecimal.valueOf(amount));
+            if (order.getPaymentStatus() == Order.PaymentStatus.PAID) {
+                return;
+            }
             if (resultCode == 0) {
+                rejectLatePayment(order);
                 order.setPaymentStatus(Order.PaymentStatus.PAID);
                 order.addStatusHistory(Order.OrderStatus.PROCESSING, "Thanh toán thành công qua Momo"); // Move to next step
             } else {
                 order.setPaymentStatus(Order.PaymentStatus.FAILED);
+                order.addStatusHistory(Order.OrderStatus.CANCELLED, "Thanh toán MoMo thất bại");
+                releaseInventoryIfNeeded(order);
             }
             orderRepository.save(order);
         });
     }
 
-    public void processVnpayIpn(String orderId, String responseCode) {
+    public void processVnpayIpn(String orderId, String responseCode, long amountTimes100) {
         Order order = orderRepository.findByOrderCode(orderId).orElse(null);
         if (order == null) return;
+        validatePaymentAmount(order, BigDecimal.valueOf(amountTimes100, 2));
         
         if ("00".equals(responseCode)) {
             if (order.getPaymentStatus() != Order.PaymentStatus.PAID) {
+                rejectLatePayment(order);
                 order.setPaymentStatus(Order.PaymentStatus.PAID);
                 order.setStatus(Order.OrderStatus.PROCESSING); // Đã thanh toán, chờ xử lý GHN
                 order.setUpdatedAt(LocalDateTime.now());
                 orderRepository.save(order);
             }
-        } else {
+        } else if (order.getPaymentStatus() != Order.PaymentStatus.PAID) {
             order.setPaymentStatus(Order.PaymentStatus.FAILED);
+            order.addStatusHistory(Order.OrderStatus.CANCELLED, "Thanh toán VNPay thất bại");
+            releaseInventoryIfNeeded(order);
             order.setUpdatedAt(LocalDateTime.now());
             orderRepository.save(order);
+        }
+    }
+
+    private void validatePaymentAmount(Order order, BigDecimal paidAmount) {
+        if (order.getTotalAmount() == null || order.getTotalAmount().compareTo(paidAmount) != 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền thanh toán không khớp đơn hàng");
+        }
+    }
+
+    private void rejectLatePayment(Order order) {
+        if (order.getStatus() == Order.OrderStatus.CANCELLED || !Boolean.TRUE.equals(order.getInventoryReserved())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng đã hết hạn hoặc đã hủy");
         }
     }
 
@@ -633,24 +702,7 @@ public class OrderService {
                     String ghnStatus = (String) detail.get("status");
                     Order.OrderStatus newStatus = mapGhnStatusToSystemStatus(ghnStatus);
                     if (newStatus != null && newStatus != order.getStatus()) {
-                        order.addStatusHistory(newStatus, "Hệ thống tự động cập nhật từ GHN");
-                        
-                        // Update payment status if needed
-                        if ((newStatus == Order.OrderStatus.CANCELLED || newStatus == Order.OrderStatus.REFUSED) 
-                            && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
-                            order.setPaymentStatus(Order.PaymentStatus.FAILED);
-                        }
-                        if (newStatus == Order.OrderStatus.CANCELLED || newStatus == Order.OrderStatus.REFUSED) {
-                            releaseInventoryIfNeeded(order);
-                        }
-                        if (newStatus == Order.OrderStatus.DELIVERED && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
-                            order.setPaymentStatus(Order.PaymentStatus.PAID);
-                        }
-                        if (newStatus == Order.OrderStatus.DELIVERED) {
-                            commitInventoryIfNeeded(order);
-                        }
-                        
-                        orderRepository.save(order);
+                        applyShippingStatus(order, newStatus, "Hệ thống tự động cập nhật từ GHN");
                         log.info("Auto-synced GHN order {}: {} -> {}", order.getOrderCode(), ghnStatus, newStatus);
                     }
                 }
@@ -698,5 +750,25 @@ public class OrderService {
             default:
                 return null;
         }
+    }
+
+    public Order applyShippingStatus(Order order, Order.OrderStatus newStatus, String note) {
+        if (order.getStatus() == newStatus) {
+            return order;
+        }
+        order.addStatusHistory(newStatus, note);
+        if (newStatus == Order.OrderStatus.CANCELLED || newStatus == Order.OrderStatus.REFUSED) {
+            if (order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
+                order.setPaymentStatus(Order.PaymentStatus.FAILED);
+            }
+            releaseInventoryIfNeeded(order);
+        }
+        if (newStatus == Order.OrderStatus.DELIVERED) {
+            if (order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
+                order.setPaymentStatus(Order.PaymentStatus.PAID);
+            }
+            commitInventoryIfNeeded(order);
+        }
+        return orderRepository.save(order);
     }
 }

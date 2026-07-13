@@ -8,6 +8,8 @@ import mss.orderservice.model.Order;
 import mss.orderservice.model.ReturnOrder;
 import mss.orderservice.repository.OrderRepository;
 import mss.orderservice.repository.ReturnOrderRepository;
+import mss.orderservice.config.GhnConfig;
+import mss.orderservice.service.OrderService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 @Slf4j
 @RestController
@@ -25,10 +29,19 @@ public class GhnWebhookController {
 
     private final OrderRepository orderRepository;
     private final ReturnOrderRepository returnOrderRepository;
+    private final OrderService orderService;
+    private final GhnConfig ghnConfig;
 
     @PostMapping
     @Operation(summary = "GHN Webhook Endpoint")
-    public ResponseEntity<String> handleGhnWebhook(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<String> handleGhnWebhook(
+            @RequestBody Map<String, Object> payload,
+            @org.springframework.web.bind.annotation.RequestHeader(value = "X-GHN-Webhook-Secret", required = false) String headerSecret,
+            @org.springframework.web.bind.annotation.RequestParam(value = "token", required = false) String querySecret) {
+        String suppliedSecret = headerSecret != null ? headerSecret : querySecret;
+        if (!validWebhookSecret(suppliedSecret)) {
+            return ResponseEntity.status(401).body("Invalid webhook secret");
+        }
         log.info("Nhận Webhook từ GHN: {}", payload);
 
         try {
@@ -123,25 +136,22 @@ public class GhnWebhookController {
                 if (description != null && !description.trim().isEmpty()) {
                     note = "GHN: " + description;
                 }
-                order.addStatusHistory(newStatus, note);
+                orderService.applyShippingStatus(order, newStatus, note);
             }
-
-            // Update payment status based on new order status
-            if ((order.getStatus() == Order.OrderStatus.CANCELLED || order.getStatus() == Order.OrderStatus.REFUSED)
-                && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
-                order.setPaymentStatus(Order.PaymentStatus.FAILED);
-            }
-            if (order.getStatus() == Order.OrderStatus.DELIVERED && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
-                order.setPaymentStatus(Order.PaymentStatus.PAID);
-            }
-
-            orderRepository.save(order);
             return ResponseEntity.ok("OK");
 
         } catch (Exception e) {
             log.error("Lỗi xử lý webhook GHN: {}", e.getMessage());
             return ResponseEntity.internalServerError().body("Error");
         }
+    }
+
+    private boolean validWebhookSecret(String suppliedSecret) {
+        String expected = ghnConfig.getWebhookSecret();
+        return expected != null && !expected.isBlank() && suppliedSecret != null
+                && MessageDigest.isEqual(
+                        expected.getBytes(StandardCharsets.UTF_8),
+                        suppliedSecret.getBytes(StandardCharsets.UTF_8));
     }
 
     private void handleReturnOrderWebhook(ReturnOrder returnOrder, String status) {

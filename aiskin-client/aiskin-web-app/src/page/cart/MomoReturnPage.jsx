@@ -25,10 +25,10 @@ export default function MomoReturnPage() {
       }
 
       try {
-        await httpClient.post('/orders/payment/momo-ipn', {
-          orderId,
-          resultCode: Number(resultCode),
-        })
+        const momoPayload = Object.fromEntries(searchParams.entries())
+        momoPayload.resultCode = Number(resultCode)
+        momoPayload.amount = Number(momoPayload.amount)
+        await httpClient.post('/orders/payment/momo-ipn', momoPayload, { auth: false })
       } catch (err) {
         console.error('Sync MoMo return failed:', err)
       }

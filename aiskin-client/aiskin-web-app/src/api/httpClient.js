@@ -34,8 +34,8 @@ async function parseBody(res) {
  * @param {string} path - đường dẫn bắt đầu bằng '/', vd '/auth/login'
  * @param {object} options - { method, body, auth, _retry }
  */
-export async function request(path, { method = 'GET', body, auth = true, _retry = false } = {}) {
-  const headers = {}
+export async function request(path, { method = 'GET', body, auth = true, headers: extraHeaders = {}, _retry = false } = {}) {
+  const headers = { ...extraHeaders }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
 
   if (auth) {
@@ -53,7 +53,7 @@ export async function request(path, { method = 'GET', body, auth = true, _retry 
   if (res.status === 401 && auth && !_retry && refreshHandler) {
     const refreshed = await refreshHandler()
     if (refreshed) {
-      return request(path, { method, body, auth, _retry: true })
+      return request(path, { method, body, auth, headers: extraHeaders, _retry: true })
     }
   }
 

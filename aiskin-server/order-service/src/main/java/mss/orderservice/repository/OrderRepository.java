@@ -16,6 +16,7 @@ import java.util.List;
 public interface OrderRepository extends MongoRepository<Order, String> {
     Optional<Order> findByOrderCode(String orderCode);
     Optional<Order> findByTrackingCode(String trackingCode);
+    Optional<Order> findByCustomerIdAndIdempotencyKey(String customerId, String idempotencyKey);
     Page<Order> findByCustomerIdOrderByCreatedAtDesc(String customerId, Pageable pageable);
     Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
     Page<Order> findByStatusOrderByCreatedAtDesc(Order.OrderStatus status, Pageable pageable);

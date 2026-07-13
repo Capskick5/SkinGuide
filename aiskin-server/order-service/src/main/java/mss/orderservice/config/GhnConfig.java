@@ -11,4 +11,5 @@ public class GhnConfig {
     private String apiUrl = "https://dev-online-gateway.ghn.vn/shiip/public-api/v2";
     private String token;
     private String shopId;
+    private String webhookSecret;
 }

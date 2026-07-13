@@ -8,6 +8,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -19,12 +20,18 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @Document(collection = "orders")
+@CompoundIndex(
+        name = "customer_idempotency_unique",
+        def = "{'customerId': 1, 'idempotencyKey': 1}",
+        unique = true,
+        partialFilter = "{'idempotencyKey': {'$type': 'string'}}")
 public class Order {
 
     @Id
     private String id;
     
     private String orderCode; // E.g., ORD-123456
+    private String idempotencyKey;
     
     // Customer Info
     private String customerId; // Can be null if guest, or match user-service ID
