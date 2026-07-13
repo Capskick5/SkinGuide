@@ -1,21 +1,24 @@
 import os
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", ".env"))
-import uuid
 import jwt
-from datetime import datetime, timezone
+import uuid
+from datetime import datetime, timezone, timedelta
 from pymongo import MongoClient
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends, BackgroundTasks, Query
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import py_eureka_client.eureka_client as eureka_client
 from contextlib import asynccontextmanager
 import json
 import asyncio
 import requests
+from typing import Optional
 from app.services.skin_type_inference import SkinTypeDetector
 from app.services.ultimate_skin_inference import UltimateSkinDetector
 from app.utils.face_cropper import crop_face_from_bytes
+from app.utils.rate_limiter import SlidingWindowRateLimiter
+from app.utils.scan_image_store import ScanImageStore
 from app.formulas.routine_builder import generate_routine
 import logging
 
@@ -30,7 +33,19 @@ MONGO_URI = os.getenv("MONGODB_URI_SCAN")
 UPLOAD_DIR = "uploads"
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024
 ALLOWED_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv(
+    "AI_ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
+).split(",") if origin.strip()]
+SCAN_RATE_LIMIT_PER_MINUTE = int(os.getenv("SCAN_RATE_LIMIT_PER_MINUTE", "10"))
+VALIDATE_RATE_LIMIT_PER_MINUTE = int(os.getenv("VALIDATE_RATE_LIMIT_PER_MINUTE", "30"))
+SCAN_RETENTION_DAYS = int(os.getenv("SCAN_RETENTION_DAYS", "90"))
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+image_store = ScanImageStore(
+    UPLOAD_DIR,
+    os.getenv("SCAN_IMAGE_SIGNING_SECRET") or os.getenv("JWT_SECRET", ""),
+)
+rate_limiter = SlidingWindowRateLimiter()
 
 # Global AI model & DB instance
 skin_detector = None
@@ -69,12 +84,45 @@ def _read_upload_image(image: UploadFile) -> bytes:
     if content_type and content_type not in ALLOWED_IMAGE_CONTENT_TYPES:
         raise ValueError("File tải lên phải là ảnh JPG, PNG hoặc WEBP.")
 
-    bytes_data = image.file.read()
+    bytes_data = image.file.read(MAX_UPLOAD_BYTES + 1)
     if not bytes_data:
         raise ValueError("File ảnh đang rỗng. Vui lòng tải lên ảnh hợp lệ.")
     if len(bytes_data) > MAX_UPLOAD_BYTES:
         raise ValueError("Ảnh vượt quá dung lượng 8MB. Vui lòng chọn ảnh nhỏ hơn.")
     return bytes_data
+
+
+def _enforce_rate_limit(user_id: str, action: str) -> None:
+    limit = SCAN_RATE_LIMIT_PER_MINUTE if action == "analyze" else VALIDATE_RATE_LIMIT_PER_MINUTE
+    if not rate_limiter.allow(f"{action}:{user_id}", limit, 60):
+        raise HTTPException(status_code=429, detail="Bạn thao tác quá nhanh. Vui lòng thử lại sau một phút.")
+
+
+def _signed_image_url(base_url: str, record: dict) -> Optional[str]:
+    filename = image_store.filename_from_record(record)
+    if not filename:
+        return None
+    return image_store.signed_url(base_url, str(record["_id"]), filename)
+
+
+def _cleanup_expired_scans() -> None:
+    if db is None or SCAN_RETENTION_DAYS <= 0:
+        return
+    cutoff = datetime.now(timezone.utc) - timedelta(days=SCAN_RETENTION_DAYS)
+    expired = list(db.ai_scan_results.find({"analyzedAt": {"$lt": cutoff}}, {"_id": 1, "imageFile": 1, "imageUrl": 1}))
+    for record in expired:
+        image_store.delete(image_store.filename_from_record(record))
+        db.skincare_routines.delete_many({"scanId": str(record["_id"])})
+        db.ai_scan_results.delete_one({"_id": record["_id"]})
+
+
+async def _retention_worker() -> None:
+    while True:
+        try:
+            await asyncio.to_thread(_cleanup_expired_scans)
+        except Exception as exc:
+            logger.error(f"Scan retention cleanup failed: {exc}")
+        await asyncio.sleep(24 * 60 * 60)
 
 
 
@@ -120,7 +168,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Lỗi Eureka: {e}")
         
+    retention_task = asyncio.create_task(_retention_worker())
     yield
+    retention_task.cancel()
     
     # Unregister from Eureka on shutdown
     try:
@@ -132,11 +182,9 @@ async def lifespan(app: FastAPI):
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="AI Scan Service", version="1.0.0", lifespan=lifespan)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -149,6 +197,9 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
     """
     if skin_detector is None:
         raise HTTPException(status_code=503, detail="AI Model chưa được nạp sẵn sàng.")
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database chưa được kết nối.")
+    _enforce_rate_limit(user_id, "analyze")
         
     try:
         # Đọc và chặn file upload không hợp lệ trước khi decode ảnh.
@@ -176,21 +227,17 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
 
         # Chỉ lưu ảnh sau khi pass AI guard và chạy model thành công.
         # Ảnh lưu là bản đã crop/chuẩn hóa đúng với đầu vào model.
-        unique_filename = f"{uuid.uuid4()}.jpg"
-        filepath = os.path.join(UPLOAD_DIR, unique_filename)
-        with open(filepath, "wb") as f:
-            f.write(cropped_bytes_data)
-
-        base_url = str(request.base_url).rstrip("/")
-        image_url = f"{base_url}/uploads/{unique_filename}"
-        
         # 3. Lưu lịch sử vào MongoDB (Chỉ lưu kết quả Scan)
         scan_id = str(uuid.uuid4())
+        unique_filename = image_store.save(scan_id, cropped_bytes_data)
+        base_url = str(request.base_url).rstrip("/")
+        image_url = image_store.signed_url(base_url, scan_id, unique_filename)
         now_utc = datetime.now(timezone.utc)
         
         scan_record = {
             "_id": scan_id,
             "userId": user_id,
+            "imageFile": unique_filename,
             "imageUrl": image_url,
             "skinType": {
                 "predicted": skin_type,
@@ -206,8 +253,11 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
             "analyzedAt": now_utc
         }
         
-        if db is not None:
+        try:
             db.ai_scan_results.insert_one(scan_record)
+        except Exception:
+            image_store.delete(unique_filename)
+            raise
         
         return {
             "status": "success",
@@ -229,6 +279,7 @@ def validate_skin_image(image: UploadFile = File(...), user_id: str = Depends(ge
     API Tiền xử lý: Chỉ kiểm định chất lượng ảnh (độ sáng, độ mờ), cắt khuôn mặt và làm sáng ảnh (CLAHE).
     Nếu lỗi sẽ trả về 400. Nếu thành công sẽ trả về ảnh đã xử lý dưới dạng Base64.
     """
+    _enforce_rate_limit(user_id, "validate")
     try:
         bytes_data = _read_upload_image(image)
         
@@ -321,8 +372,26 @@ def generate_scan_routine(scan_id: str, background_tasks: BackgroundTasks, user_
         logger.error(f"Lỗi khi tạo routine: {e}")
         raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ khi tạo lộ trình.")
 
+@app.get("/api/scans/images/{scan_id}", tags=["AI Skin Scan"])
+def get_scan_image(scan_id: str, file: str, expires: int, signature: str):
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database chưa được kết nối.")
+    if not image_store.verify(scan_id, file, expires, signature):
+        raise HTTPException(status_code=403, detail="Đường dẫn ảnh không hợp lệ hoặc đã hết hạn.")
+    record = db.ai_scan_results.find_one({"_id": scan_id}, {"imageFile": 1, "imageUrl": 1})
+    if not record or image_store.filename_from_record(record) != file:
+        raise HTTPException(status_code=404, detail="Không tìm thấy ảnh quét.")
+    try:
+        path = image_store.path(file)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Không tìm thấy file ảnh quét.")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=300"})
+
+
 @app.get("/api/scans/history", tags=["AI Skin Scan"])
-def get_scan_history(user_id: str = Depends(get_current_user_id)):
+def get_scan_history(request: Request, user_id: str = Depends(get_current_user_id)):
     """
     Lấy danh sách lịch sử quét da của user hiện tại (chỉ lấy scan_results).
     """
@@ -334,6 +403,7 @@ def get_scan_history(user_id: str = Depends(get_current_user_id)):
         histories = []
         for record in cursor:
             record["_id"] = str(record["_id"])
+            record["imageUrl"] = _signed_image_url(str(request.base_url), record)
             if "analyzedAt" in record and isinstance(record["analyzedAt"], datetime):
                 record["analyzedAt"] = record["analyzedAt"].replace(tzinfo=timezone.utc)
             else:
@@ -460,6 +530,7 @@ def delete_scan_history(scan_id: str, user_id: str = Depends(get_current_user_id
         if record.get("userId") != user_id:
             raise HTTPException(status_code=403, detail="Bạn không có quyền xóa bản quét này.")
             
+        image_store.delete(image_store.filename_from_record(record))
         db.ai_scan_results.delete_one({"_id": scan_id})
         db.skincare_routines.delete_many({"scanId": scan_id})
         
@@ -474,7 +545,7 @@ def delete_scan_history(scan_id: str, user_id: str = Depends(get_current_user_id
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/scans/system/endpoints", tags=["System"])
-def get_endpoints():
+def get_endpoints(payload: dict = Depends(has_permission("/api/scans/system/endpoints", "GET"))):
     endpoints = []
     for route in app.routes:
         if hasattr(route, "methods") and hasattr(route, "path"):
