@@ -1,9 +1,9 @@
-package prm.discoveryserver;
+package mss.discoveryserver;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
+@SpringBootTest(properties = "server.port=0")
 class DiscoveryServerApplicationTests {
 
 	@Test
