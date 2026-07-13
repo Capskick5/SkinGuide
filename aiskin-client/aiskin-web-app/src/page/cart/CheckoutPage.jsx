@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { App as AntApp, Select } from 'antd'
 import Icon from '@/components/common/Icon'
@@ -478,6 +478,7 @@ export default function CheckoutPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { message } = AntApp.useApp()
+  const idempotencyKeyRef = useRef(crypto.randomUUID())
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('MOMO')
@@ -523,7 +524,9 @@ export default function CheckoutPage() {
         })),
       }
 
-      const result = await httpClient.post('/orders', payload)
+      const result = await httpClient.post('/orders', payload, {
+        headers: { 'Idempotency-Key': idempotencyKeyRef.current },
+      })
 
       if (paymentMethod === 'VNPAY') {
         if (!result?.paymentUrl) {

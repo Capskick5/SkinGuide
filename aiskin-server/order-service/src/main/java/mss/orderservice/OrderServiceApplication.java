@@ -6,13 +6,28 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.data.mongodb.config.EnableMongoAuditing;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.servers.Server;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import mss.orderservice.config.JwtProperties;
 
 @SpringBootApplication
 @EnableDiscoveryClient
 @EnableMongoAuditing
 @EnableScheduling
-@OpenAPIDefinition(servers = {@Server(url = "/", description = "Default Server URL")})
+@EnableConfigurationProperties(JwtProperties.class)
+@OpenAPIDefinition(
+        servers = {@Server(url = "/", description = "Default Server URL")},
+        security = {@SecurityRequirement(name = "bearerAuth")}
+)
+@SecurityScheme(
+        name = "bearerAuth",
+        type = SecuritySchemeType.HTTP,
+        scheme = "bearer",
+        bearerFormat = "JWT"
+)
 public class OrderServiceApplication {
 
     public static void main(String[] args) {

@@ -25,7 +25,7 @@ export default function VnpayReturnPage() {
 
       try {
         // Gửi toàn bộ query string xuống server để IPN có thể chạy (trong thực tế server sẽ tự bắt IPN độc lập)
-        await httpClient.get(`/orders/payment/vnpay-ipn?${searchParams.toString()}`)
+        await httpClient.get(`/orders/payment/vnpay-ipn?${searchParams.toString()}`, { auth: false })
       } catch (err) {
         console.error('Sync VNPay return failed:', err)
       }
