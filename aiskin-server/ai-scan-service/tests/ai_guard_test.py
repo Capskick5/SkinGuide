@@ -260,17 +260,11 @@ def main():
     olivetti_paths = load_olivetti_faces(data_dir / "olivetti_faces", 20)
 
     local_photo_paths = sorted((REPO_ROOT / "photo-test").glob("*.jpg"))
-    unsupported_local_names = {"dry_03_elderly_gambian_woman.jpg"}
-    valid_local_paths = [path for path in local_photo_paths if path.name not in unsupported_local_names]
-    unsupported_local_paths = [path for path in local_photo_paths if path.name in unsupported_local_names]
-    all_face_paths = valid_local_paths + face_paths
+    all_face_paths = local_photo_paths + face_paths
 
     results = []
     for path in all_face_paths:
         results.append(run_case(f"valid_face::{path.name}", path.read_bytes(), "pass"))
-
-    for path in unsupported_local_paths:
-        results.append(run_case(f"unsupported_pose::{path.name}", path.read_bytes(), "reject"))
 
     for path in olivetti_paths:
         results.append(run_case(f"low_quality_face::{path.name}", path.read_bytes(), "reject"))
