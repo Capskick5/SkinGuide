@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { PATHS } from '@/route/paths'
-import ScoreGauge from './components/ScoreGauge'
 import ConditionCard from './components/ConditionCard'
 
 const CONDITION_METADATA = {
@@ -45,32 +44,34 @@ export default function AnalysisResultPage({
   
   const zones = scanResult.facialZones || { t_zone: { issues: [] }, u_zone: { issues: [] } }
   const issueModelAvailable = scanResult.modelHealth?.skinIssueModel === 'loaded'
-  const currentIssues = zones[activeZone]?.issues || []
-  
-  // Tính điểm tổng thể (Lấy issue nặng nhất của cả 2 vùng)
-  const maxScoreT = zones.t_zone?.issues?.[0]?.severityScore || 1
-  const maxScoreU = zones.u_zone?.issues?.[0]?.severityScore || 1
-  const maxSeverity = Math.max(maxScoreT, maxScoreU)
-  const overallScore = issueModelAvailable
-    ? (maxSeverity === 4 ? 40 : maxSeverity === 3 ? 60 : maxSeverity === 2 ? 80 : 95)
-    : null
+  const wholeFaceIssues = zones.issues || []
+  const analysisUsesZones = wholeFaceIssues.length === 0
+  const currentIssues = analysisUsesZones ? (zones[activeZone]?.issues || []) : wholeFaceIssues
 
   // Map issues sang CONDITIONS
   const CONDITIONS = currentIssues.map(item => {
     const meta = CONDITION_METADATA[item.name] || CONDITION_METADATA.Healthy
     
-    // Đổi màu sắc severity
+    // Legacy checkpoints may contain severity; the current contract reports detection probability only.
     let severityColor = 'optimal'
     if (item.severity === 'Severe') severityColor = 'high'
     else if (item.severity === 'Moderate') severityColor = 'moderate'
     else if (item.severity === 'Mild') severityColor = 'low'
+    else if (item.detected) severityColor = 'moderate'
+
+    const probabilityPercent = Math.round((item.probability || 0) * 100)
+    const severityLabel = item.detected
+      ? `Phát hiện (${probabilityPercent}%)`
+      : item.severity === 'Clear'
+        ? 'Không phát hiện'
+        : `${item.severity} (${probabilityPercent}%)`
     
     return {
       icon: meta.icon,
       title: meta.label,
-      severityLabel: item.severity === 'Clear' ? 'An toàn' : `${item.severity} (${(item.probability * 100).toFixed(2)}%)`,
+      severityLabel,
       severity: severityColor,
-      level: item.severityScore * 25, // 1->25, 2->50, 3->75, 4->100
+      level: probabilityPercent,
       description: meta.desc
     }
   })
@@ -108,16 +109,14 @@ export default function AnalysisResultPage({
 
             <div className="flex items-center justify-between w-full bg-surface-soft p-4 rounded-xl border border-border-pink">
               <div>
-                <h3 className="text-headline-md text-on-surface">Sức khỏe tổng thể</h3>
+                <h3 className="text-headline-md text-on-surface">Dấu hiệu da</h3>
                 <p className="text-caption text-on-surface-variant">
-                  {issueModelAvailable ? 'Dựa trên AI phân tích' : 'Chưa có dữ liệu vấn đề da'}
+                  {issueModelAvailable ? 'Kết quả hỗ trợ, không phải chẩn đoán' : 'Chưa có model đủ bằng chứng'}
                 </p>
               </div>
-              {overallScore === null ? (
-                <span className="text-headline-md font-bold text-on-surface-variant">--</span>
-              ) : (
-                <ScoreGauge score={overallScore} />
-              )}
+              <span className="text-headline-md font-bold text-on-surface-variant">
+                {issueModelAvailable ? currentIssues.length : '--'}
+              </span>
             </div>
           </div>
         </div>
@@ -144,12 +143,12 @@ export default function AnalysisResultPage({
           
           {issueModelAvailable && <div className="bg-primary/10 p-4 rounded-xl border border-primary/20 mb-2">
             <p className="text-body-sm text-on-surface">
-              <strong>💡 Hướng dẫn đọc:</strong> AI đã tự động chia khuôn mặt bạn thành 2 vùng (T-Zone và U-Zone). Mức độ nghiêm trọng được chia làm 4 cấp: Clear (An toàn), Mild (Nhẹ), Moderate (Vừa), Severe (Nặng).
+              AI có thể phát hiện đồng thời nhiều dấu hiệu nhìn thấy được. Phần trăm là độ tin cậy so với threshold của từng nhãn, không phải mức độ bệnh.
             </p>
           </div>}
 
           {/* Tabs T-Zone / U-Zone */}
-          {issueModelAvailable && <div className="flex gap-2 mb-4 bg-surface-container-low p-1 rounded-full border border-border-pink">
+          {issueModelAvailable && analysisUsesZones && <div className="flex gap-2 mb-4 bg-surface-container-low p-1 rounded-full border border-border-pink">
             <button 
               onClick={() => setActiveZone('t_zone')}
               className={`flex-1 py-2 rounded-full text-label-md font-bold transition-all ${activeZone === 't_zone' ? 'bg-primary text-white shadow-md' : 'text-on-surface-variant hover:text-primary'}`}

@@ -102,7 +102,7 @@ cd aiskin-server/ai-scan-service
 ```
 
 - Input guard bắt buộc một khuôn mặt rõ và từ chối ảnh sai thay vì cho model đoán.
-- Model B chưa có `ultimate_skin_resnet.pth`; UI chỉ tạo routine nền tảng theo loại da và không giả nhãn `Healthy`.
+- Model B chưa có checkpoint đa nhãn đạt contract; UI chỉ tạo routine nền tảng theo loại da và không giả nhãn `Healthy`. Xem `aiskin-server/ai-scan-service/MODEL_B_REQUIREMENTS.md`.
 - Catalog có 10.977 dòng thành phần nhưng chưa có dữ liệu `percentage`; recommendation chỉ nói thành phần khớp và ghi rõ nồng độ chưa được cung cấp.
 - Kết quả chỉ hỗ trợ chăm sóc da, không thay thế chẩn đoán bác sĩ.
 

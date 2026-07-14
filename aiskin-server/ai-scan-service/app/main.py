@@ -50,6 +50,7 @@ rate_limiter = SlidingWindowRateLimiter()
 # Global AI model & DB instance
 skin_detector = None
 ultimate_detector = None
+ultimate_model_error = "No validated multi-label Model B checkpoint is installed."
 db = None
 RECOMMENDATION_SERVICE_URL = os.getenv("RECOMMENDATION_SERVICE_URL")
 
@@ -121,7 +122,7 @@ async def _retention_worker() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global skin_detector, ultimate_detector, db
+    global skin_detector, ultimate_detector, ultimate_model_error, db
     logger.info("Khởi động AI Scan Service...")
     
     # 1. Connect MongoDB
@@ -146,9 +147,11 @@ async def lifespan(app: FastAPI):
 
     try:
         ultimate_detector = UltimateSkinDetector()
+        ultimate_model_error = None
         logger.info("Model B nhận diện vấn đề da nạp thành công.")
     except Exception as e:
         ultimate_detector = None
+        ultimate_model_error = "No validated multi-label Model B checkpoint is installed."
         logger.warning(f"Model B không khả dụng, API sẽ trả fallback minh bạch: {e}")
         
     # 2. Register to Eureka on startup
@@ -207,6 +210,8 @@ def health_check():
         "skinTypeModelVersion": skin_detector.model_version if model_a_ready else None,
         "skinTypeModelEvidence": skin_detector.evidence if model_a_ready else None,
         "skinIssueModel": "loaded" if model_b_ready else "unavailable",
+        "skinIssueModelReason": None if model_b_ready else ultimate_model_error,
+        "supportedAnalysisScope": "skin_type_and_visible_issues" if model_b_ready else "skin_type_only",
     }
 
 @app.post("/api/scans/analyze", tags=["AI Skin Scan"])
@@ -241,7 +246,7 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
             ultimate_analysis = ultimate_detector.predict(cropped_bytes_data, top_k=3)
             skin_issue_model_status = "loaded"
         else:
-            ultimate_analysis = _fallback_skin_issue_analysis("Ultimate Skin model weight is not available.")
+            ultimate_analysis = _fallback_skin_issue_analysis(ultimate_model_error)
             skin_issue_model_status = "unavailable"
 
         # Chỉ lưu ảnh sau khi pass AI guard và chạy model thành công.
@@ -356,6 +361,8 @@ def generate_scan_routine(scan_id: str, background_tasks: BackgroundTasks, user_
         skin_type = scan_record.get("skinType", {}).get("predicted", "Normal")
         
         flat_conditions = []
+        if "issues" in ultimate_analysis:
+            flat_conditions.extend(ultimate_analysis["issues"])
         if "t_zone" in ultimate_analysis and "issues" in ultimate_analysis["t_zone"]:
             flat_conditions.extend(ultimate_analysis["t_zone"]["issues"])
         if "u_zone" in ultimate_analysis and "issues" in ultimate_analysis["u_zone"]:
