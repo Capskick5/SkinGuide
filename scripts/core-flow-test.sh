@@ -58,11 +58,11 @@ print(jwt.encode({
 }, base64.b64decode(os.environ["JWT_SECRET"]), algorithm="HS256"))
 ')"
 
-echo "[1/5] Checking service contracts..."
+echo "[1/6] Checking service contracts..."
 "$ROOT_DIR/scripts/smoke-test.sh" >/dev/null
 echo "PASS: all services are reachable"
 
-echo "[2/5] Checking recommendation authentication and sellable variants..."
+echo "[2/6] Checking recommendation authentication and sellable variants..."
 unauthorized_code="$(curl -sS -o /dev/null -w '%{http_code}' \
   -H "Content-Type: application/json" \
   -d '{"product_label":"","skin_type":"Oily","target_ingredients":["Niacinamide"],"top_k":5}' \
@@ -90,7 +90,7 @@ province_id="$(curl -fsS "$BASE_URL/api/ghn/provinces" | jq -r '.[0].ProvinceID'
 district_id="$(curl -fsS "$BASE_URL/api/ghn/districts?provinceId=$province_id" | jq -r '.[0].DistrictID')"
 ward_code="$(curl -fsS "$BASE_URL/api/ghn/wards?districtId=$district_id" | jq -r '.[0].WardCode')"
 
-echo "[3/5] Creating an order and verifying inventory reservation..."
+echo "[3/6] Creating an order and verifying inventory reservation..."
 order_payload="$(jq -n \
   --arg productId "$product_id" \
   --arg variantId "$variant_id" \
@@ -117,7 +117,7 @@ available_reserved="$(curl -fsS "$BASE_URL/api/products/$product_id" \
   || fail "stock was not reserved: before=$available_before after=$available_reserved"
 echo "PASS: order $order_code reserved one unit"
 
-echo "[4/5] Cancelling the order and verifying inventory release..."
+echo "[4/6] Cancelling the order and verifying inventory release..."
 cancel_response="$(curl -fsS \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -132,7 +132,24 @@ available_released="$(curl -fsS "$BASE_URL/api/products/$product_id" \
   || fail "stock was not released: before=$available_before after=$available_released"
 echo "PASS: cancellation returned inventory to its original quantity"
 
-echo "[5/5] Checking optional AI image flow..."
+echo "[5/6] Checking verified-purchase review access..."
+review_summary="$(curl -fsS "$BASE_URL/api/orders/reviews/product/$product_id?page=0&size=10")"
+[[ "$(jq -r '.productId' <<<"$review_summary")" == "$product_id" ]] \
+  || fail "public review summary returned the wrong product"
+
+private_review_code="$(curl -sS -o /dev/null -w '%{http_code}' \
+  "$BASE_URL/api/orders/reviews/product/$product_id/me")"
+[[ "$private_review_code" == "401" ]] \
+  || fail "private review endpoint without JWT returned $private_review_code"
+
+review_eligibility="$(curl -fsS \
+  -H "Authorization: Bearer $TOKEN" \
+  "$BASE_URL/api/orders/reviews/product/$product_id/me")"
+[[ "$(jq -r '.eligible' <<<"$review_eligibility")" == "false" ]] \
+  || fail "cancelled order incorrectly allowed a product review"
+echo "PASS: reviews are public to read and restricted to verified purchases"
+
+echo "[6/6] Checking optional AI image flow..."
 if [[ -z "$IMAGE_PATH" ]]; then
   echo "SKIP: pass a face image path to test validate -> scan -> routine -> recommendation"
 else
