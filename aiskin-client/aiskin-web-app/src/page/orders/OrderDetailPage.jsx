@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
+import ProtectedImage from '@/components/common/ProtectedImage'
 import { resolveImageUrl } from '@/page/products/productUtils'
 import httpClient from '@/api/httpClient'
 import { message } from 'antd'
@@ -390,12 +391,12 @@ export default function OrderDetailPage() {
                     <p className="text-caption text-on-surface-variant mb-2">Hình ảnh đính kèm</p>
                     <div className="flex flex-wrap gap-2">
                       {returnRequest.imageUrls.map((img, idx) => (
-                        <img 
+                        <ProtectedImage
                           key={idx} 
-                          src={img.startsWith('http') ? img : `http://localhost:8080${img}`} 
+                          source={img}
+                          preview
                           alt="Bằng chứng" 
                           className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity" 
-                          onClick={() => window.open(img.startsWith('http') ? img : `http://localhost:8080${img}`, '_blank')}
                         />
                       ))}
                     </div>
@@ -526,11 +527,11 @@ export default function OrderDetailPage() {
                     {refundRequest.receiptUrl && refundRequest.status === 'COMPLETED' && (
                       <div className="pt-3 border-t border-teal-200/50">
                         <p className="text-xs text-teal-600 mb-2">Biên lai chuyển khoản:</p>
-                        <img 
-                          src={refundRequest.receiptUrl.startsWith('http') ? refundRequest.receiptUrl : `http://localhost:8080${refundRequest.receiptUrl}`} 
+                        <ProtectedImage
+                          source={refundRequest.receiptUrl}
+                          preview
                           alt="Biên lai" 
                           className="h-24 rounded cursor-pointer hover:opacity-80 transition-opacity border border-teal-200"
-                          onClick={() => window.open(refundRequest.receiptUrl.startsWith('http') ? refundRequest.receiptUrl : `http://localhost:8080${refundRequest.receiptUrl}`, '_blank')}
                         />
                       </div>
                     )}

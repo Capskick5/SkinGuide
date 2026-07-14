@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { App as AntApp, Dropdown } from 'antd'
 import Icon from '@/components/common/Icon'
+import ProtectedImage from '@/components/common/ProtectedImage'
 import httpClient from '@/api/httpClient'
+import { resolveImageUrl } from '@/page/products/productUtils'
 
 function money(value) {
   if (value === null || value === undefined) return '0đ'
@@ -230,7 +232,7 @@ function ReturnDetailsModal({ request, onClose }) {
               </div>
               <div className="divide-y divide-gray-100">
                 {request.items.map((item, index) => {
-                  const img = item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:8080${item.imageUrl}`
+                  const img = resolveImageUrl(item.imageUrl)
                   return (
                     <div key={index} className="flex items-center gap-4 p-4">
                       <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
@@ -261,7 +263,7 @@ function ReturnDetailsModal({ request, onClose }) {
               </div>
               <div className="divide-y divide-gray-100">
                 {fullOrder.items.map((item, index) => {
-                  const img = item.imageUrl?.startsWith('http') ? item.imageUrl : `http://localhost:8080${item.imageUrl}`
+                  const img = resolveImageUrl(item.imageUrl)
                   return (
                     <div key={index} className="flex items-center gap-4 p-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
@@ -289,9 +291,13 @@ function ReturnDetailsModal({ request, onClose }) {
             {request.imageUrls?.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {request.imageUrls.map((url, idx) => (
-                  <a key={idx} href={url.startsWith('http') ? url : `http://localhost:8080${url}`} target="_blank" rel="noreferrer" className="aspect-square rounded-lg border border-gray-200 overflow-hidden hover:border-primary transition-colors block">
-                    <img src={url.startsWith('http') ? url : `http://localhost:8080${url}`} alt="proof" className="w-full h-full object-cover" />
-                  </a>
+                  <ProtectedImage
+                    key={idx}
+                    source={url}
+                    preview
+                    alt="Bằng chứng trả hàng"
+                    className="aspect-square w-full cursor-pointer rounded-lg border border-gray-200 object-cover transition-colors hover:border-primary"
+                  />
                 ))}
               </div>
             ) : (
@@ -365,13 +371,14 @@ function ReturnDetailsModal({ request, onClose }) {
                     <Icon name="check_circle" className="text-base" /> Đã xác nhận hoàn tiền thành công
                   </p>
                   {refundRequest.receiptUrl && (
-                    <a href={refundRequest.receiptUrl.startsWith('http') ? refundRequest.receiptUrl : `http://localhost:8080${refundRequest.receiptUrl}`} target="_blank" rel="noreferrer" className="mt-2 block">
-                      <img 
-                        src={refundRequest.receiptUrl.startsWith('http') ? refundRequest.receiptUrl : `http://localhost:8080${refundRequest.receiptUrl}`} 
+                    <div className="mt-2">
+                      <ProtectedImage
+                        source={refundRequest.receiptUrl}
+                        preview
                         alt="Biên lai" 
-                        className="h-32 rounded border border-blue-200 hover:opacity-80 transition-opacity"
+                        className="h-32 cursor-pointer rounded border border-blue-200 transition-opacity hover:opacity-80"
                       />
-                    </a>
+                    </div>
                   )}
                 </div>
               )}

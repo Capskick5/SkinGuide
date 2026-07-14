@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
+import ProtectedImage from '@/components/common/ProtectedImage'
 import { App as AntApp, Select, InputNumber } from 'antd'
 import { resolveImageUrl } from '@/page/products/productUtils'
 import httpClient from '@/api/httpClient'
@@ -76,6 +77,11 @@ export default function ReturnRequestPage() {
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files)
     if (files.length === 0) return
+    if (files.some((file) => !['image/jpeg', 'image/png'].includes(file.type) || file.size > 5 * 1024 * 1024)) {
+      message.error('Chỉ nhận ảnh JPEG/PNG, tối đa 5 MB mỗi ảnh')
+      e.target.value = ''
+      return
+    }
 
     setUploading(true)
     const uploadedUrls = []
@@ -255,7 +261,7 @@ export default function ReturnRequestPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
                 {images.map((url, idx) => (
                   <div key={idx} className="relative aspect-square rounded-2xl border border-gray-200 overflow-hidden group">
-                    <img src={url.startsWith('http') ? url : `http://localhost:8080${url}`} alt="proof" className="w-full h-full object-cover" />
+                    <ProtectedImage source={url} alt="Bằng chứng trả hàng" className="w-full h-full object-cover" />
                     <button 
                       type="button"
                       onClick={() => removeImage(idx)}
@@ -275,7 +281,7 @@ export default function ReturnRequestPage() {
                         <span className="text-sm font-medium">Tải ảnh lên</span>
                       </>
                     )}
-                    <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploading} />
+                    <input type="file" multiple accept="image/jpeg,image/png" className="hidden" onChange={handleImageUpload} disabled={uploading} />
                   </label>
                 )}
               </div>
