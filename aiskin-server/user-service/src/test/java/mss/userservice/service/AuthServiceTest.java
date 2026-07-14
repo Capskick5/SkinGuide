@@ -28,6 +28,7 @@ class AuthServiceTest {
     private OtpStore otpStore;
     private EmailService emailService;
     private OtpProperties otpProperties;
+    private GoogleTokenVerifier googleTokenVerifier;
 
     private AuthService authService;
 
@@ -40,6 +41,7 @@ class AuthServiceTest {
         otpStore = mock(OtpStore.class);
         emailService = mock(EmailService.class);
         otpProperties = mock(OtpProperties.class);
+        googleTokenVerifier = mock(GoogleTokenVerifier.class);
 
         authService = new AuthService(
                 userRepository,
@@ -48,7 +50,8 @@ class AuthServiceTest {
                 refreshTokenStore,
                 otpStore,
                 emailService,
-                otpProperties
+                otpProperties,
+                googleTokenVerifier
         );
     }
 
