@@ -27,8 +27,8 @@ check "Gateway catalog" "http://127.0.0.1:8080/api/products"
 check "User API docs" "http://127.0.0.1:8081/v3/api-docs"
 check "Product health" "http://127.0.0.1:8082/actuator/health"
 check "Order API docs" "http://127.0.0.1:8083/v3/api-docs"
-check "AI scan contract" "http://127.0.0.1:5000/openapi.json"
-check "Recommendation contract" "http://127.0.0.1:5001/openapi.json"
+check "AI scan health" "http://127.0.0.1:5000/health"
+check "Recommendation health" "http://127.0.0.1:5001/health"
 check "Protected seed endpoint" "http://127.0.0.1:8082/api/products/internal/import/json" "401" "POST"
 
 if (( failures > 0 )); then

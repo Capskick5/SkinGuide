@@ -187,6 +187,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.get("/health", tags=["System"])
+def health_check():
+    database_ready = db is not None
+    model_a_ready = skin_detector is not None
+    model_b_ready = ultimate_detector is not None
+    if not database_ready or not model_a_ready:
+        status = "DOWN"
+    elif not model_b_ready:
+        status = "DEGRADED"
+    else:
+        status = "UP"
+    return {
+        "status": status,
+        "service": APP_NAME,
+        "database": "UP" if database_ready else "DOWN",
+        "skinTypeModel": "loaded" if model_a_ready else "unavailable",
+        "skinIssueModel": "loaded" if model_b_ready else "unavailable",
+    }
+
 @app.post("/api/scans/analyze", tags=["AI Skin Scan"])
 def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
     """
