@@ -1,21 +1,41 @@
+import base64
+import os
+import binascii
+
 import jwt
 from fastapi import Request, HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import base64
 
-import os
+JWT_ISSUER = os.getenv("JWT_ISSUER", "aiskin-user-service")
 
-# Lấy chung secret key với user-service (Base64 encoded)
-JWT_SECRET_B64 = os.getenv("JWT_SECRET")
-# Decode base64 to bytes
-JWT_SECRET = base64.b64decode(JWT_SECRET_B64)
+
+def _load_jwt_secret() -> bytes:
+    encoded_secret = os.getenv("JWT_SECRET")
+    if not encoded_secret:
+        raise RuntimeError("JWT_SECRET is required")
+    try:
+        secret = base64.b64decode(encoded_secret, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise RuntimeError("JWT_SECRET must be valid Base64") from exc
+    if len(secret) < 32:
+        raise RuntimeError("JWT_SECRET must decode to at least 32 bytes")
+    return secret
+
+
+JWT_SECRET = _load_jwt_secret()
 
 security = HTTPBearer()
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=["HS256"],
+            issuer=JWT_ISSUER,
+            options={"require": ["exp", "iss", "sub"]},
+        )
         return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")

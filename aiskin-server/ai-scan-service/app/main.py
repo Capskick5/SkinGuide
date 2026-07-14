@@ -133,10 +133,14 @@ async def lifespan(app: FastAPI):
     
     # 1. Connect MongoDB
     try:
-        client = MongoClient(MONGO_URI)
+        if not MONGO_URI:
+            raise RuntimeError("MONGODB_URI_SCAN is required")
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+        client.admin.command("ping")
         db = client.ai_scan_db
         logger.info("MongoDB connected thành công.")
     except Exception as e:
+        db = None
         logger.error(f"MongoDB connection error: {e}")
 
     # 2. Khởi tạo mô hình AI (Load weight tốn khoảng vài giây)
@@ -205,7 +209,7 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
         # Đọc và chặn file upload không hợp lệ trước khi decode ảnh.
         bytes_data = _read_upload_image(image)
         
-        # Áp dụng Face Cropping để cắt rác hậu cảnh trước khi đưa cho các mô hình ResNet50
+        # Cắt hậu cảnh và chuẩn hóa đúng một khuôn mặt trước khi đưa vào các model AI.
         cropped_bytes_data = crop_face_from_bytes(bytes_data)
         
         # Gọi mô hình phân loại da (Dùng ảnh đã cắt)
@@ -244,6 +248,8 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
                 "probability": skin_type_confidence,
                 "confidence": skin_type_confidence,
                 "probabilities": skin_type_probabilities,
+                "modelVersion": skin_type_result["model_version"],
+                "confidenceCalibrated": skin_type_result["confidence_calibrated"],
             },
             "facialZones": ultimate_analysis,
             "modelHealth": {

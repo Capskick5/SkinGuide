@@ -1,6 +1,10 @@
+import io
 import cv2
+import mediapipe as mp
 import numpy as np
 import os
+import threading
+from PIL import Image
 
 # Nạp vài Haar Cascade sẵn có để giảm rớt ảnh mặt hợp lệ do góc chụp/ánh sáng.
 _FACE_CASCADES = [
@@ -14,6 +18,8 @@ _FACE_CASCADES = [
 ]
 
 _MIN_IMAGE_SIZE = 160
+_MAX_IMAGE_DIMENSION = 6000
+_MAX_IMAGE_PIXELS = 20_000_000
 _MIN_FACE_AREA_RATIO = 0.04
 _MIN_DETECTED_FACE_AREA_RATIO = 0.003
 _MIN_SECONDARY_FACE_AREA_RATIO = 0.05
@@ -27,14 +33,49 @@ _YUNET_MODEL_PATH = os.path.join(
     "models",
     "face_detection_yunet_2023mar.onnx",
 )
+_MEDIAPIPE_MODEL_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "models",
+    "blaze_face_full_range.tflite",
+)
+_MEDIAPIPE_DETECTOR = None
+_MEDIAPIPE_INIT_ATTEMPTED = False
+_MEDIAPIPE_LOCK = threading.Lock()
+
+
+def _get_mediapipe_detector():
+    global _MEDIAPIPE_DETECTOR, _MEDIAPIPE_INIT_ATTEMPTED
+    with _MEDIAPIPE_LOCK:
+        if _MEDIAPIPE_DETECTOR is not None:
+            return _MEDIAPIPE_DETECTOR
+        if _MEDIAPIPE_INIT_ATTEMPTED or not os.path.exists(_MEDIAPIPE_MODEL_PATH):
+            return None
+        _MEDIAPIPE_INIT_ATTEMPTED = True
+        options = mp.tasks.vision.FaceDetectorOptions(
+            base_options=mp.tasks.BaseOptions(model_asset_path=_MEDIAPIPE_MODEL_PATH),
+            running_mode=mp.tasks.vision.RunningMode.IMAGE,
+            min_detection_confidence=0.35,
+            min_suppression_threshold=0.3,
+        )
+        _MEDIAPIPE_DETECTOR = mp.tasks.vision.FaceDetector.create_from_options(options)
+        return _MEDIAPIPE_DETECTOR
 
 def crop_face_from_bytes(image_bytes: bytes) -> bytes:
     """
     Nhận mảng byte của ảnh gốc.
     Tìm khuôn mặt và cắt (có padding 10%).
-    Nếu không tìm thấy mặt, trả về mảng byte gốc (Fallback an toàn).
+    Mọi lỗi kiểm định hoặc xử lý đều từ chối ảnh để ảnh chưa xác thực không lọt vào model.
     """
     try:
+        try:
+            with Image.open(io.BytesIO(image_bytes)) as source_image:
+                source_width, source_height = source_image.size
+        except Exception as exc:
+            raise ValueError("Không thể đọc định dạng ảnh. Vui lòng tải lên ảnh JPG, PNG hoặc WEBP hợp lệ.") from exc
+
+        if max(source_width, source_height) > _MAX_IMAGE_DIMENSION or source_width * source_height > _MAX_IMAGE_PIXELS:
+            raise ValueError("Ảnh có độ phân giải quá lớn. Vui lòng dùng ảnh tối đa 20 megapixel.")
+
         # Chuyển bytes thành mảng numpy
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -160,10 +201,37 @@ def crop_face_from_bytes(image_bytes: bytes) -> bytes:
             candidates = [face for face in candidates if face[2] * face[3] >= min_area]
             return dedupe_faces(candidates)
 
+        def detect_mediapipe_faces(image_bgr):
+            detector = _get_mediapipe_detector()
+            if detector is None:
+                return []
+
+            rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=np.ascontiguousarray(rgb))
+            try:
+                with _MEDIAPIPE_LOCK:
+                    result = detector.detect(mp_image)
+            except Exception:
+                return []
+
+            candidates = []
+            min_area = H * W * _MIN_DETECTED_FACE_AREA_RATIO
+            for detection in result.detections:
+                box = detection.bounding_box
+                x = max(0, int(box.origin_x))
+                y = max(0, int(box.origin_y))
+                w = min(W - x, int(box.width))
+                h = min(H - y, int(box.height))
+                if w > 0 and h > 0 and w * h >= min_area:
+                    candidates.append((x, y, w, h))
+            return dedupe_faces(candidates)
+
         # Nhận diện khuôn mặt
         faces = detect_yunet_faces(img)
         if len(faces) == 0:
             faces = detect_haar_faces(gray, _MIN_HAAR_FALLBACK_FACE_AREA_RATIO)
+        if len(faces) == 0:
+            faces = detect_mediapipe_faces(img)
         
         if len(faces) == 0:
             raise ValueError("Ảnh không hợp lệ: Không tìm thấy khuôn mặt. Vui lòng chụp rõ một khuôn mặt chính diện.")
@@ -205,11 +273,9 @@ def crop_face_from_bytes(image_bytes: bytes) -> bytes:
         success, encoded_img = cv2.imencode('.jpg', enhanced_cropped_img)
         if success:
             return encoded_img.tobytes()
-        else:
-            return image_bytes
+        raise ValueError("Không thể xử lý ảnh khuôn mặt. Vui lòng thử lại với ảnh JPG hoặc PNG khác.")
             
     except ValueError:
         raise
     except Exception as e:
-        print(f"Lỗi khi cắt khuôn mặt: {e}")
-        return image_bytes
+        raise ValueError("Không thể kiểm định ảnh khuôn mặt. Vui lòng thử lại với ảnh khác.") from e
