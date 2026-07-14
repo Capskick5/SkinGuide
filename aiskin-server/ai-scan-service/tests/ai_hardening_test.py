@@ -18,6 +18,7 @@ os.environ.setdefault("JWT_SECRET", base64.b64encode(b"test-secret-key-that-is-a
 os.environ.setdefault("JWT_ISSUER", "aiskin-user-service")
 
 from app.security import JWT_SECRET, verify_token
+from app.main import _fallback_skin_issue_analysis
 from app.services.skin_type_inference import SkinTypeDetector
 from app.utils.face_cropper import crop_face_from_bytes
 
@@ -54,6 +55,13 @@ class AiInputHardeningTest(unittest.TestCase):
         with patch("app.utils.face_cropper.cv2.imdecode", side_effect=RuntimeError("decoder failed")):
             with self.assertRaisesRegex(ValueError, "Không thể kiểm định ảnh"):
                 crop_face_from_bytes(image_buffer.getvalue())
+
+    def test_missing_skin_issue_model_does_not_report_healthy_skin(self):
+        fallback = _fallback_skin_issue_analysis("weight missing")
+
+        self.assertEqual(fallback["modelStatus"], "unavailable")
+        self.assertEqual(fallback["t_zone"]["issues"], [])
+        self.assertEqual(fallback["u_zone"]["issues"], [])
 
 
 class ModelCheckpointContractTest(unittest.TestCase):
