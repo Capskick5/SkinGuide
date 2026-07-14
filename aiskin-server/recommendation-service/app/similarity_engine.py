@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import os
 
 class RecommendationEngine:
     def __init__(self, dataset_path: str):
@@ -11,12 +10,32 @@ class RecommendationEngine:
         self._load_data()
 
     def _load_data(self):
-        """Tải dữ liệu mỹ phẩm từ file CSV (fallback)."""
-        if self.dataset_path and os.path.exists(self.dataset_path):
-            self.df = pd.read_csv(self.dataset_path)
-            self.df.columns = [col.lower() if isinstance(col, str) else col for col in self.df.columns]
-        else:
-            self.df = pd.DataFrame()
+        """Recommendations must come from the store catalog, never an external fallback."""
+        self.df = pd.DataFrame()
+
+    @staticmethod
+    def _sellable_variant(product):
+        variants = product.get('variants') or []
+        sellable = []
+        for variant in variants:
+            if not isinstance(variant, dict) or variant.get('isActive', True) is False:
+                continue
+
+            tracks_inventory = variant.get('trackInventory', True) is not False
+            levels = variant.get('inventoryLevels') or []
+            available = sum(
+                max(0, int(level.get('onHandQuantity') or 0) - int(level.get('reservedQuantity') or 0))
+                for level in levels
+                if isinstance(level, dict)
+            )
+            if tracks_inventory and available <= 0:
+                continue
+
+            sellable.append((variant, available, tracks_inventory))
+
+        if not sellable:
+            return None
+        return min(sellable, key=lambda item: float(item[0].get('price') or product.get('price') or 0))
             
     def update_data(self, products: list):
         """Cập nhật DataFrame từ danh sách JSON của Kafka/MongoDB."""
@@ -25,6 +44,13 @@ class RecommendationEngine:
             
         formatted_list = []
         for p in products:
+            if not isinstance(p, dict) or p.get('isActive', True) is False:
+                continue
+            variant_result = self._sellable_variant(p)
+            if variant_result is None:
+                continue
+            variant, available_quantity, tracks_inventory = variant_result
+
             # Chuyển đổi JSON thành dạng tương thích với engine
             # Extract ingredients
             ing_list = p.get('ingredients', [])
@@ -38,7 +64,7 @@ class RecommendationEngine:
             skin_types = [st.lower() for st in skin_types_source] if isinstance(skin_types_source, list) else []
             
             # Label
-            cat = p.get('categoryName', p.get('categoryId', ''))
+            cat = str(p.get('categoryName', p.get('categoryId', '')) or '')
             
             # Map category to label
             label = cat
@@ -55,7 +81,14 @@ class RecommendationEngine:
                 'imageUrl': p.get('imageUrl', ''),
                 'brand': p.get('brandName', p.get('brandId', '')),
                 'name': p.get('name', ''),
-                'price': p.get('price', 0),
+                'price': variant.get('price') or p.get('price', 0),
+                'variantId': variant.get('id', variant.get('_id')),
+                'variantName': variant.get('name'),
+                'sku': variant.get('sku'),
+                'volume': variant.get('volume'),
+                'unit': variant.get('unit'),
+                'availableQuantity': available_quantity,
+                'trackInventory': tracks_inventory,
                 'rank': 5.0, # Default rank
                 'ingredients': ing_str,
                 'label': label,
