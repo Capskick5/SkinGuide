@@ -33,7 +33,6 @@ export default function ProductDetailPage() {
   const { addItem, items } = useCart()
   const { isAuthenticated } = useAuth()
   const [addedToCart, setAddedToCart] = useState(false)
-  const [translatedDesc, setTranslatedDesc] = useState('')
   const [showFullDescription, setShowFullDescription] = useState(false)
   const [showAllIngredients, setShowAllIngredients] = useState(false)
   const activeVariants = (product?.variants || []).filter((variant) => variant.isActive !== false)
@@ -78,7 +77,6 @@ export default function ProductDetailPage() {
       setError('')
       setShowFullDescription(false)
       setShowAllIngredients(false)
-      setTranslatedDesc('')
 
       try {
         const [productRes, brandRes, categoryRes] = await Promise.all([
@@ -92,20 +90,6 @@ export default function ProductDetailPage() {
         setProduct(productRes)
         setBrands(toArray(brandRes))
         setCategories(toArray(categoryRes))
-
-        // Gọi Google Translate API miễn phí để dịch Description
-        if (productRes.description) {
-          try {
-            const gtRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=${encodeURIComponent(productRes.description)}`)
-            const gtData = await gtRes.json()
-            if (alive && gtData && gtData[0]) {
-              const viText = gtData[0].map(item => item[0]).join('')
-              setTranslatedDesc(viText.charAt(0).toUpperCase() + viText.slice(1))
-            }
-          } catch (e) {
-            console.error('Lỗi dịch description:', e)
-          }
-        }
       } catch (err) {
         if (!alive) return
         setProduct(null)
@@ -129,7 +113,7 @@ export default function ProductDetailPage() {
   const categoryName = translateCategory(rawCategoryName)
   const productName = translateName(product?.name || '')
   const productDescription = translateDescription(product?.description || 'Không có mô tả.')
-  const finalDescription = translatedDesc || productDescription
+  const finalDescription = productDescription
   const shortDescription = compactText(finalDescription)
   const canExpandDescription = finalDescription.length > shortDescription.length
   const ingredientCount = product?.ingredients?.length || 0
