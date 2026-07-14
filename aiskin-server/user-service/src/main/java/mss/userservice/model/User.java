@@ -55,6 +55,9 @@ public class User {
     /** Embedded skin profile (nullable until first set). */
     private SkinProfile skinProfile;
 
+    /** Default checkout delivery address (nullable until first order). */
+    private DeliveryAddress deliveryAddress;
+
     @CreatedDate
     private Instant createdAt;
 

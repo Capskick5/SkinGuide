@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import mss.userservice.dto.ChangePasswordRequest;
 import mss.userservice.dto.UpdateProfileRequest;
 import mss.userservice.dto.UserResponse;
+import mss.userservice.model.DeliveryAddress;
 import mss.userservice.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -38,6 +39,14 @@ public class UserController {
     public ResponseEntity<UserResponse> updateProfile(@AuthenticationPrincipal String userId,
                                                        @Valid @RequestBody UpdateProfileRequest request) {
         return ResponseEntity.ok(userService.updateProfile(userId, request));
+    }
+
+    @PutMapping("/me/delivery-address")
+    @Operation(summary = "Lưu địa chỉ giao hàng mặc định")
+    public ResponseEntity<DeliveryAddress> updateDeliveryAddress(
+            @AuthenticationPrincipal String userId,
+            @Valid @RequestBody DeliveryAddress address) {
+        return ResponseEntity.ok(userService.updateDeliveryAddress(userId, address));
     }
 
     @PostMapping("/me/change-password")

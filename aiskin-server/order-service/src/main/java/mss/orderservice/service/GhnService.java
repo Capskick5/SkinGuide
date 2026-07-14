@@ -6,9 +6,7 @@ import mss.orderservice.config.GhnConfig;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
@@ -19,6 +17,8 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class GhnService {
+
+    private static final String PROVINCE_FALLBACK_API = "https://provinces.open-api.vn/api/v1";
 
     private final GhnConfig ghnConfig;
     private final RestTemplate restTemplate;
@@ -89,20 +89,28 @@ public class GhnService {
 
     public List<?> getProvinces() {
         String url = ghnConfig.getApiUrl().replace("/v2", "") + "/master-data/province";
-        return getMasterData(url, "tỉnh/thành phố");
+        return getMasterData(url, "tỉnh/thành phố", "/p/", null, "ProvinceID", "ProvinceName");
     }
 
     public List<?> getDistricts(int provinceId) {
         String url = ghnConfig.getApiUrl().replace("/v2", "") + "/master-data/district?province_id=" + provinceId;
-        return getMasterData(url, "quận/huyện");
+        return getMasterData(url, "quận/huyện", "/p/" + provinceId + "?depth=2",
+                "districts", "DistrictID", "DistrictName");
     }
 
     public List<?> getWards(int districtId) {
         String url = ghnConfig.getApiUrl().replace("/v2", "") + "/master-data/ward?district_id=" + districtId;
-        return getMasterData(url, "phường/xã");
+        return getMasterData(url, "phường/xã", "/d/" + districtId + "?depth=2",
+                "wards", "WardCode", "WardName");
     }
 
-    private List<?> getMasterData(String url, String label) {
+    private List<?> getMasterData(
+            String url,
+            String label,
+            String fallbackPath,
+            String nestedListKey,
+            String targetCodeKey,
+            String targetNameKey) {
         HttpEntity<String> entity = new HttpEntity<>(createHeaders());
         try {
             Map response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, Map.class).getBody();
@@ -113,9 +121,48 @@ public class GhnService {
             throw new IllegalStateException("GHN trả về danh sách rỗng");
         } catch (Exception e) {
             log.error("Lỗi lấy danh sách {} GHN: {}", label, e.getMessage());
-            throw new ResponseStatusException(
-                    HttpStatus.SERVICE_UNAVAILABLE,
-                    "Không tải được danh sách " + label + " từ GHN. Vui lòng kiểm tra GHN_TOKEN và GHN_SHOP_ID.");
+            return getFallbackOptions(fallbackPath, nestedListKey, targetCodeKey, targetNameKey);
+        }
+    }
+
+    /**
+     * Keep local checkout usable when GHN credentials are absent/expired.
+     * The fallback API uses the same three-level administrative structure but
+     * different field names, so values are normalized to the GHN response shape.
+     */
+    private List<Map<String, Object>> getFallbackOptions(
+            String path,
+            String nestedListKey,
+            String targetCodeKey,
+            String targetNameKey) {
+        try {
+            Object response = restTemplate.getForObject(PROVINCE_FALLBACK_API + path, Object.class);
+            Object rawItems = nestedListKey == null
+                    ? response
+                    : response instanceof Map<?, ?> map ? map.get(nestedListKey) : null;
+
+            if (!(rawItems instanceof List<?> items)) {
+                return java.util.Collections.emptyList();
+            }
+
+            List<Map<String, Object>> normalized = items.stream()
+                    .filter(Map.class::isInstance)
+                    .map(Map.class::cast)
+                    .filter(item -> item.get("code") != null && item.get("name") != null)
+                    .map(item -> {
+                        Map<String, Object> option = new HashMap<>();
+                        option.put(targetCodeKey, "WardCode".equals(targetCodeKey)
+                                ? String.valueOf(item.get("code"))
+                                : item.get("code"));
+                        option.put(targetNameKey, item.get("name"));
+                        return option;
+                    })
+                    .toList();
+            log.warn("Đang dùng dữ liệu địa giới dự phòng cho {} ({} mục)", path, normalized.size());
+            return normalized;
+        } catch (Exception fallbackError) {
+            log.error("Không tải được dữ liệu địa giới dự phòng {}: {}", path, fallbackError.getMessage());
+            return java.util.Collections.emptyList();
         }
     }
 }
