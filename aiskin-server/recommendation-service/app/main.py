@@ -1,5 +1,5 @@
 from fastapi import Depends, FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 import py_eureka_client.eureka_client as eureka_client
 import logging
@@ -15,6 +15,7 @@ from pymongo import MongoClient
 import aiohttp
 from .similarity_engine import RecommendationEngine
 from .kafka_consumer import ProductKafkaConsumer
+from .chat_service import ChatRateLimiter, GroqChatService
 from .security import get_current_user_id
 
 logging.basicConfig(level=logging.INFO)
@@ -35,6 +36,8 @@ ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv(
 engine = None
 db = None
 kafka_consumer_task = None
+chat_service = GroqChatService()
+chat_rate_limiter = ChatRateLimiter()
 
 STEP_TO_LABEL = {
     "Tẩy trang": "Cleanser",
@@ -236,6 +239,16 @@ class RecommendRequest(BaseModel):
     top_k: int = 5
     routine_id: Optional[str] = None  # ID của Lộ trình (nếu có)
 
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: List[ChatMessage] = Field(default_factory=list)
+
 @app.get("/api/v1/recommend/routine/{routine_id}", tags=["Recommendations"])
 def get_routine_recommendations(
     routine_id: str,
@@ -348,6 +361,30 @@ def get_recommendations(
     except Exception as e:
         logger.error(f"Lỗi khi xử lý Recommend: {e}")
         raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ")
+
+
+@app.post("/api/v1/recommend/chat", tags=["Chatbot"])
+async def chat_with_skincare_assistant(
+    req: ChatRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    message = req.message.strip()
+    if not message or len(message) > 1000:
+        raise HTTPException(status_code=400, detail="Câu hỏi phải có từ 1 đến 1000 ký tự")
+    if len(req.history) > 10:
+        raise HTTPException(status_code=400, detail="Lịch sử trò chuyện vượt quá 10 tin nhắn")
+    if not chat_rate_limiter.allow(user_id):
+        raise HTTPException(status_code=429, detail="Bạn gửi quá nhiều câu hỏi. Vui lòng thử lại sau một phút")
+    if not chat_service.available:
+        raise HTTPException(status_code=503, detail="Chatbot chưa được cấu hình trên máy chủ")
+
+    try:
+        history = [{"role": item.role, "content": item.content} for item in req.history]
+        content = await chat_service.answer(history, message, engine)
+        return {"status": "success", "data": {"content": content}}
+    except Exception as exc:
+        logger.error("Chatbot request failed: %s", exc)
+        raise HTTPException(status_code=502, detail="Không thể kết nối trợ lý AI lúc này") from exc
 
 @app.get("/health", tags=["System"])
 def health_check():
