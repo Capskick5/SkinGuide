@@ -78,21 +78,10 @@ export default function HistoryPage() {
     })
   }
 
-  // Hàm helper tính điểm
-  const calculateScore = (record) => {
-    if (record.modelHealth?.skinIssueModel !== 'loaded') return null
-    const zones = record.facialZones
-    if (!zones) return null
-    const maxScoreT = zones.t_zone?.issues?.[0]?.severityScore || 1
-    const maxScoreU = zones.u_zone?.issues?.[0]?.severityScore || 1
-    const maxSeverity = Math.max(maxScoreT, maxScoreU)
-    return maxSeverity === 4 ? 40 : maxSeverity === 3 ? 60 : maxSeverity === 2 ? 80 : 95
-  }
-
   // Trích xuất vấn đề
   const getTopIssues = (zones) => {
     if (!zones) return []
-    const flatIssues = []
+    const flatIssues = [...(zones.issues || [])]
     if (zones.t_zone?.issues) flatIssues.push(...zones.t_zone.issues)
     if (zones.u_zone?.issues) flatIssues.push(...zones.u_zone.issues)
     
@@ -126,8 +115,6 @@ export default function HistoryPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {history.map((h) => {
-              const score = calculateScore(h)
-              
               const skinTypeObj = h.skinType || {}
               const skinTypeStr = skinTypeObj.predicted || h.skinType || 'Normal'
               const skinTypeLabel = skinTypeStr === 'Dry' ? 'Da khô' : skinTypeStr === 'Oily' ? 'Da dầu' : 'Da thường'
@@ -158,7 +145,9 @@ export default function HistoryPage() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2 text-right">
-                    <p className="text-headline-md font-bold text-primary leading-none">{h.skinScore || score || '--'}</p>
+                    <p className="text-label-md font-bold text-primary leading-none">
+                      {h.modelHealth?.skinIssueModel === 'loaded' ? `${topIssues.length} dấu hiệu` : 'Loại da'}
+                    </p>
                     <div className="flex items-center gap-3">
                       <Popconfirm
                         title="Xóa lịch sử quét"
