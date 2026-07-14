@@ -23,6 +23,9 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/actuator/health",
+            "/api/ghn/provinces",
+            "/api/ghn/districts",
+            "/api/ghn/wards",
             "/api/orders/payment/momo-ipn",
             "/api/orders/payment/vnpay-ipn",
             "/api/orders/ghn-webhook"

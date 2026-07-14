@@ -2,6 +2,7 @@ package mss.userservice.dto;
 
 
 import mss.userservice.model.SkinProfile;
+import mss.userservice.model.DeliveryAddress;
 import mss.userservice.model.User;
 
 import java.time.Instant;
@@ -19,6 +20,7 @@ public record UserResponse(
         boolean active,
         boolean emailVerified,
         SkinProfile skinProfile,
+        DeliveryAddress deliveryAddress,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -31,6 +33,7 @@ public record UserResponse(
                 user.isActive(),
                 user.isEmailVerified(),
                 user.getSkinProfile(),
+                user.getDeliveryAddress(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );

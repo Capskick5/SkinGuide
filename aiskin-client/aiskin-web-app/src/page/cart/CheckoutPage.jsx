@@ -5,7 +5,9 @@ import Icon from '@/components/common/Icon'
 import { useCart } from '@/hook/useCart'
 import { useAuth } from '@/hook/useAuth'
 import httpClient from '@/api/httpClient'
+import { authApi } from '@/api/authApi'
 import { resolveImageUrl } from '@/page/products/productUtils'
+import { getSavedDeliveryAddress, saveDeliveryAddress } from './deliveryAddressStorage'
 
 function money(value) {
   if (!value && value !== 0) return '-'
@@ -86,7 +88,42 @@ function SelectField({ icon, label, value, onChange, placeholder, options, disab
   )
 }
 
-function AddressStep({ formData, onChange, onNext }) {
+function SavedAddressCard({ address, savingAddress, onChangeAddress, onNext }) {
+  const fullAddress = [address.addressDetail, address.ward, address.district, address.city].filter(Boolean).join(', ')
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-lg border border-primary/30 bg-primary-light/40 p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="mb-3 flex items-center gap-2 font-bold text-on-surface">
+              <Icon name="location_on" className="text-xl text-primary" />
+              Địa chỉ giao hàng đã lưu
+            </p>
+            <p className="font-semibold text-on-surface">{address.customerName}</p>
+            <p className="mt-1 text-sm text-on-surface-variant">{address.customerPhone}</p>
+            <p className="mt-2 text-sm leading-6 text-on-surface-variant">{fullAddress}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onChangeAddress}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-primary bg-white px-4 text-sm font-semibold text-primary transition hover:bg-primary-light"
+          >
+            <Icon name="edit_location_alt" className="text-lg" />
+            Thay đổi địa chỉ
+          </button>
+        </div>
+      </div>
+
+      <button type="button" onClick={onNext} disabled={savingAddress} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary font-bold text-white transition hover:bg-tertiary disabled:cursor-not-allowed disabled:opacity-60">
+        {savingAddress ? 'Đang đồng bộ địa chỉ...' : 'Giao đến địa chỉ này'}
+        <Icon name={savingAddress ? 'hourglass_empty' : 'arrow_forward'} className={savingAddress ? 'animate-spin text-xl' : 'text-xl'} />
+      </button>
+    </div>
+  )
+}
+
+function AddressStep({ formData, savedAddress, isEditing, savingAddress, onChange, onEdit, onCancelEdit, onNext }) {
   const [provinces, setProvinces] = useState([])
   const [districts, setDistricts] = useState([])
   const [wards, setWards] = useState([])
@@ -213,6 +250,10 @@ function AddressStep({ formData, onChange, onNext }) {
     emit('ward', ward?.name || '')
   }
 
+  if (savedAddress && !isEditing) {
+    return <SavedAddressCard address={savedAddress} savingAddress={savingAddress} onChangeAddress={onEdit} onNext={onNext} />
+  }
+
   return (
     <form
       onSubmit={(event) => {
@@ -225,6 +266,18 @@ function AddressStep({ formData, onChange, onNext }) {
       }}
       className="space-y-5"
     >
+      {savedAddress ? (
+        <div className="flex items-center justify-between rounded-lg border border-border-pink bg-surface-soft px-4 py-3">
+          <span className="flex items-center gap-2 text-sm font-semibold text-on-surface">
+            <Icon name="edit_location_alt" className="text-lg text-primary" />
+            Cập nhật địa chỉ giao hàng
+          </span>
+          <button type="button" onClick={onCancelEdit} className="text-sm font-semibold text-on-surface-variant transition hover:text-primary">
+            Hủy
+          </button>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <TextField icon="person" label="Người nhận" name="customerName" value={formData.customerName} onChange={onChange} placeholder="Nguyễn Nhật Huy" />
@@ -285,9 +338,16 @@ function AddressStep({ formData, onChange, onNext }) {
         </div>
       </div>
 
-      <button type="submit" className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary font-bold text-white transition hover:bg-tertiary">
-        Tiếp tục
-        <Icon name="arrow_forward" className="text-xl" />
+      {addressApiError ? (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <Icon name="info" className="text-lg" />
+          {addressApiError}
+        </div>
+      ) : null}
+
+      <button type="submit" disabled={savingAddress} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary font-bold text-white transition hover:bg-tertiary disabled:cursor-not-allowed disabled:opacity-60">
+        {savingAddress ? 'Đang lưu địa chỉ...' : savedAddress ? 'Lưu thay đổi & Tiếp tục' : 'Lưu địa chỉ & Tiếp tục'}
+        <Icon name={savingAddress ? 'hourglass_empty' : 'arrow_forward'} className={savingAddress ? 'animate-spin text-xl' : 'text-xl'} />
       </button>
     </form>
   )
@@ -478,9 +538,13 @@ export default function CheckoutPage() {
   const navigate = useNavigate()
   const { message } = AntApp.useApp()
   const idempotencyKeyRef = useRef(crypto.randomUUID())
+  const initialSavedAddress = user?.deliveryAddress || getSavedDeliveryAddress(user?.id)
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [savingAddress, setSavingAddress] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('MOMO')
+  const [savedAddress, setSavedAddress] = useState(initialSavedAddress)
+  const [isEditingAddress, setIsEditingAddress] = useState(!initialSavedAddress)
   const [formData, setFormData] = useState({
     customerName: user?.fullName || '',
     customerPhone: user?.phone || '',
@@ -493,11 +557,40 @@ export default function CheckoutPage() {
     addressDetail: '',
     note: '',
     shippingFee: 0,
+    ...initialSavedAddress,
   })
 
   const handleChange = useCallback((event) => {
     setFormData((current) => ({ ...current, [event.target.name]: event.target.value }))
   }, [])
+
+  async function handleAddressNext() {
+    const address = saveDeliveryAddress(user?.id, formData)
+    if (address) {
+      setSavedAddress(address)
+      setIsEditingAddress(false)
+    }
+    setSavingAddress(true)
+    try {
+      const persistedAddress = await authApi.updateDeliveryAddress(address || formData)
+      saveDeliveryAddress(user?.id, persistedAddress)
+      setSavedAddress(persistedAddress)
+      setIsEditingAddress(false)
+    } catch (err) {
+      console.error('Không lưu được địa chỉ lên tài khoản', err)
+      message.warning('Địa chỉ đã được lưu trên thiết bị này nhưng chưa đồng bộ được với tài khoản.')
+    } finally {
+      setSavingAddress(false)
+      setStep(2)
+    }
+  }
+
+  function handleCancelAddressEdit() {
+    if (savedAddress) {
+      setFormData((current) => ({ ...current, ...savedAddress }))
+      setIsEditingAddress(false)
+    }
+  }
 
   async function handlePlaceOrder() {
     setLoading(true)
@@ -579,7 +672,18 @@ export default function CheckoutPage() {
         <main>
           {step <= 3 && <Stepper currentStep={step} />}
           <section className="rounded-lg border border-border-pink bg-white p-5 shadow-[0_4px_24px_rgba(255,107,158,0.06)]">
-            {step === 1 ? <AddressStep formData={formData} onChange={handleChange} onNext={() => setStep(2)} /> : null}
+            {step === 1 ? (
+              <AddressStep
+                formData={formData}
+                savedAddress={savedAddress}
+                isEditing={isEditingAddress}
+                savingAddress={savingAddress}
+                onChange={handleChange}
+                onEdit={() => setIsEditingAddress(true)}
+                onCancelEdit={handleCancelAddressEdit}
+                onNext={handleAddressNext}
+              />
+            ) : null}
             {step === 2 ? <PaymentMethodStep selectedMethod={paymentMethod} onSelect={setPaymentMethod} onBack={() => setStep(1)} onNext={() => setStep(3)} /> : null}
             {step === 3 ? <ConfirmStep formData={formData} items={items} paymentMethod={paymentMethod} onBack={() => setStep(2)} onConfirm={handlePlaceOrder} loading={loading} /> : null}
           </section>

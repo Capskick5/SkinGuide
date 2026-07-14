@@ -18,6 +18,7 @@ import { httpClient } from './httpClient'
  * @property {boolean} active
  * @property {boolean} emailVerified
  * @property {SkinProfile} skinProfile
+ * @property {Object|null} deliveryAddress
  * @property {string} createdAt
  * @property {string} updatedAt
  */
@@ -167,6 +168,11 @@ export const authApi = {
    */
   updateProfile({ fullName, skinProfile }) {
     return httpClient.put('/users/me', { fullName, skinProfile })
+  },
+
+  /** Lưu hoặc thay thế địa chỉ giao hàng mặc định của tài khoản. */
+  updateDeliveryAddress(address) {
+    return httpClient.put('/users/me/delivery-address', address)
   },
 
   /**

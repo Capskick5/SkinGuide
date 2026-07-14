@@ -7,12 +7,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
@@ -49,14 +47,20 @@ class GhnServiceTest {
     }
 
     @Test
-    void reportsServiceUnavailableInsteadOfReturningAnEmptyList() {
+    void fallsBackToOpenProvinceDataWhenGhnIsUnavailable() {
         server.expect(requestTo("https://ghn.test/shiip/public-api/master-data/province"))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
+        server.expect(requestTo("https://provinces.open-api.vn/api/v1/p/"))
+                .andRespond(withSuccess("""
+                        [{"code":79,"name":"Hồ Chí Minh"}]
+                        """, MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(service::getProvinces)
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode())
-                        .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+        List<?> provinces = service.getProvinces();
+
+        assertThat(provinces).hasSize(1);
+        java.util.Map<?, ?> province = (java.util.Map<?, ?>) provinces.getFirst();
+        assertThat(province.get("ProvinceID")).isEqualTo(79);
+        assertThat(province.get("ProvinceName")).isEqualTo("Hồ Chí Minh");
         server.verify();
     }
 }
