@@ -18,7 +18,7 @@ os.environ.setdefault("JWT_SECRET", base64.b64encode(b"test-secret-key-that-is-a
 os.environ.setdefault("JWT_ISSUER", "aiskin-user-service")
 
 from app.security import JWT_SECRET, verify_token
-from app.main import _fallback_skin_issue_analysis
+from app.main import _fallback_skin_issue_analysis, _require_reliable_skin_type
 from app.services.skin_type_inference import SkinTypeDetector, calibrated_softmax
 from app.utils.face_cropper import crop_face_from_bytes
 
@@ -62,6 +62,25 @@ class AiInputHardeningTest(unittest.TestCase):
         self.assertEqual(fallback["modelStatus"], "unavailable")
         self.assertEqual(fallback["t_zone"]["issues"], [])
         self.assertEqual(fallback["u_zone"]["issues"], [])
+
+    def test_unreliable_skin_type_cannot_generate_routine(self):
+        scan_record = {
+            "skinType": {
+                "predicted": "Oily",
+                "confidence": 0.52,
+                "minimumConfidence": 0.6,
+                "reliable": False,
+            }
+        }
+
+        with self.assertRaises(HTTPException) as context:
+            _require_reliable_skin_type(scan_record)
+
+        self.assertEqual(context.exception.status_code, 409)
+        self.assertIn("52%", context.exception.detail)
+
+    def test_reliable_skin_type_can_generate_routine(self):
+        _require_reliable_skin_type({"skinType": {"confidence": 0.8, "reliable": True}})
 
 
 class ModelCheckpointContractTest(unittest.TestCase):
