@@ -121,13 +121,12 @@ export async function getScanRoutine(scanId) {
   return res.json()
 }
 
-export async function generateRecommendations(routineId, userId) {
+export async function generateRecommendations(routineId) {
   return requestJson(
     `${RECOMMENDATION_BASE_URL}/api/v1/recommend/routine/${routineId}`,
     {
       method: 'POST',
-      headers: authHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ user_id: userId }),
+      headers: authHeaders(),
     },
     'Không thể tạo gợi ý mỹ phẩm',
   )

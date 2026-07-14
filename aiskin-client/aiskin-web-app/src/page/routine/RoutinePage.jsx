@@ -253,8 +253,7 @@ export default function RoutinePage() {
     setIsGeneratingRecs(true)
     setError(null)
     try {
-      const scan = historyList.find(h => h._id === selectedScanId)
-      const res = await generateRecommendations(selectedRoutineId, scan?.userId || '')
+      const res = await generateRecommendations(selectedRoutineId)
       if (res.status === 'success') {
         setProductRecommendations(res.data)
         const updatedHistory = historyList.map(h => {
