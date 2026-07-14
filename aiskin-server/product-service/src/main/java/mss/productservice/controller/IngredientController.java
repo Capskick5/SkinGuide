@@ -8,6 +8,7 @@ import mss.productservice.dto.response.IngredientResponse;
 import mss.productservice.service.IngredientService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -56,18 +57,21 @@ public class IngredientController {
     }
 
     @PostMapping
+    @PreAuthorize("hasPermission('/api/ingredients', 'POST')")
     public ResponseEntity<ApiResponse<IngredientResponse>> createIngredient(@Valid @RequestBody IngredientRequest request) {
         IngredientResponse created = ingredientService.createIngredient(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Ingredient created", created));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission('/api/ingredients/{id}', 'PUT')")
     public ResponseEntity<ApiResponse<IngredientResponse>> updateIngredient(@PathVariable String id,
                                                                              @Valid @RequestBody IngredientRequest request) {
         return ResponseEntity.ok(ApiResponse.ok("Ingredient updated", ingredientService.updateIngredient(id, request)));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission('/api/ingredients/{id}', 'DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteIngredient(@PathVariable String id) {
         ingredientService.deleteIngredient(id);
         return ResponseEntity.ok(ApiResponse.ok("Ingredient deleted", null));
