@@ -40,6 +40,8 @@ export default function AnalysisResultPage({
   const scanResult = result.scan_result
   // Xử lý dữ liệu AI trả về
   const skinType = scanResult.skinType?.predicted === 'Dry' ? 'Da khô' : scanResult.skinType?.predicted === 'Oily' ? 'Da dầu' : 'Da thường'
+  const skinTypeReliable = scanResult.skinType?.reliable !== false
+  const skinTypeConfidence = Math.round((scanResult.skinType?.confidence || 0) * 100)
   
   const zones = scanResult.facialZones || { t_zone: { issues: [] }, u_zone: { issues: [] } }
   const issueModelAvailable = scanResult.modelHealth?.skinIssueModel === 'loaded'
@@ -81,7 +83,7 @@ export default function AnalysisResultPage({
             Kết quả phân tích
           </h1>
           <p className="text-body-md text-on-surface-variant">
-            Phân tích chi tiết tình trạng sức khỏe làn da của bạn dựa trên Siêu AI.
+            Kết quả hỗ trợ phân loại loại da từ ảnh khuôn mặt đã kiểm định.
           </p>
         </div>
         <div className="flex gap-2">
@@ -128,6 +130,14 @@ export default function AnalysisResultPage({
             <div className="bg-warning/10 p-4 rounded-xl border border-warning/30 mb-2">
               <p className="text-body-sm text-on-surface">
                 Model nhận diện vấn đề da chưa khả dụng. Kết quả hiện tại chỉ xác định loại da và lộ trình nền tảng, không kết luận tình trạng da.
+              </p>
+            </div>
+          )}
+
+          {!skinTypeReliable && (
+            <div className="bg-warning/10 p-4 rounded-xl border border-warning/30 mb-2">
+              <p className="text-body-sm text-on-surface">
+                Độ tin cậy loại da hiện là {skinTypeConfidence}%, dưới ngưỡng 60%. Hãy quét lại với ảnh chính diện, đủ sáng trước khi tạo lộ trình.
               </p>
             </div>
           )}
@@ -190,7 +200,8 @@ export default function AnalysisResultPage({
                   needsGeneration: true
                 } 
               })}
-              className="flex-1 gradient-bg text-white py-3 rounded-full text-label-md shadow-sm hover:opacity-90 transition-opacity flex justify-center items-center gap-2"
+              disabled={!skinTypeReliable}
+              className="flex-1 gradient-bg text-white py-3 rounded-full text-label-md shadow-sm hover:opacity-90 transition-opacity flex justify-center items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Xem lộ trình gợi ý <Icon name="arrow_forward" />
             </button>

@@ -90,7 +90,7 @@ Script import 500 sản phẩm từ `my-doc/data/product_dataset.json`. Endpoint
 
 ## Sự thật về AI hiện tại
 
-- Model A production hiện là MobileNetV2, phân loại `Dry/Normal/Oily`.
+- Model A production là MobileNetV2, phân loại `Dry/Normal/Oily`. Checkpoint hiện tại được train trên dataset Kaggle Apache 2.0 gồm 3.152 ảnh gốc; sau chống trùng và production face guard còn 2.225 ảnh (`1.698/261/266`). Test sạch đạt accuracy `69,92%`, macro F1 `68,96%`; confidence được temperature-calibrate trên validation.
 - Kết quả test `100%` cũ không được dùng làm bằng chứng vì dataset gốc có ảnh trùng xuyên split. Chạy audit và tạo split theo nhóm ảnh trước khi train lại:
 
 ```bash

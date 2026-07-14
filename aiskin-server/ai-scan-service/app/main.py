@@ -204,6 +204,8 @@ def health_check():
         "service": APP_NAME,
         "database": "UP" if database_ready else "DOWN",
         "skinTypeModel": "loaded" if model_a_ready else "unavailable",
+        "skinTypeModelVersion": skin_detector.model_version if model_a_ready else None,
+        "skinTypeModelEvidence": skin_detector.evidence if model_a_ready else None,
         "skinIssueModel": "loaded" if model_b_ready else "unavailable",
     }
 
@@ -263,6 +265,8 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
                 "probabilities": skin_type_probabilities,
                 "modelVersion": skin_type_result["model_version"],
                 "confidenceCalibrated": skin_type_result["confidence_calibrated"],
+                "minimumConfidence": skin_type_result["minimum_confidence"],
+                "reliable": skin_type_result["reliable"],
             },
             "facialZones": ultimate_analysis,
             "modelHealth": {
