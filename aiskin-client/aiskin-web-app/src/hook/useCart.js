@@ -3,6 +3,7 @@
  * Hỗ trợ: thêm, xóa, cập nhật số lượng, xóa toàn bộ, tính tổng tiền.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { cappedQuantity, cartLineId, normalizeCartItem } from './cartUtils'
 
 const CART_KEY = 'aiskin.cart'
 const CHANGE_EVENT = 'aiskin:cart-change'
@@ -13,7 +14,7 @@ function readCart() {
     const raw = localStorage.getItem(CART_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    return Array.isArray(parsed) ? parsed.map(normalizeCartItem) : []
   } catch {
     return []
   }
@@ -41,14 +42,16 @@ export function useCart() {
   /** Thêm sản phẩm vào giỏ (nếu đã có thì tăng qty) */
   const addItem = useCallback((product, qty = 1) => {
     const current = readCart()
-    const idx = current.findIndex((i) => i.id === product.id)
+    const normalizedProduct = normalizeCartItem(product)
+    const lineId = cartLineId(normalizedProduct)
+    const idx = current.findIndex((item) => item.lineId === lineId)
     let next
     if (idx >= 0) {
       next = current.map((i, index) =>
-        index === idx ? { ...i, qty: i.qty + qty } : i,
+        index === idx ? { ...i, qty: cappedQuantity(i, i.qty + qty) } : i,
       )
     } else {
-      next = [...current, { ...product, qty }]
+      next = [...current, { ...normalizedProduct, qty: cappedQuantity(normalizedProduct, qty) }]
     }
     writeCart(next)
     setItems(next)
@@ -60,13 +63,15 @@ export function useCart() {
     let current = readCart()
     products.forEach((product) => {
       const qty = 1
-      const idx = current.findIndex((i) => i.id === product.id)
+      const normalizedProduct = normalizeCartItem(product)
+      const lineId = cartLineId(normalizedProduct)
+      const idx = current.findIndex((item) => item.lineId === lineId)
       if (idx >= 0) {
         current = current.map((i, index) =>
-          index === idx ? { ...i, qty: i.qty + qty } : i,
+          index === idx ? { ...i, qty: cappedQuantity(i, i.qty + qty) } : i,
         )
       } else {
-        current = [...current, { ...product, qty }]
+        current = [...current, { ...normalizedProduct, qty: cappedQuantity(normalizedProduct, qty) }]
       }
     })
     writeCart(current)
@@ -75,21 +80,23 @@ export function useCart() {
   }, [])
 
   /** Xóa 1 sản phẩm khỏi giỏ */
-  const removeItem = useCallback((productId) => {
-    const next = readCart().filter((i) => i.id !== productId)
+  const removeItem = useCallback((lineId) => {
+    const next = readCart().filter((item) => item.lineId !== lineId)
     writeCart(next)
     setItems(next)
   }, [])
 
   /** Cập nhật số lượng */
-  const updateQty = useCallback((productId, qty) => {
+  const updateQty = useCallback((lineId, qty) => {
     if (qty <= 0) {
-      const next = readCart().filter((i) => i.id !== productId)
+      const next = readCart().filter((item) => item.lineId !== lineId)
       writeCart(next)
       setItems(next)
       return
     }
-    const next = readCart().map((i) => (i.id === productId ? { ...i, qty } : i))
+    const next = readCart().map((item) => (
+      item.lineId === lineId ? { ...item, qty: cappedQuantity(item, qty) } : item
+    ))
     writeCart(next)
     setItems(next)
   }, [])

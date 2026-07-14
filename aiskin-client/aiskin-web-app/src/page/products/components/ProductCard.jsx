@@ -15,20 +15,31 @@ export default function ProductCard({
   rating,
   imageUrl,
   targetConcerns = [],
+  variants = [],
 }) {
   const canRenderImage = imageUrl && (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('/'))
   const { addItem } = useCart()
   const { message } = AntApp.useApp()
+  const sellableVariant = variants.find((variant) => (
+    variant.isActive !== false
+    && (variant.trackInventory === false || Number(variant.availableQuantity || 0) > 0)
+  ))
 
   function handleQuickAdd() {
-    if (!id) return
+    if (!id || !sellableVariant) return
 
     addItem({
       id,
       name,
-      price: priceValue || 0,
-      imageUrl,
+      price: sellableVariant.price || priceValue || 0,
+      imageUrl: sellableVariant.imageUrl || imageUrl,
       slug,
+      variantId: sellableVariant.id,
+      variantName: sellableVariant.name,
+      sku: sellableVariant.sku,
+      unit: sellableVariant.unit,
+      availableQuantity: sellableVariant.availableQuantity,
+      trackInventory: sellableVariant.trackInventory,
     })
     message.success(`Đã thêm ${name} vào giỏ hàng`)
   }
@@ -91,8 +102,8 @@ export default function ProductCard({
           <button
             type="button"
             onClick={handleQuickAdd}
-            disabled={!id}
-            title="Thêm nhanh vào giỏ hàng"
+            disabled={!id || !sellableVariant}
+            title={sellableVariant ? 'Thêm nhanh vào giỏ hàng' : 'Sản phẩm đang hết hàng'}
             className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/30 bg-primary-light text-primary transition-all hover:bg-primary hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="add_shopping_cart" className="text-xl" />

@@ -194,13 +194,21 @@ export default function RoutinePage() {
           selectedProduct = sortedProducts[Math.floor(sortedProducts.length / 2)]
         }
         
-        if (selectedProduct && !selectedProducts.find(ext => ext.id === selectedProduct.id)) {
+        if (selectedProduct && !selectedProducts.find(
+          item => item.id === selectedProduct.id && item.variantId === selectedProduct.variantId,
+        )) {
           selectedProducts.push({
             id: selectedProduct.id,
             name: selectedProduct.name,
             price: selectedProduct.price,
             imageUrl: selectedProduct.imageUrl || selectedProduct.images?.[0],
-            slug: selectedProduct.slug
+            slug: selectedProduct.slug,
+            variantId: selectedProduct.variantId,
+            variantName: selectedProduct.variantName,
+            sku: selectedProduct.sku,
+            unit: selectedProduct.unit,
+            availableQuantity: selectedProduct.availableQuantity,
+            trackInventory: true,
           })
         }
       }
@@ -713,7 +721,13 @@ export default function RoutinePage() {
                     name: quickViewProduct.name,
                     price: quickViewProduct.price,
                     imageUrl: quickViewProduct.imageUrl || quickViewProduct.images?.[0],
-                    slug: quickViewProduct.slug
+                    slug: quickViewProduct.slug,
+                    variantId: quickViewProduct.variantId,
+                    variantName: quickViewProduct.variantName,
+                    sku: quickViewProduct.sku,
+                    unit: quickViewProduct.unit,
+                    availableQuantity: quickViewProduct.availableQuantity,
+                    trackInventory: true,
                   })
                   setQuickViewProduct(null)
                   // Có thể báo toast ở đây nếu có
