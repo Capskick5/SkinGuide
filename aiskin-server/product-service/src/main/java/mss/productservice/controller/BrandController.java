@@ -8,6 +8,7 @@ import mss.productservice.dto.response.BrandResponse;
 import mss.productservice.service.BrandService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -45,18 +46,21 @@ public class BrandController {
     }
 
     @PostMapping
+    @PreAuthorize("hasPermission('/api/brands', 'POST')")
     public ResponseEntity<ApiResponse<BrandResponse>> createBrand(@Valid @RequestBody BrandRequest request) {
         BrandResponse created = brandService.createBrand(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Brand created", created));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission('/api/brands/{id}', 'PUT')")
     public ResponseEntity<ApiResponse<BrandResponse>> updateBrand(@PathVariable String id,
                                                                    @Valid @RequestBody BrandRequest request) {
         return ResponseEntity.ok(ApiResponse.ok("Brand updated", brandService.updateBrand(id, request)));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission('/api/brands/{id}', 'DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteBrand(@PathVariable String id) {
         brandService.deleteBrand(id);
         return ResponseEntity.ok(ApiResponse.ok("Brand deleted", null));
