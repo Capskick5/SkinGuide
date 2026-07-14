@@ -2,11 +2,35 @@
 
 SkinGuide là hệ thống skincare thu nhỏ: quét ảnh da, tạo routine, gợi ý sản phẩm và hỗ trợ luồng mua hàng có quản lý tồn kho.
 
+## Core flow
+
+```text
+Ảnh mặt -> AI guard -> Model A loại da -> Model B vấn đề da (nếu có)
+-> routine sáng/tối -> thành phần mục tiêu -> sản phẩm active/còn hàng
+-> variant -> giỏ hàng -> đơn hàng -> giữ/trừ/hoàn tồn kho
+```
+
+## Đọc code theo module
+
+| Module | Công nghệ | Trách nhiệm chính |
+|---|---|---|
+| `aiskin-client/aiskin-web-app` | React | Giao diện khách hàng và admin |
+| `aiskin-server/api-gateway` | Spring Cloud Gateway | Một cổng vào và định tuyến service |
+| `aiskin-server/user-service` | Spring Boot | Auth, JWT, role, profile và địa chỉ |
+| `aiskin-server/product-service` | Spring Boot | Sản phẩm, variant, kho, reserve/release/commit |
+| `aiskin-server/order-service` | Spring Boot | Checkout, đơn, thanh toán, GHN, return/refund |
+| `aiskin-server/ai-scan-service` | FastAPI/PyTorch | Kiểm tra ảnh, Model A/B, lịch sử scan và routine |
+| `aiskin-server/recommendation-service` | FastAPI/scikit-learn | Lọc catalog, match thành phần, chatbot server-side |
+
+Java giữ nghiệp vụ bán hàng và dữ liệu giao dịch. Python chỉ xử lý AI/rule/recommendation; cả hai đều xác minh cùng JWT do `user-service` phát hành.
+
 ## Chạy local
 
-Yêu cầu: Java 21, Node.js, Docker Desktop và hai Python virtual environment đã được cài.
+Yêu cầu: Java 21, Node.js, Docker Desktop, Python 3 và `jq`.
 
 ```bash
+cp aiskin-server/.env.example aiskin-server/.env
+# Điền MongoDB/JWT và các sandbox key cần dùng
 ./scripts/setup-python.sh  # chỉ chạy lần đầu
 ./scripts/start-dev.sh
 ```
@@ -17,6 +41,13 @@ Mở terminal khác để kiểm tra:
 ./scripts/status-dev.sh
 ./scripts/smoke-test.sh
 ./scripts/check-demo-data.sh
+./scripts/core-flow-test.sh
+```
+
+Để kiểm tra cả AI upload bằng một ảnh mặt local:
+
+```bash
+./scripts/core-flow-test.sh /duong-dan/toi/anh-mat.jpg
 ```
 
 Các địa chỉ chính:
@@ -57,5 +88,12 @@ Script import 500 sản phẩm từ `my-doc/data/product_dataset.json`. Endpoint
 4. Dùng ảnh mặt rõ, một khuôn mặt để demo AI scan.
 5. Chạy thử một đơn: thêm giỏ, checkout, giữ kho và hủy/hoàn tất đơn.
 
+## Sự thật về AI hiện tại
+
+- Model A production hiện là MobileNetV2, phân loại `Dry/Normal/Oily`.
+- Input guard bắt buộc một khuôn mặt rõ và từ chối ảnh sai thay vì cho model đoán.
+- Model B chưa có `ultimate_skin_resnet.pth`; UI chỉ tạo routine nền tảng theo loại da và không giả nhãn `Healthy`.
+- Catalog có 10.977 dòng thành phần nhưng chưa có dữ liệu `percentage`; recommendation chỉ nói thành phần khớp và ghi rõ nồng độ chưa được cung cấp.
+- Kết quả chỉ hỗ trợ chăm sóc da, không thay thế chẩn đoán bác sĩ.
+
 Không commit `aiskin-server/.env`, mật khẩu demo, JWT secret hoặc MongoDB Atlas URI.
-Project môn MSS301

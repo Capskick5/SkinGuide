@@ -405,7 +405,16 @@ async def chat_with_skincare_assistant(
 
 @app.get("/health", tags=["System"])
 def health_check():
-    return {"status": "UP", "service": "recommendation-service"}
+    catalog_size = 0 if engine is None or engine.df is None else len(engine.df)
+    database_ready = db is not None
+    engine_ready = engine is not None and catalog_size > 0
+    return {
+        "status": "UP" if database_ready and engine_ready else "DOWN",
+        "service": APP_NAME,
+        "database": "UP" if database_ready else "DOWN",
+        "catalogSize": catalog_size,
+        "chatbotConfigured": chat_service.available,
+    }
 
 if __name__ == "__main__":
     import uvicorn
