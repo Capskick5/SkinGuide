@@ -13,10 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -36,6 +34,7 @@ public class AuthService {
     private final OtpStore otpStore;
     private final EmailService emailService;
     private final OtpProperties otpProperties;
+    private final GoogleTokenVerifier googleTokenVerifier;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
@@ -43,7 +42,8 @@ public class AuthService {
                        RefreshTokenStore refreshTokenStore,
                        OtpStore otpStore,
                        EmailService emailService,
-                       OtpProperties otpProperties) {
+                       OtpProperties otpProperties,
+                       GoogleTokenVerifier googleTokenVerifier) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -51,6 +51,7 @@ public class AuthService {
         this.otpStore = otpStore;
         this.emailService = emailService;
         this.otpProperties = otpProperties;
+        this.googleTokenVerifier = googleTokenVerifier;
     }
 
     /** Create a new account, send a verification OTP, and return tokens. */
@@ -185,8 +186,8 @@ public class AuthService {
     }
 
     public AuthResponse loginWithGoogle(String credential) {
-        GoogleTokenInfo googleUser = verifyGoogleToken(credential);
-        String email = normalizeEmail(googleUser.getEmail());
+        GoogleTokenVerifier.GoogleIdentity googleUser = googleTokenVerifier.verify(credential);
+        String email = normalizeEmail(googleUser.email());
         if (email == null) {
             throw ApiException.badRequest("Không tìm thấy email từ tài khoản Google");
         }
@@ -195,7 +196,7 @@ public class AuthService {
             User newUser = User.builder()
                     .email(email)
                     .password(passwordEncoder.encode(UUID.randomUUID().toString()))
-                    .fullName(googleUser.getName())
+                    .fullName(googleUser.name())
                     .roles(new HashSet<>(Set.of("USER")))
                     .isActive(true)
                     .emailVerified(true)
@@ -209,41 +210,6 @@ public class AuthService {
         }
 
         return issueTokens(user);
-    }
-
-    @SuppressWarnings("unchecked")
-    private GoogleTokenInfo verifyGoogleToken(String credential) {
-
-        try {
-            RestTemplate restTemplate = new RestTemplate();
-            String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + credential;
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
-            if (response == null || response.containsKey("error")) {
-                throw ApiException.unauthorized("Token Google không hợp lệ hoặc đã hết hạn");
-            }
-            String email = (String) response.get("email");
-            String name = (String) response.get("name");
-            if (name == null) {
-                name = "Google User";
-            }
-            return new GoogleTokenInfo(email, name);
-        } catch (Exception e) {
-            log.error("Failed to verify Google token", e);
-            throw ApiException.unauthorized("Không thể xác thực token Google: " + e.getMessage());
-        }
-    }
-
-    private static class GoogleTokenInfo {
-        private final String email;
-        private final String name;
-
-        public GoogleTokenInfo(String email, String name) {
-            this.email = email;
-            this.name = name;
-        }
-
-        public String getEmail() { return email; }
-        public String getName() { return name; }
     }
 
     private String normalizeEmail(String email) {
