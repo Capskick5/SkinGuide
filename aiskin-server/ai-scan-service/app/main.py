@@ -64,18 +64,11 @@ def _round_probability(value):
 
 
 def _fallback_skin_issue_analysis(reason: str):
-    fallback_issue = {
-        "name": "Healthy",
-        "probability": 1.0,
-        "severity": "Clear",
-        "severityScore": 1,
-        "source": "fallback",
-    }
     return {
         "modelStatus": "unavailable",
         "reason": reason,
-        "t_zone": {"issues": [fallback_issue]},
-        "u_zone": {"issues": [fallback_issue]},
+        "t_zone": {"issues": []},
+        "u_zone": {"issues": []},
     }
 
 
@@ -344,12 +337,16 @@ def generate_scan_routine(scan_id: str, background_tasks: BackgroundTasks, user_
         if "u_zone" in ultimate_analysis and "issues" in ultimate_analysis["u_zone"]:
             flat_conditions.extend(ultimate_analysis["u_zone"]["issues"])
             
-        # 3. Tạo Lộ trình
+        skin_issue_model_status = scan_record.get("modelHealth", {}).get("skinIssueModel", "unavailable")
+        analysis_scope = "skin_type_and_issues" if skin_issue_model_status == "loaded" else "skin_type_only"
+
+        # Model B chưa có vẫn tạo routine nền tảng theo loại da, nhưng không suy diễn vấn đề da.
         routine, top_ingredients = generate_routine(skin_type, flat_conditions)
         
         # Lấy tối đa 2 vấn đề nổi cộm làm Focus Areas
         focus_areas = list(set([c["name"] for c in flat_conditions if c.get("name") != "Healthy"]))[:2]
-        if not focus_areas: focus_areas = ["Duy trì làn da khỏe mạnh"]
+        if not focus_areas:
+            focus_areas = [f"Chăm sóc nền tảng cho loại da {skin_type}"]
         
         routine_id = str(uuid.uuid4())
         now_utc = datetime.now(timezone.utc)
@@ -361,6 +358,8 @@ def generate_scan_routine(scan_id: str, background_tasks: BackgroundTasks, user_
             "focusAreas": focus_areas,
             "topIngredients": top_ingredients,
             "routine": routine,
+            "analysisScope": analysis_scope,
+            "skinIssueModelStatus": skin_issue_model_status,
             "generatedAt": now_utc
         }
         

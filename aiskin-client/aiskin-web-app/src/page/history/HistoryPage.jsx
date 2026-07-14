@@ -79,8 +79,10 @@ export default function HistoryPage() {
   }
 
   // Hàm helper tính điểm
-  const calculateScore = (zones) => {
-    if (!zones) return 95
+  const calculateScore = (record) => {
+    if (record.modelHealth?.skinIssueModel !== 'loaded') return null
+    const zones = record.facialZones
+    if (!zones) return null
     const maxScoreT = zones.t_zone?.issues?.[0]?.severityScore || 1
     const maxScoreU = zones.u_zone?.issues?.[0]?.severityScore || 1
     const maxSeverity = Math.max(maxScoreT, maxScoreU)
@@ -124,7 +126,7 @@ export default function HistoryPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {history.map((h) => {
-              const score = calculateScore(h.facialZones)
+              const score = calculateScore(h)
               
               const skinTypeObj = h.skinType || {}
               const skinTypeStr = skinTypeObj.predicted || h.skinType || 'Normal'
@@ -156,7 +158,7 @@ export default function HistoryPage() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2 text-right">
-                    <p className="text-headline-md font-bold text-primary leading-none">{h.skinScore || score}</p>
+                    <p className="text-headline-md font-bold text-primary leading-none">{h.skinScore || score || '--'}</p>
                     <div className="flex items-center gap-3">
                       <Popconfirm
                         title="Xóa lịch sử quét"

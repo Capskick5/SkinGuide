@@ -42,13 +42,16 @@ export default function AnalysisResultPage({
   const skinType = scanResult.skinType?.predicted === 'Dry' ? 'Da khô' : scanResult.skinType?.predicted === 'Oily' ? 'Da dầu' : 'Da thường'
   
   const zones = scanResult.facialZones || { t_zone: { issues: [] }, u_zone: { issues: [] } }
+  const issueModelAvailable = scanResult.modelHealth?.skinIssueModel === 'loaded'
   const currentIssues = zones[activeZone]?.issues || []
   
   // Tính điểm tổng thể (Lấy issue nặng nhất của cả 2 vùng)
   const maxScoreT = zones.t_zone?.issues?.[0]?.severityScore || 1
   const maxScoreU = zones.u_zone?.issues?.[0]?.severityScore || 1
   const maxSeverity = Math.max(maxScoreT, maxScoreU)
-  const overallScore = maxSeverity === 4 ? 40 : maxSeverity === 3 ? 60 : maxSeverity === 2 ? 80 : 95
+  const overallScore = issueModelAvailable
+    ? (maxSeverity === 4 ? 40 : maxSeverity === 3 ? 60 : maxSeverity === 2 ? 80 : 95)
+    : null
 
   // Map issues sang CONDITIONS
   const CONDITIONS = currentIssues.map(item => {
@@ -104,25 +107,39 @@ export default function AnalysisResultPage({
             <div className="flex items-center justify-between w-full bg-surface-soft p-4 rounded-xl border border-border-pink">
               <div>
                 <h3 className="text-headline-md text-on-surface">Sức khỏe tổng thể</h3>
-                <p className="text-caption text-on-surface-variant">Dựa trên AI phân tích</p>
+                <p className="text-caption text-on-surface-variant">
+                  {issueModelAvailable ? 'Dựa trên AI phân tích' : 'Chưa có dữ liệu vấn đề da'}
+                </p>
               </div>
-              <ScoreGauge score={overallScore} />
+              {overallScore === null ? (
+                <span className="text-headline-md font-bold text-on-surface-variant">--</span>
+              ) : (
+                <ScoreGauge score={overallScore} />
+              )}
             </div>
           </div>
         </div>
 
         {/* Right: conditions */}
         <div className="lg:col-span-7 flex flex-col gap-4">
-          <h2 className="text-headline-md text-on-surface mb-2 px-2">Top Vấn đề phát hiện</h2>
+          <h2 className="text-headline-md text-on-surface mb-2 px-2">Vấn đề da phát hiện</h2>
+
+          {!issueModelAvailable && (
+            <div className="bg-warning/10 p-4 rounded-xl border border-warning/30 mb-2">
+              <p className="text-body-sm text-on-surface">
+                Model nhận diện vấn đề da chưa khả dụng. Kết quả hiện tại chỉ xác định loại da và lộ trình nền tảng, không kết luận tình trạng da.
+              </p>
+            </div>
+          )}
           
-          <div className="bg-primary/10 p-4 rounded-xl border border-primary/20 mb-2">
+          {issueModelAvailable && <div className="bg-primary/10 p-4 rounded-xl border border-primary/20 mb-2">
             <p className="text-body-sm text-on-surface">
               <strong>💡 Hướng dẫn đọc:</strong> AI đã tự động chia khuôn mặt bạn thành 2 vùng (T-Zone và U-Zone). Mức độ nghiêm trọng được chia làm 4 cấp: Clear (An toàn), Mild (Nhẹ), Moderate (Vừa), Severe (Nặng).
             </p>
-          </div>
+          </div>}
 
           {/* Tabs T-Zone / U-Zone */}
-          <div className="flex gap-2 mb-4 bg-surface-container-low p-1 rounded-full border border-border-pink">
+          {issueModelAvailable && <div className="flex gap-2 mb-4 bg-surface-container-low p-1 rounded-full border border-border-pink">
             <button 
               onClick={() => setActiveZone('t_zone')}
               className={`flex-1 py-2 rounded-full text-label-md font-bold transition-all ${activeZone === 't_zone' ? 'bg-primary text-white shadow-md' : 'text-on-surface-variant hover:text-primary'}`}
@@ -135,12 +152,16 @@ export default function AnalysisResultPage({
             >
               Vùng chữ U (Má, Cằm)
             </button>
-          </div>
+          </div>}
 
           {CONDITIONS.length > 0 ? CONDITIONS.map((c, i) => (
             <ConditionCard key={i} {...c} />
           )) : (
-            <div className="p-4 text-center text-on-surface-variant">Không phát hiện vấn đề nghiêm trọng nào ở vùng này.</div>
+            <div className="p-4 text-center text-on-surface-variant">
+              {issueModelAvailable
+                ? 'Không phát hiện vấn đề nghiêm trọng nào ở vùng này.'
+                : 'Chưa có kết quả nhận diện vấn đề da.'}
+            </div>
           )}
 
           <div className="mt-4 flex flex-col sm:flex-row gap-4">
