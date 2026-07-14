@@ -229,6 +229,62 @@ def write_manifest(
                 )
 
 
+def audit_production_compatibility(records: list[ImageRecord], validator) -> tuple[dict, list[dict]]:
+    rows = []
+    accepted_by_class = Counter()
+    accepted_by_split = Counter()
+    rejected_reasons = Counter()
+    for record in records:
+        accepted = False
+        reason = ""
+        try:
+            validator(record.path.read_bytes())
+            accepted = True
+            accepted_by_class[record.class_name] += 1
+            accepted_by_split[record.original_split] += 1
+        except ValueError as exc:
+            reason = str(exc)
+            rejected_reasons[reason] += 1
+        rows.append(
+            {
+                "relative_path": record.relative_path,
+                "class_name": record.class_name,
+                "original_split": record.original_split,
+                "production_input_accepted": accepted,
+                "rejection_reason": reason,
+            }
+        )
+
+    accepted_count = sum(accepted_by_class.values())
+    return (
+        {
+            "accepted_count": accepted_count,
+            "rejected_count": len(records) - accepted_count,
+            "acceptance_rate": accepted_count / len(records),
+            "accepted_by_class": dict(accepted_by_class),
+            "accepted_by_original_split": dict(accepted_by_split),
+            "rejection_reasons": dict(rejected_reasons.most_common()),
+        },
+        rows,
+    )
+
+
+def write_production_compatibility(path: Path, rows: list[dict]) -> None:
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "relative_path",
+                "class_name",
+                "original_split",
+                "production_input_accepted",
+                "rejection_reason",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Audit skin-type images and create leakage-safe grouped splits.")
     parser.add_argument("--data-root", type=Path, required=True)
@@ -238,6 +294,11 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--train-ratio", type=float, default=0.8)
     parser.add_argument("--validation-ratio", type=float, default=0.1)
+    parser.add_argument(
+        "--check-production-input",
+        action="store_true",
+        help="Run every image through the same face guard/cropper used by the API.",
+    )
     args = parser.parse_args()
 
     if not 0 <= args.dhash_threshold <= 64:
@@ -268,11 +329,26 @@ def main() -> None:
         }
     )
 
+    compatibility_rows = None
+    if args.check_production_input:
+        from app.utils.face_cropper import crop_face_from_bytes
+
+        compatibility_report, compatibility_rows = audit_production_compatibility(
+            records,
+            crop_face_from_bytes,
+        )
+        report["production_input_compatibility"] = compatibility_report
+
     args.output_dir.mkdir(parents=True, exist_ok=True)
     report_path = args.output_dir / "dataset_audit.json"
     manifest_path = args.output_dir / "clean_split_manifest.csv"
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     write_manifest(manifest_path, records, groups, assignments)
+    if compatibility_rows is not None:
+        write_production_compatibility(
+            args.output_dir / "production_input_compatibility.csv",
+            compatibility_rows,
+        )
     print(json.dumps(report, indent=2))
     print(f"Audit: {report_path}")
     print(f"Manifest: {manifest_path}")

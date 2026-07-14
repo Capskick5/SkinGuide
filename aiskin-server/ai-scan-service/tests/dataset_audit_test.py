@@ -47,6 +47,31 @@ class DatasetAuditTest(unittest.TestCase):
 
             self.assertEqual(actual, expected)
 
+    def test_production_compatibility_reports_rejections_by_class(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            accepted = root / "accepted.jpg"
+            rejected = root / "rejected.jpg"
+            accepted.write_bytes(b"accepted")
+            rejected.write_bytes(b"rejected")
+            records = [
+                dataset_audit.ImageRecord(accepted, "accepted.jpg", "train", "Dry", "a", 1),
+                dataset_audit.ImageRecord(rejected, "rejected.jpg", "test", "Oily", "b", 2),
+            ]
+
+            def validator(raw):
+                if raw == b"rejected":
+                    raise ValueError("No face")
+                return b"cropped"
+
+            report, rows = dataset_audit.audit_production_compatibility(records, validator)
+
+            self.assertEqual(report["accepted_count"], 1)
+            self.assertEqual(report["accepted_by_class"], {"Dry": 1})
+            self.assertEqual(report["rejection_reasons"], {"No face": 1})
+            self.assertTrue(rows[0]["production_input_accepted"])
+            self.assertFalse(rows[1]["production_input_accepted"])
+
 
 if __name__ == "__main__":
     unittest.main()
