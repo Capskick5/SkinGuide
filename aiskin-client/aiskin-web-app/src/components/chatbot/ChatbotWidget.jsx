@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { productApi } from '@/api/productApi'
-import { streamToGroq, buildProductContext } from '@/api/groqApi'
+import { streamToGroq } from '@/api/groqApi'
 import { PATHS } from '@/route/paths'
 
 // ─── Quick question chips ──────────────────────────────────────────────────────
@@ -116,7 +116,6 @@ export default function ChatbotWidget() {
   const [unread, setUnread] = useState(1)
   const [contextReady, setContextReady] = useState(false)
   const [allProducts, setAllProducts] = useState([])
-  const productContextRef = useRef('')
   const endRef = useRef(null)
   const abortRef = useRef(false)
 
@@ -124,14 +123,9 @@ export default function ChatbotWidget() {
   useEffect(() => {
     async function loadContext() {
       try {
-        const [products, ingredients] = await Promise.allSettled([
-          productApi.getActiveProducts(),
-          productApi.listIngredients(),
-        ])
-        const prods = products.status === 'fulfilled' ? (products.value || []) : []
-        const ings = ingredients.status === 'fulfilled' ? (ingredients.value || []) : []
+        const products = await productApi.getActiveProducts()
+        const prods = products || []
         setAllProducts(prods)
-        productContextRef.current = buildProductContext(prods, ings)
         setContextReady(true)
       } catch {
         setContextReady(true) // proceed without context
@@ -178,7 +172,6 @@ export default function ChatbotWidget() {
       const generator = streamToGroq({
         history,
         userMessage: text.trim(),
-        productContext: productContextRef.current,
       })
 
       for await (const chunk of generator) {
@@ -277,7 +270,7 @@ export default function ChatbotWidget() {
               <p className="text-label-md font-bold">AiSkin AI</p>
               <p className="text-[11px] opacity-80 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-green-300 rounded-full inline-block animate-pulse" />
-                {contextReady ? 'Gemini 2.0 Flash · Chuyên gia da mặt' : 'Đang tải dữ liệu sản phẩm...'}
+                {contextReady ? 'Trợ lý skincare · Danh mục AiSkin' : 'Đang tải dữ liệu sản phẩm...'}
               </p>
             </div>
             <button
@@ -397,7 +390,7 @@ export default function ChatbotWidget() {
           {/* Powered by footer */}
           <div className="px-4 pb-3 flex items-center justify-center gap-1 text-[10px] text-on-surface-variant/40 shrink-0">
             <Icon name="auto_awesome" className="text-xs" />
-            <span>Powered by Groq · Llama 3.3 70B · Miễn phí</span>
+            <span>Powered by Groq · Tư vấn mang tính tham khảo</span>
           </div>
         </div>
       )}
