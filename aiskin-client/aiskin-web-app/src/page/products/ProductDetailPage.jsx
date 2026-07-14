@@ -32,18 +32,19 @@ export default function ProductDetailPage() {
   const { addItem, items } = useCart()
   const { isAuthenticated } = useAuth()
   const [addedToCart, setAddedToCart] = useState(false)
-  const inCart = items.some((i) => i.id === product?.id)
   const [translatedDesc, setTranslatedDesc] = useState('')
   const [showFullDescription, setShowFullDescription] = useState(false)
   const [showAllIngredients, setShowAllIngredients] = useState(false)
-  const trackedVariants = (product?.variants || []).filter(
-    (variant) => variant.isActive !== false && variant.trackInventory === true,
-  )
-  const sellableVariant = trackedVariants.find((variant) => Number(variant.availableQuantity || 0) > 0)
-    || trackedVariants[0]
-  const tracksInventory = trackedVariants.length > 0
+  const activeVariants = (product?.variants || []).filter((variant) => variant.isActive !== false)
+  const sellableVariant = activeVariants.find((variant) => (
+    variant.trackInventory === false || Number(variant.availableQuantity || 0) > 0
+  )) || activeVariants[0]
+  const tracksInventory = sellableVariant?.trackInventory !== false
   const availableQuantity = Number(sellableVariant?.availableQuantity || 0)
   const outOfStock = tracksInventory && availableQuantity <= 0
+  const inCart = items.some((item) => (
+    item.id === product?.id && item.variantId === sellableVariant?.id
+  ))
 
   function handleAddToCart() {
     if (!product || outOfStock) return
@@ -54,13 +55,15 @@ export default function ProductDetailPage() {
     addItem({
       id: product.id,
       name: product.name,
-      price: product.price,
-      imageUrl: product.imageUrl || product.images?.[0],
+      price: sellableVariant?.price || product.price,
+      imageUrl: sellableVariant?.imageUrl || product.imageUrl || product.images?.[0],
       slug: product.slug,
       variantId: sellableVariant?.id,
       variantName: sellableVariant?.name,
       sku: sellableVariant?.sku,
       unit: sellableVariant?.unit,
+      availableQuantity: sellableVariant?.availableQuantity,
+      trackInventory: sellableVariant?.trackInventory,
     })
     setAddedToCart(true)
     setTimeout(() => setAddedToCart(false), 2000)

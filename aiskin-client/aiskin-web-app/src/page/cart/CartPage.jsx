@@ -9,7 +9,7 @@ function money(value) {
   return `${Number(value).toLocaleString('vi-VN')} đ`
 }
 
-function QtyStepper({ value, onMinus, onPlus }) {
+function QtyStepper({ value, onMinus, onPlus, canIncrease }) {
   return (
     <div className="inline-flex h-9 overflow-hidden rounded-md border border-outline-variant bg-white">
       <button
@@ -26,7 +26,8 @@ function QtyStepper({ value, onMinus, onPlus }) {
       <button
         type="button"
         onClick={onPlus}
-        className="flex w-9 items-center justify-center text-on-surface-variant hover:bg-surface-container"
+        disabled={!canIncrease}
+        className="flex w-9 items-center justify-center text-on-surface-variant hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-35"
         aria-label="Tăng số lượng"
       >
         <Icon name="add" className="text-base" />
@@ -38,6 +39,8 @@ function QtyStepper({ value, onMinus, onPlus }) {
 function CartRow({ item, onRemove, onUpdateQty }) {
   const imageSrc = resolveImageUrl(item.imageUrl || item.images?.[0])
   const lineTotal = (item.price || 0) * item.qty
+  const hasStockLimit = item.trackInventory !== false && Number(item.availableQuantity) > 0
+  const canIncrease = !hasStockLimit || item.qty < Number(item.availableQuantity)
 
   return (
     <div className="grid gap-4 border-b border-outline-variant px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,1fr)_140px_136px_140px] md:items-center">
@@ -63,7 +66,7 @@ function CartRow({ item, onRemove, onUpdateQty }) {
             ) : null}
             <button
               type="button"
-              onClick={() => onRemove(item.id)}
+              onClick={() => onRemove(item.lineId)}
               className="inline-flex items-center gap-1 text-on-surface-variant hover:text-error"
             >
               <Icon name="close" className="text-base" />
@@ -85,8 +88,9 @@ function CartRow({ item, onRemove, onUpdateQty }) {
         <span className="text-sm text-on-surface-variant md:hidden">Số lượng</span>
         <QtyStepper
           value={item.qty}
-          onMinus={() => onUpdateQty(item.id, item.qty - 1)}
-          onPlus={() => onUpdateQty(item.id, item.qty + 1)}
+          onMinus={() => onUpdateQty(item.lineId, item.qty - 1)}
+          onPlus={() => onUpdateQty(item.lineId, item.qty + 1)}
+          canIncrease={canIncrease}
         />
       </div>
 
@@ -208,7 +212,7 @@ export default function CartPage() {
               <span className="text-right">Thành tiền</span>
             </div>
             {items.map((item) => (
-              <CartRow key={item.id} item={item} onRemove={removeItem} onUpdateQty={updateQty} />
+              <CartRow key={item.lineId} item={item} onRemove={removeItem} onUpdateQty={updateQty} />
             ))}
             <div className="flex flex-col gap-3 border-t border-outline-variant px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
               <button
