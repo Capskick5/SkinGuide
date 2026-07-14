@@ -10,10 +10,14 @@ KAFKA_BROKER = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
 TOPIC = "product-sync-topic"
 
 class ProductKafkaConsumer:
-    def __init__(self, engine):
+    def __init__(self, engine, initial_products=None):
         self.engine = engine
         self.consumer = None
-        self.products = {} # Store products by ID to keep them updated
+        self.products = {
+            product.get('id', product.get('_id')): product
+            for product in (initial_products or [])
+            if product.get('id', product.get('_id'))
+        }
         self.is_running = False
         
     async def start(self):

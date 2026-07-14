@@ -56,6 +56,7 @@ async def lifespan(app: FastAPI):
     global engine, db, kafka_consumer_task
     logger.info("Khởi động Recommendation Service...")
     client = None
+    db_products = []
     
     # 0. Kết nối MongoDB
     try:
@@ -88,7 +89,7 @@ async def lifespan(app: FastAPI):
         
     # 1.5 Khởi động Kafka Consumer (chỉ để nhận sự kiện Cập nhật/Thêm mới realtime)
     try:
-        kafka_consumer_task = ProductKafkaConsumer(engine)
+        kafka_consumer_task = ProductKafkaConsumer(engine, db_products)
         await kafka_consumer_task.start()
         logger.info("Kafka Consumer đã sẵn sàng lắng nghe realtime events.")
     except Exception as e:
@@ -196,6 +197,12 @@ def generate_routine_recommendation(
                     "brand": r.get("brand"),
                     "name": r.get("name"),
                     "price": r.get("price"),
+                    "variantId": r.get("variantId"),
+                    "variantName": r.get("variantName"),
+                    "sku": r.get("sku"),
+                    "volume": r.get("volume"),
+                    "unit": r.get("unit"),
+                    "availableQuantity": r.get("availableQuantity"),
                     "ingredients": r.get("ingredients"),
                     "match_score": round(r.get("match_score", 0), 4) if "match_score" in r else None
                 })
@@ -322,6 +329,12 @@ def get_recommendations(
                 "brand": r.get("brand"),
                 "name": r.get("name"),
                 "price": r.get("price"),
+                "variantId": r.get("variantId"),
+                "variantName": r.get("variantName"),
+                "sku": r.get("sku"),
+                "volume": r.get("volume"),
+                "unit": r.get("unit"),
+                "availableQuantity": r.get("availableQuantity"),
                 "rank": r.get("rank"),
                 "ingredients": r.get("ingredients"),
                 "match_score": round(r.get("match_score", 0), 4) if "match_score" in r else None,
