@@ -10,7 +10,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
@@ -38,14 +37,15 @@ class OrderServiceTest {
 
     @BeforeEach
     void setUp() {
+        RestTemplate restTemplate = new RestTemplate();
         service = new OrderService(
                 orderRepository,
                 new MomoConfig(),
                 new VnpayConfig(),
                 ghnService,
+                restTemplate,
                 "http://product-service",
                 "internal-token");
-        RestTemplate restTemplate = (RestTemplate) ReflectionTestUtils.getField(service, "restTemplate");
         inventoryServer = MockRestServiceServer.bindTo(restTemplate).build();
         when(ghnService.calculateFee(3695, "90753", 500, 2)).thenReturn(Map.of("total", 30_000));
     }

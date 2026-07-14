@@ -3,6 +3,7 @@ package mss.productservice.controller;
 import lombok.RequiredArgsConstructor;
 import mss.productservice.dto.request.InventoryAdjustmentRequest;
 import mss.productservice.dto.request.InventoryReservationRequest;
+import mss.productservice.dto.request.InventoryReturnRequest;
 import mss.productservice.dto.response.ApiResponse;
 import mss.productservice.dto.response.InventoryMovementResponse;
 import mss.productservice.dto.response.InventoryReservationResponse;
@@ -53,5 +54,11 @@ public class InventoryController {
     @PostMapping("/internal/commit")
     public ResponseEntity<ApiResponse<InventoryReservationResponse>> commit(@Valid @RequestBody InventoryReservationRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(inventoryService.commit(request)));
+    }
+
+    @PostMapping("/internal/process-return")
+    public ResponseEntity<ApiResponse<InventoryReservationResponse>> processReturn(
+            @Valid @RequestBody InventoryReturnRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(inventoryService.processReturn(request)));
     }
 }

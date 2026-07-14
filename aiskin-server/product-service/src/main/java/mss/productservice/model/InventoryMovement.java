@@ -21,6 +21,9 @@ public class InventoryMovement {
     @Id
     private String id;
 
+    @Indexed(unique = true, sparse = true)
+    private String idempotencyKey;
+
     @Indexed
     private String productId;
 
@@ -70,6 +73,8 @@ public class InventoryMovement {
         RESERVE,
         RELEASE,
         COMMIT_SALE,
+        RETURN_RESTOCK,
+        RETURN_DAMAGED,
         STOCK_RECEIPT,
         STOCK_COUNT,
         STOCK_WRITE_OFF,

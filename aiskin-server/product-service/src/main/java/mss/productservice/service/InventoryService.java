@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import mss.productservice.dto.request.InventoryAdjustmentRequest;
 import mss.productservice.dto.request.InventoryReservationItemRequest;
 import mss.productservice.dto.request.InventoryReservationRequest;
+import mss.productservice.dto.request.InventoryReturnRequest;
 import mss.productservice.dto.response.InventoryMovementResponse;
 import mss.productservice.dto.response.InventoryReservationItemResponse;
 import mss.productservice.dto.response.InventoryReservationResponse;
@@ -145,6 +146,75 @@ public class InventoryService {
                     level.setSoldQuantity(value(level.getSoldQuantity()) + context.quantity());
                 }
         );
+    }
+
+    @Transactional
+    public synchronized InventoryReservationResponse processReturn(InventoryReturnRequest request) {
+        InventoryReservationRequest inventoryRequest = InventoryReservationRequest.builder()
+                .orderCode(request.getOrderCode())
+                .items(request.getItems())
+                .build();
+        List<InventoryContext> contexts = buildContexts(inventoryRequest, false);
+        InventoryMovement.MovementType requestedType = request.getDisposition() == InventoryReturnRequest.Disposition.RESTOCK
+                ? InventoryMovement.MovementType.RETURN_RESTOCK
+                : InventoryMovement.MovementType.RETURN_DAMAGED;
+        InventoryMovement.MovementType otherType = requestedType == InventoryMovement.MovementType.RETURN_RESTOCK
+                ? InventoryMovement.MovementType.RETURN_DAMAGED
+                : InventoryMovement.MovementType.RETURN_RESTOCK;
+
+        List<InventoryMovement> existing = movementRepository.findByReferenceTypeAndReferenceIdAndType(
+                "RETURN_ORDER", request.getReturnOrderId(), requestedType);
+        if (!existing.isEmpty()) {
+            validateRepeatedReturn(contexts, existing);
+            return toReservationResponse(request.getOrderCode(), contexts);
+        }
+        if (!movementRepository.findByReferenceTypeAndReferenceIdAndType(
+                "RETURN_ORDER", request.getReturnOrderId(), otherType).isEmpty()) {
+            throw new IllegalArgumentException("Return order was already processed with a different disposition");
+        }
+
+        Map<String, Integer> requestedByVariant = contexts.stream()
+                .collect(Collectors.groupingBy(this::contextKey, Collectors.summingInt(InventoryContext::quantity)));
+        for (InventoryContext context : contexts) {
+            int requested = requestedByVariant.get(contextKey(context));
+            if (value(context.level().getSoldQuantity()) < requested) {
+                throw new IllegalArgumentException("Not enough sold quantity to process returned SKU " + context.variant().getSku());
+            }
+        }
+
+        List<PendingMovement> pendingMovements = new ArrayList<>();
+        for (InventoryContext context : contexts) {
+            InventorySnapshot before = snapshot(context.level());
+            InventoryLevel level = context.level();
+            level.setSoldQuantity(value(level.getSoldQuantity()) - context.quantity());
+            if (request.getDisposition() == InventoryReturnRequest.Disposition.RESTOCK) {
+                level.setOnHandQuantity(value(level.getOnHandQuantity()) + context.quantity());
+            }
+            pendingMovements.add(new PendingMovement(context, before));
+        }
+
+        saveProducts(contexts);
+        movementRepository.saveAll(pendingMovements.stream()
+                .map(pending -> buildMovement(
+                        pending.context(), pending.before(), requestedType,
+                        "RETURN_ORDER", request.getReturnOrderId(),
+                        request.getDisposition() == InventoryReturnRequest.Disposition.RESTOCK
+                                ? "Returned item accepted back into saleable stock"
+                                : "Returned item marked as damaged",
+                        pending.context().quantity()))
+                .toList());
+        return toReservationResponse(request.getOrderCode(), contexts);
+    }
+
+    private void validateRepeatedReturn(List<InventoryContext> contexts, List<InventoryMovement> existing) {
+        Map<String, Integer> requested = contexts.stream()
+                .collect(Collectors.groupingBy(this::contextKey, Collectors.summingInt(InventoryContext::quantity)));
+        Map<String, Integer> recorded = existing.stream()
+                .collect(Collectors.groupingBy(this::movementKey,
+                        Collectors.summingInt(movement -> value(movement.getQuantity()))));
+        if (!requested.equals(recorded)) {
+            throw new IllegalArgumentException("Retry return inventory does not match the first processed items");
+        }
     }
 
     @Transactional
@@ -349,7 +419,16 @@ public class InventoryService {
             }
             contexts.add(new InventoryContext(product, variant, findLevel(variant, DEFAULT_WAREHOUSE_ID), quantity));
         }
-        return contexts;
+        Map<String, InventoryContext> aggregated = new LinkedHashMap<>();
+        for (InventoryContext context : contexts) {
+            aggregated.merge(
+                    contextKey(context),
+                    context,
+                    (current, duplicate) -> new InventoryContext(
+                            current.product(), current.variant(), current.level(),
+                            current.quantity() + duplicate.quantity()));
+        }
+        return new ArrayList<>(aggregated.values());
     }
 
     private Product findProduct(String productId) {
@@ -478,6 +557,9 @@ public class InventoryService {
             String reason,
             int movementQuantity) {
         return InventoryMovement.builder()
+                .idempotencyKey(referenceType + ":" + referenceId + ":" + type.name() + ":"
+                        + context.product().getId() + ":" + context.variant().getId() + ":"
+                        + context.level().getWarehouseId())
                 .productId(context.product().getId())
                 .productName(context.product().getName())
                 .variantId(context.variant().getId())
@@ -502,6 +584,7 @@ public class InventoryService {
     private InventoryMovementResponse toMovementResponse(InventoryMovement movement) {
         return InventoryMovementResponse.builder()
                 .id(movement.getId())
+                .idempotencyKey(movement.getIdempotencyKey())
                 .productId(movement.getProductId())
                 .productName(movement.getProductName())
                 .variantId(movement.getVariantId())

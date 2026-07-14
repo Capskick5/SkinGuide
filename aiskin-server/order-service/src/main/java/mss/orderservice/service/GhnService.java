@@ -6,10 +6,13 @@ import mss.orderservice.config.GhnConfig;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -18,7 +21,7 @@ import java.util.Map;
 public class GhnService {
 
     private final GhnConfig ghnConfig;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
     private HttpHeaders createHeaders() {
         HttpHeaders headers = new HttpHeaders();
@@ -84,39 +87,35 @@ public class GhnService {
         }
     }
 
-    public Object getProvinces() {
+    public List<?> getProvinces() {
         String url = ghnConfig.getApiUrl().replace("/v2", "") + "/master-data/province";
-        HttpEntity<String> entity = new HttpEntity<>(createHeaders());
-        try {
-            Map response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, Map.class).getBody();
-            return response != null ? response.get("data") : java.util.Collections.emptyList();
-        } catch (Exception e) {
-            log.error("Lỗi lấy danh sách tỉnh GHN: {}", e.getMessage());
-            return java.util.Collections.emptyList();
-        }
+        return getMasterData(url, "tỉnh/thành phố");
     }
 
-    public Object getDistricts(int provinceId) {
+    public List<?> getDistricts(int provinceId) {
         String url = ghnConfig.getApiUrl().replace("/v2", "") + "/master-data/district?province_id=" + provinceId;
-        HttpEntity<String> entity = new HttpEntity<>(createHeaders());
-        try {
-            Map response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, Map.class).getBody();
-            return response != null ? response.get("data") : java.util.Collections.emptyList();
-        } catch (Exception e) {
-            log.error("Lỗi lấy danh sách quận huyện GHN: {}", e.getMessage());
-            return java.util.Collections.emptyList();
-        }
+        return getMasterData(url, "quận/huyện");
     }
 
-    public Object getWards(int districtId) {
+    public List<?> getWards(int districtId) {
         String url = ghnConfig.getApiUrl().replace("/v2", "") + "/master-data/ward?district_id=" + districtId;
+        return getMasterData(url, "phường/xã");
+    }
+
+    private List<?> getMasterData(String url, String label) {
         HttpEntity<String> entity = new HttpEntity<>(createHeaders());
         try {
             Map response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, Map.class).getBody();
-            return response != null ? response.get("data") : java.util.Collections.emptyList();
+            Object data = response != null ? response.get("data") : null;
+            if (data instanceof List<?> list && !list.isEmpty()) {
+                return list;
+            }
+            throw new IllegalStateException("GHN trả về danh sách rỗng");
         } catch (Exception e) {
-            log.error("Lỗi lấy danh sách phường xã GHN: {}", e.getMessage());
-            return java.util.Collections.emptyList();
+            log.error("Lỗi lấy danh sách {} GHN: {}", label, e.getMessage());
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Không tải được danh sách " + label + " từ GHN. Vui lòng kiểm tra GHN_TOKEN và GHN_SHOP_ID.");
         }
     }
 }

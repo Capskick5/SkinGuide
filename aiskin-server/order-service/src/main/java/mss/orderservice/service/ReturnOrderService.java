@@ -2,6 +2,7 @@ package mss.orderservice.service;
 
 import lombok.RequiredArgsConstructor;
 import mss.orderservice.model.Order;
+import mss.orderservice.model.OrderItem;
 import mss.orderservice.model.ReturnOrder;
 import mss.orderservice.repository.OrderRepository;
 import mss.orderservice.repository.ReturnOrderRepository;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +25,7 @@ public class ReturnOrderService {
     private final ReturnOrderRepository returnOrderRepository;
     private final OrderRepository orderRepository;
     private final GhnService ghnService;
+    private final ReturnInventoryClient returnInventoryClient;
 
     public ReturnOrder createReturnRequest(String orderId, Map<String, Object> request) {
         Order order = orderRepository.findById(orderId)
@@ -46,20 +49,21 @@ public class ReturnOrderService {
         }
 
         List<ReturnOrder.ReturnItem> returnItems = new java.util.ArrayList<>();
+        Map<String, Integer> requestedQuantities = new java.util.HashMap<>();
         java.math.BigDecimal totalRefund = java.math.BigDecimal.ZERO;
 
         for (Map<String, Object> reqItem : reqItems) {
             String productId = (String) reqItem.get("productId");
+            String variantId = stringValue(reqItem.get("variantId"));
+            String sku = stringValue(reqItem.get("sku"));
             String unit = (String) reqItem.get("unit");
             Integer reqQty = (Integer) reqItem.get("quantity");
             
             if (reqQty == null || reqQty <= 0) continue;
 
             // Tìm order item gốc
-            mss.orderservice.model.OrderItem originalItem = order.getItems().stream()
-                .filter(i -> i.getProductId().equals(productId) && i.getUnit().equals(unit))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Sản phẩm không thuộc đơn hàng: " + productId));
+            OrderItem originalItem = findOriginalItem(order, productId, variantId, sku, unit);
+            validateReturnedQuantity(requestedQuantities, originalItem, reqQty);
 
             if (reqQty > originalItem.getQuantity()) {
                 throw new RuntimeException("Số lượng trả lớn hơn số lượng đã mua cho sản phẩm: " + originalItem.getProductName());
@@ -70,6 +74,9 @@ public class ReturnOrderService {
 
             ReturnOrder.ReturnItem rItem = ReturnOrder.ReturnItem.builder()
                 .productId(originalItem.getProductId())
+                .variantId(originalItem.getVariantId())
+                .sku(originalItem.getSku())
+                .variantName(originalItem.getVariantName())
                 .productName(originalItem.getProductName())
                 .imageUrl(originalItem.getImageUrl())
                 .quantity(reqQty)
@@ -122,14 +129,49 @@ public class ReturnOrderService {
     }
 
     public ReturnOrder updateReturnStatus(String id, String newStatusStr, String rejectReason) {
+        return updateReturnStatus(id, newStatusStr, rejectReason, null);
+    }
+
+    public ReturnOrder updateReturnStatus(
+            String id,
+            String newStatusStr,
+            String rejectReason,
+            String inventoryDisposition) {
         ReturnOrder returnOrder = returnOrderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Return Order not found"));
         
         ReturnOrder.ReturnStatus newStatus = ReturnOrder.ReturnStatus.valueOf(newStatusStr);
+        ReturnOrder.ReturnStatus currentStatus = returnOrder.getStatus();
+        if (newStatus == ReturnOrder.ReturnStatus.RECEIVED
+                && currentStatus != ReturnOrder.ReturnStatus.DELIVERED
+                && currentStatus != ReturnOrder.ReturnStatus.RECEIVED) {
+            throw new RuntimeException("Chỉ xác nhận nhận hàng sau khi kiện trả đã giao đến kho");
+        }
+        if (newStatus == ReturnOrder.ReturnStatus.REFUNDED
+                && currentStatus != ReturnOrder.ReturnStatus.RECEIVED
+                && currentStatus != ReturnOrder.ReturnStatus.REFUNDED) {
+            throw new RuntimeException("Chỉ hoàn tiền sau khi kho đã nhận hàng trả");
+        }
         returnOrder.setStatus(newStatus);
         
         if (newStatus == ReturnOrder.ReturnStatus.REJECTED) {
             returnOrder.setRejectReason(rejectReason);
+        }
+
+        if (newStatus == ReturnOrder.ReturnStatus.RECEIVED) {
+            ReturnOrder.InventoryDisposition disposition = inventoryDisposition == null || inventoryDisposition.isBlank()
+                    ? ReturnOrder.InventoryDisposition.RESTOCK
+                    : ReturnOrder.InventoryDisposition.valueOf(inventoryDisposition.trim().toUpperCase());
+            if (Boolean.TRUE.equals(returnOrder.getInventoryProcessed())) {
+                if (returnOrder.getInventoryDisposition() != disposition) {
+                    throw new RuntimeException("Đơn trả hàng đã được xử lý kho với kết quả khác");
+                }
+            } else {
+                ensureReturnItemVariants(returnOrder);
+                returnInventoryClient.process(returnOrder, disposition);
+                returnOrder.setInventoryDisposition(disposition);
+                returnOrder.setInventoryProcessed(true);
+            }
         }
         
         if (newStatus == ReturnOrder.ReturnStatus.APPROVED && returnOrder.getReturnTrackingCode() == null) {
@@ -213,19 +255,20 @@ public class ReturnOrderService {
         }
 
         List<ReturnOrder.ReturnItem> returnItems = new java.util.ArrayList<>();
+        Map<String, Integer> requestedQuantities = new java.util.HashMap<>();
         java.math.BigDecimal totalRefund = java.math.BigDecimal.ZERO;
 
         for (Map<String, Object> reqItem : reqItems) {
             String productId = (String) reqItem.get("productId");
+            String variantId = stringValue(reqItem.get("variantId"));
+            String sku = stringValue(reqItem.get("sku"));
             String unit = (String) reqItem.get("unit");
             Integer reqQty = (Integer) reqItem.get("quantity");
             
             if (reqQty == null || reqQty <= 0) continue;
 
-            mss.orderservice.model.OrderItem originalItem = order.getItems().stream()
-                .filter(i -> i.getProductId().equals(productId) && i.getUnit().equals(unit))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Sản phẩm không thuộc đơn hàng: " + productId));
+            OrderItem originalItem = findOriginalItem(order, productId, variantId, sku, unit);
+            validateReturnedQuantity(requestedQuantities, originalItem, reqQty);
 
             if (reqQty > originalItem.getQuantity()) {
                 throw new RuntimeException("Số lượng trả lớn hơn số lượng đã mua cho sản phẩm: " + originalItem.getProductName());
@@ -236,6 +279,9 @@ public class ReturnOrderService {
 
             ReturnOrder.ReturnItem rItem = ReturnOrder.ReturnItem.builder()
                 .productId(originalItem.getProductId())
+                .variantId(originalItem.getVariantId())
+                .sku(originalItem.getSku())
+                .variantName(originalItem.getVariantName())
                 .productName(originalItem.getProductName())
                 .imageUrl(originalItem.getImageUrl())
                 .quantity(reqQty)
@@ -262,6 +308,67 @@ public class ReturnOrderService {
         }
 
         return returnOrderRepository.save(returnOrder);
+    }
+
+    private OrderItem findOriginalItem(
+            Order order,
+            String productId,
+            String variantId,
+            String sku,
+            String unit) {
+        if (productId == null || productId.isBlank()) {
+            throw new RuntimeException("Thiếu productId của sản phẩm trả lại");
+        }
+        List<OrderItem> candidates = order.getItems().stream()
+                .filter(item -> Objects.equals(item.getProductId(), productId))
+                .filter(item -> variantId == null || Objects.equals(item.getVariantId(), variantId))
+                .filter(item -> sku == null || Objects.equals(item.getSku(), sku))
+                .filter(item -> variantId != null || sku != null || Objects.equals(item.getUnit(), unit))
+                .toList();
+        if (candidates.size() != 1) {
+            if (candidates.size() > 1) {
+                throw new RuntimeException("Vui lòng chọn đúng biến thể/SKU của sản phẩm: " + productId);
+            }
+            throw new RuntimeException("Sản phẩm hoặc biến thể không thuộc đơn hàng: " + productId);
+        }
+        return candidates.getFirst();
+    }
+
+    private void validateReturnedQuantity(
+            Map<String, Integer> requestedQuantities,
+            OrderItem originalItem,
+            int requestedQuantity) {
+        String key = originalItem.getVariantId() != null
+                ? originalItem.getProductId() + ":" + originalItem.getVariantId()
+                : originalItem.getProductId() + ":" + originalItem.getSku() + ":" + originalItem.getUnit();
+        int totalRequested = requestedQuantities.merge(key, requestedQuantity, Integer::sum);
+        if (totalRequested > originalItem.getQuantity()) {
+            throw new RuntimeException("Số lượng trả lớn hơn số lượng đã mua cho sản phẩm: "
+                    + originalItem.getProductName());
+        }
+    }
+
+    private void ensureReturnItemVariants(ReturnOrder returnOrder) {
+        if (returnOrder.getItems() == null || returnOrder.getItems().stream()
+                .allMatch(item -> item.getVariantId() != null && !item.getVariantId().isBlank())) {
+            return;
+        }
+        Order order = orderRepository.findById(returnOrder.getOrderId())
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+        for (ReturnOrder.ReturnItem item : returnOrder.getItems()) {
+            if (item.getVariantId() != null && !item.getVariantId().isBlank()) {
+                continue;
+            }
+            OrderItem original = findOriginalItem(
+                    order, item.getProductId(), null, item.getSku(), item.getUnit());
+            item.setVariantId(original.getVariantId());
+            item.setSku(original.getSku());
+            item.setVariantName(original.getVariantName());
+        }
+    }
+
+    private String stringValue(Object value) {
+        return value instanceof String string && !string.isBlank() ? string.trim() : null;
     }
 
     public void deleteReturnRequest(String id) {

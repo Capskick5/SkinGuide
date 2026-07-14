@@ -7,6 +7,10 @@ import httpClient from '@/api/httpClient'
 import { API_BASE_URL } from '@/config/api'
 import { tokenStorage } from '@/api/tokenStorage'
 
+function returnItemKey(item) {
+  return [item.productId, item.variantId || '', item.sku || '', item.unit || ''].join('::')
+}
+
 export default function ReturnRequestPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -50,7 +54,13 @@ export default function ReturnRequestPage() {
             
             const itemsObj = {}
             returnData.items?.forEach(i => {
-              itemsObj[`${i.productId}_${i.unit}`] = i.quantity
+              const originalItem = orderData.items?.find(item =>
+                item.productId === i.productId && (
+                  (i.variantId && item.variantId === i.variantId) ||
+                  (i.sku && item.sku === i.sku) ||
+                  (!i.variantId && !i.sku && item.unit === i.unit)
+                ))
+              itemsObj[returnItemKey(originalItem || i)] = i.quantity
             })
             setReturnItems(itemsObj)
           }
@@ -112,9 +122,16 @@ export default function ReturnRequestPage() {
     const itemsPayload = Object.entries(returnItems)
       .filter((entry) => entry[1] > 0)
       .map(([key, qty]) => {
-        const [productId, unit] = key.split('_')
-        return { productId, unit, quantity: qty }
+        const item = order.items?.find(orderItem => returnItemKey(orderItem) === key)
+        return item ? {
+          productId: item.productId,
+          variantId: item.variantId,
+          sku: item.sku,
+          unit: item.unit,
+          quantity: qty,
+        } : null
       })
+      .filter(Boolean)
 
     if (itemsPayload.length === 0) {
       return message.error('Vui lòng chọn ít nhất 1 sản phẩm để trả lại')
@@ -176,7 +193,7 @@ export default function ReturnRequestPage() {
             <h3 className="font-bold text-gray-900 mb-4">Sản phẩm cần trả lại <span className="text-error">*</span></h3>
             <div className="space-y-4">
               {order.items?.map(item => {
-                const key = `${item.productId}_${item.unit}`
+                const key = returnItemKey(item)
                 const maxQty = item.quantity
                 const currentQty = returnItems[key] || 0
                 const isSelected = currentQty > 0

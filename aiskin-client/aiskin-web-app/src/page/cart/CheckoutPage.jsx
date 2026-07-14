@@ -92,6 +92,8 @@ function AddressStep({ formData, onChange, onNext }) {
   const [wards, setWards] = useState([])
   const [loading, setLoading] = useState({ provinces: false, districts: false, wards: false })
   const [addressApiError, setAddressApiError] = useState('')
+  const [addressValidationError, setAddressValidationError] = useState('')
+  const [addressReloadKey, setAddressReloadKey] = useState(0)
   const emit = useCallback((name, value) => {
     onChange({ target: { name, value } })
   }, [onChange])
@@ -100,60 +102,60 @@ function AddressStep({ formData, onChange, onNext }) {
     let cancelled = false
     async function load() {
       setLoading((current) => ({ ...current, provinces: true }))
+      setAddressApiError('')
       try {
         const res = await httpClient.get('/ghn/provinces')
-        if (!cancelled && Array.isArray(res)) {
-            setProvinces(res.map(p => ({ code: p.ProvinceID, name: p.ProvinceName })))
-        }
-      } catch {
-        if (!cancelled) setAddressApiError('Không tải được danh sách tỉnh thành.')
+        if (!Array.isArray(res) || res.length === 0) throw new Error('GHN không trả về dữ liệu tỉnh thành')
+        if (!cancelled) setProvinces(res.map(p => ({ code: p.ProvinceID, name: p.ProvinceName })))
+      } catch (error) {
+        if (!cancelled) setAddressApiError(error?.message || 'Không tải được danh sách tỉnh thành.')
       } finally {
         if (!cancelled) setLoading((current) => ({ ...current, provinces: false }))
       }
     }
     load()
     return () => { cancelled = true }
-  }, [])
+  }, [addressReloadKey])
 
   useEffect(() => {
     if (!formData.provinceCode) return
     let cancelled = false
     async function load() {
       setLoading((current) => ({ ...current, districts: true }))
+      setAddressApiError('')
       try {
         const res = await httpClient.get(`/ghn/districts?provinceId=${formData.provinceCode}`)
-        if (!cancelled && Array.isArray(res)) {
-            setDistricts(res.map(d => ({ code: d.DistrictID, name: d.DistrictName })))
-        }
-      } catch {
-        if (!cancelled) setAddressApiError('Không tải được danh sách quận huyện.')
+        if (!Array.isArray(res) || res.length === 0) throw new Error('GHN không trả về dữ liệu quận huyện')
+        if (!cancelled) setDistricts(res.map(d => ({ code: d.DistrictID, name: d.DistrictName })))
+      } catch (error) {
+        if (!cancelled) setAddressApiError(error?.message || 'Không tải được danh sách quận huyện.')
       } finally {
         if (!cancelled) setLoading((current) => ({ ...current, districts: false }))
       }
     }
     load()
     return () => { cancelled = true }
-  }, [formData.provinceCode])
+  }, [addressReloadKey, formData.provinceCode])
 
   useEffect(() => {
     if (!formData.districtCode) return
     let cancelled = false
     async function load() {
       setLoading((current) => ({ ...current, wards: true }))
+      setAddressApiError('')
       try {
         const res = await httpClient.get(`/ghn/wards?districtId=${formData.districtCode}`)
-        if (!cancelled && Array.isArray(res)) {
-            setWards(res.map(w => ({ code: w.WardCode, name: w.WardName })))
-        }
-      } catch {
-        if (!cancelled) setAddressApiError('Không tải được danh sách phường xã.')
+        if (!Array.isArray(res) || res.length === 0) throw new Error('GHN không trả về dữ liệu phường xã')
+        if (!cancelled) setWards(res.map(w => ({ code: w.WardCode, name: w.WardName })))
+      } catch (error) {
+        if (!cancelled) setAddressApiError(error?.message || 'Không tải được danh sách phường xã.')
       } finally {
         if (!cancelled) setLoading((current) => ({ ...current, wards: false }))
       }
     }
     load()
     return () => { cancelled = true }
-  }, [formData.districtCode])
+  }, [addressReloadKey, formData.districtCode])
   
   useEffect(() => {
     if (!formData.districtCode || !formData.wardCode) return
@@ -178,6 +180,7 @@ function AddressStep({ formData, onChange, onNext }) {
 
   function handleProvinceChange(event) {
     const code = event.target.value
+    setAddressValidationError('')
     const province = provinces.find((item) => String(item.code) === code)
     setDistricts([])
     setWards([])
@@ -192,6 +195,7 @@ function AddressStep({ formData, onChange, onNext }) {
 
   function handleDistrictChange(event) {
     const code = event.target.value
+    setAddressValidationError('')
     const district = districts.find((item) => String(item.code) === code)
     setWards([])
     emit('districtCode', code)
@@ -203,6 +207,7 @@ function AddressStep({ formData, onChange, onNext }) {
 
   function handleWardChange(event) {
     const code = event.target.value
+    setAddressValidationError('')
     const ward = wards.find((item) => String(item.code) === code)
     emit('wardCode', code)
     emit('ward', ward?.name || '')
@@ -212,6 +217,10 @@ function AddressStep({ formData, onChange, onNext }) {
     <form
       onSubmit={(event) => {
         event.preventDefault()
+        if (!formData.provinceCode || !formData.districtCode || !formData.wardCode) {
+          setAddressValidationError('Vui lòng chọn đầy đủ tỉnh/thành phố, quận/huyện và phường/xã.')
+          return
+        }
         onNext()
       }}
       className="space-y-5"
@@ -223,18 +232,15 @@ function AddressStep({ formData, onChange, onNext }) {
         <TextField icon="phone" label="Số điện thoại" name="customerPhone" value={formData.customerPhone} onChange={onChange} placeholder="0901234567" type="tel" />
 
         {addressApiError ? (
-          <>
-            <TextField icon="location_city" label="Tỉnh / Thành phố" name="city" value={formData.city} onChange={onChange} placeholder="Hà Nội" />
-            <TextField icon="map" label="Quận / Huyện" name="district" value={formData.district} onChange={onChange} placeholder="Quận / Huyện" />
-            <TextField icon="pin_drop" label="Phường / Xã" name="ward" value={formData.ward} onChange={onChange} placeholder="Phường / Xã" />
-          </>
-        ) : (
-          <>
-            <SelectField icon="location_city" label="Tỉnh / Thành phố" value={formData.provinceCode} onChange={handleProvinceChange} disabled={loading.provinces} placeholder={loading.provinces ? 'Đang tải...' : 'Chọn tỉnh / thành phố'} options={provinces} />
-            <SelectField icon="map" label="Quận / Huyện" value={formData.districtCode} onChange={handleDistrictChange} disabled={!formData.provinceCode || loading.districts} placeholder={loading.districts ? 'Đang tải...' : 'Chọn quận / huyện'} options={districts} />
-            <SelectField icon="pin_drop" label="Phường / Xã" value={formData.wardCode} onChange={handleWardChange} disabled={!formData.districtCode || loading.wards} placeholder={loading.wards ? 'Đang tải...' : 'Chọn phường / xã'} options={wards} />
-          </>
-        )}
+          <div className="sm:col-span-2 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+            <span className="flex items-center gap-2"><Icon name="error" className="text-lg" />{addressApiError}</span>
+            <button type="button" onClick={() => setAddressReloadKey((key) => key + 1)} className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold hover:bg-red-100">Thử lại</button>
+          </div>
+        ) : null}
+        <SelectField icon="location_city" label="Tỉnh / Thành phố" value={formData.provinceCode} onChange={handleProvinceChange} disabled={loading.provinces} placeholder={loading.provinces ? 'Đang tải...' : 'Chọn tỉnh / thành phố'} options={provinces} />
+        <SelectField icon="map" label="Quận / Huyện" value={formData.districtCode} onChange={handleDistrictChange} disabled={!formData.provinceCode || loading.districts} placeholder={loading.districts ? 'Đang tải...' : 'Chọn quận / huyện'} options={districts} />
+        <SelectField icon="pin_drop" label="Phường / Xã" value={formData.wardCode} onChange={handleWardChange} disabled={!formData.districtCode || loading.wards} placeholder={loading.wards ? 'Đang tải...' : 'Chọn phường / xã'} options={wards} />
+        {addressValidationError ? <p className="sm:col-span-2 text-sm font-medium text-red-600">{addressValidationError}</p> : null}
 
         <label className="block sm:col-span-2">
           <span className="mb-2 block text-sm font-semibold text-on-surface">
@@ -278,13 +284,6 @@ function AddressStep({ formData, onChange, onNext }) {
           </div>
         </div>
       </div>
-
-      {addressApiError ? (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          <Icon name="info" className="text-lg" />
-          {addressApiError}
-        </div>
-      ) : null}
 
       <button type="submit" className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary font-bold text-white transition hover:bg-tertiary">
         Tiếp tục

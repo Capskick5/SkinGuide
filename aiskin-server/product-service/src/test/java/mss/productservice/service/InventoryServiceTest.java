@@ -3,6 +3,7 @@ package mss.productservice.service;
 import mss.productservice.dto.request.InventoryReservationItemRequest;
 import mss.productservice.dto.request.InventoryReservationRequest;
 import mss.productservice.dto.request.InventoryAdjustmentRequest;
+import mss.productservice.dto.request.InventoryReturnRequest;
 import mss.productservice.model.InventoryLevel;
 import mss.productservice.model.InventoryMovement;
 import mss.productservice.model.Product;
@@ -198,6 +199,50 @@ class InventoryServiceTest {
                 .hasMessageContaining("thấp hơn số lượng đang giữ");
     }
 
+    @Test
+    void saleableReturnRestoresOnHandAndReducesSoldQuantity() {
+        level.setOnHandQuantity(7);
+        level.setSoldQuantity(3);
+        stubReturnNotProcessed();
+
+        inventoryService.processReturn(returnRequest(InventoryReturnRequest.Disposition.RESTOCK, 2));
+
+        assertThat(level.getOnHandQuantity()).isEqualTo(9);
+        assertThat(level.getSoldQuantity()).isEqualTo(1);
+        verify(productRepository).saveAllFlexible(any());
+        verify(movementRepository).saveAll(anyList());
+    }
+
+    @Test
+    void damagedReturnReducesSoldWithoutRestoringSaleableStock() {
+        level.setOnHandQuantity(7);
+        level.setSoldQuantity(3);
+        stubReturnNotProcessed();
+
+        inventoryService.processReturn(returnRequest(InventoryReturnRequest.Disposition.DAMAGED, 2));
+
+        assertThat(level.getOnHandQuantity()).isEqualTo(7);
+        assertThat(level.getSoldQuantity()).isEqualTo(1);
+    }
+
+    @Test
+    void repeatedReturnDoesNotChangeInventoryTwice() {
+        level.setOnHandQuantity(9);
+        level.setSoldQuantity(1);
+        InventoryMovement existing = movement(InventoryMovement.MovementType.RETURN_RESTOCK, 2);
+        existing.setReferenceType("RETURN_ORDER");
+        existing.setReferenceId("RET-1");
+        when(movementRepository.findByReferenceTypeAndReferenceIdAndType(
+                "RETURN_ORDER", "RET-1", InventoryMovement.MovementType.RETURN_RESTOCK))
+                .thenReturn(List.of(existing));
+
+        inventoryService.processReturn(returnRequest(InventoryReturnRequest.Disposition.RESTOCK, 2));
+
+        assertThat(level.getOnHandQuantity()).isEqualTo(9);
+        assertThat(level.getSoldQuantity()).isEqualTo(1);
+        verify(productRepository, never()).saveAllFlexible(any());
+    }
+
     private void stubReserveAllowed() {
         when(movementRepository.findByReferenceTypeAndReferenceIdAndType(
                 "ORDER", "ORD-1", InventoryMovement.MovementType.RESERVE)).thenReturn(List.of());
@@ -210,6 +255,26 @@ class InventoryServiceTest {
     private void stubAdjustmentPersistence() {
         when(productRepository.saveFlexible(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(movementRepository.save(any(InventoryMovement.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    private void stubReturnNotProcessed() {
+        when(movementRepository.findByReferenceTypeAndReferenceIdAndType(
+                "RETURN_ORDER", "RET-1", InventoryMovement.MovementType.RETURN_RESTOCK)).thenReturn(List.of());
+        when(movementRepository.findByReferenceTypeAndReferenceIdAndType(
+                "RETURN_ORDER", "RET-1", InventoryMovement.MovementType.RETURN_DAMAGED)).thenReturn(List.of());
+    }
+
+    private InventoryReturnRequest returnRequest(InventoryReturnRequest.Disposition disposition, int quantity) {
+        return InventoryReturnRequest.builder()
+                .returnOrderId("RET-1")
+                .orderCode("ORD-1")
+                .disposition(disposition)
+                .items(List.of(InventoryReservationItemRequest.builder()
+                        .productId("product-1")
+                        .variantId("variant-1")
+                        .quantity(quantity)
+                        .build()))
+                .build();
     }
 
     private InventoryReservationRequest request(String orderCode, int quantity) {

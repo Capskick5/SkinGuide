@@ -15,6 +15,8 @@ public class InventoryMovementResponse {
 
     private String id;
 
+    private String idempotencyKey;
+
     private String productId;
 
     private String productName;
