@@ -7,6 +7,7 @@ import { useCart } from '@/hook/useCart'
 import { useAuth } from '@/hook/useAuth'
 import { PATHS } from '@/route/paths'
 import { translateCategory, translateDescription, translateName, translateTag } from './translator'
+import ProductReviews from './components/ProductReviews'
 
 function money(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '-'
@@ -337,6 +338,8 @@ export default function ProductDetailPage() {
                 <p className="text-body-md text-on-surface-variant">Chưa có dữ liệu thành phần.</p>
               )}
             </Section>
+
+            <ProductReviews productId={product.id} isAuthenticated={isAuthenticated} />
           </div>
         </div>
       )}
