@@ -515,6 +515,7 @@ export default function CheckoutPage() {
         paymentMethod,
         items: items.map((item) => ({
           productId: item.id,
+          variantId: item.variantId || null,
           productName: item.name,
           imageUrl: item.imageUrl || item.images?.[0],
           quantity: item.qty,
