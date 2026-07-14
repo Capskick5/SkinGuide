@@ -14,6 +14,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -98,6 +99,52 @@ class OrderServiceTest {
 
         assertThat(service.createOrder(request(), "key-1").getOrderCode()).isEqualTo("ORD-EXISTING");
         verify(orderRepository, times(0)).save(any());
+    }
+
+    @Test
+    void rejectsPaymentCallbackFromWrongProvider() {
+        Order order = onlineOrder(Order.PaymentMethod.VNPAY);
+        when(orderRepository.findByOrderCode("ORD-ONLINE")).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> service.processMomoIpn("ORD-ONLINE", 0, 130_000))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("Callback không đúng phương thức");
+    }
+
+    @Test
+    void rejectsPaymentCallbackForUnknownOrder() {
+        when(orderRepository.findByOrderCode("ORD-MISSING")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.processVnpayIpn("ORD-MISSING", "00", 13_000_000))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("Không tìm thấy đơn thanh toán");
+    }
+
+    @Test
+    void rejectsPaymentUrlAfterReservationExpired() {
+        Order order = onlineOrder(Order.PaymentMethod.VNPAY);
+        order.setId("order-id");
+        order.setReservationExpiresAt(LocalDateTime.now().minusSeconds(1));
+        when(orderRepository.findById("order-id")).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> service.getPaymentUrlForOrder("order-id"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("hết thời gian thanh toán");
+    }
+
+    private Order onlineOrder(Order.PaymentMethod paymentMethod) {
+        return Order.builder()
+                .orderCode("ORD-ONLINE")
+                .customerId("user-1")
+                .status(Order.OrderStatus.PENDING)
+                .paymentMethod(paymentMethod)
+                .paymentStatus(Order.PaymentStatus.UNPAID)
+                .inventoryReserved(true)
+                .inventoryCommitted(false)
+                .reservationExpiresAt(LocalDateTime.now().plusMinutes(15))
+                .totalAmount(BigDecimal.valueOf(130_000))
+                .items(List.of())
+                .build();
     }
 
     private void expectInventory(String action) {

@@ -448,34 +448,32 @@ public class OrderService {
     }
 
     public void processMomoIpn(String orderId, Integer resultCode, long amount) {
-        orderRepository.findByOrderCode(orderId).ifPresent(order -> {
-            validatePaymentAmount(order, BigDecimal.valueOf(amount));
-            if (order.getPaymentStatus() == Order.PaymentStatus.PAID) {
-                return;
-            }
-            if (resultCode == 0) {
-                rejectLatePayment(order);
-                order.setPaymentStatus(Order.PaymentStatus.PAID);
-                order.addStatusHistory(Order.OrderStatus.PROCESSING, "Thanh toán thành công qua Momo"); // Move to next step
-            } else {
-                order.setPaymentStatus(Order.PaymentStatus.FAILED);
-                order.addStatusHistory(Order.OrderStatus.CANCELLED, "Thanh toán MoMo thất bại");
-                releaseInventoryIfNeeded(order);
-            }
-            orderRepository.save(order);
-        });
+        Order order = findPaymentOrder(orderId, Order.PaymentMethod.MOMO);
+        validatePaymentAmount(order, BigDecimal.valueOf(amount));
+        if (order.getPaymentStatus() == Order.PaymentStatus.PAID) {
+            return;
+        }
+        if (resultCode == 0) {
+            rejectLatePayment(order);
+            order.setPaymentStatus(Order.PaymentStatus.PAID);
+            order.addStatusHistory(Order.OrderStatus.PROCESSING, "Thanh toán thành công qua MoMo");
+        } else {
+            order.setPaymentStatus(Order.PaymentStatus.FAILED);
+            order.addStatusHistory(Order.OrderStatus.CANCELLED, "Thanh toán MoMo thất bại");
+            releaseInventoryIfNeeded(order);
+        }
+        orderRepository.save(order);
     }
 
     public void processVnpayIpn(String orderId, String responseCode, long amountTimes100) {
-        Order order = orderRepository.findByOrderCode(orderId).orElse(null);
-        if (order == null) return;
+        Order order = findPaymentOrder(orderId, Order.PaymentMethod.VNPAY);
         validatePaymentAmount(order, BigDecimal.valueOf(amountTimes100, 2));
         
         if ("00".equals(responseCode)) {
             if (order.getPaymentStatus() != Order.PaymentStatus.PAID) {
                 rejectLatePayment(order);
                 order.setPaymentStatus(Order.PaymentStatus.PAID);
-                order.setStatus(Order.OrderStatus.PROCESSING); // Đã thanh toán, chờ xử lý GHN
+                order.addStatusHistory(Order.OrderStatus.PROCESSING, "Thanh toán thành công qua VNPay");
                 order.setUpdatedAt(LocalDateTime.now());
                 orderRepository.save(order);
             }
@@ -486,6 +484,15 @@ public class OrderService {
             order.setUpdatedAt(LocalDateTime.now());
             orderRepository.save(order);
         }
+    }
+
+    private Order findPaymentOrder(String orderCode, Order.PaymentMethod expectedMethod) {
+        Order order = orderRepository.findByOrderCode(orderCode)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn thanh toán"));
+        if (order.getPaymentMethod() != expectedMethod) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Callback không đúng phương thức thanh toán của đơn");
+        }
+        return order;
     }
 
     private void validatePaymentAmount(Order order, BigDecimal paidAmount) {
@@ -509,6 +516,14 @@ public class OrderService {
         Order order = getOrderById(orderId);
         if (order.getPaymentStatus() == Order.PaymentStatus.PAID) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã được thanh toán");
+        }
+        if (order.getStatus() == Order.OrderStatus.CANCELLED
+                || !Boolean.TRUE.equals(order.getInventoryReserved())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng đã hủy hoặc không còn giữ hàng");
+        }
+        if (order.getReservationExpiresAt() != null
+                && order.getReservationExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng đã hết thời gian thanh toán 15 phút");
         }
         if (order.getPaymentMethod() == Order.PaymentMethod.MOMO) {
             return generateMomoPaymentUrl(order);
