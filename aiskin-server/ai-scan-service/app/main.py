@@ -73,6 +73,20 @@ def _fallback_skin_issue_analysis(reason: str):
     }
 
 
+def _require_reliable_skin_type(scan_record: dict) -> None:
+    skin_type = scan_record.get("skinType") or {}
+    if isinstance(skin_type, dict) and skin_type.get("reliable") is False:
+        confidence = round(float(skin_type.get("confidence", 0)) * 100)
+        minimum = round(float(skin_type.get("minimumConfidence", 0.6)) * 100)
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Kết quả loại da chỉ đạt {confidence}%, dưới ngưỡng tin cậy {minimum}%. "
+                "Vui lòng quét lại ảnh chính diện, rõ và đủ sáng trước khi tạo lộ trình."
+            ),
+        )
+
+
 def _read_upload_image(image: UploadFile) -> bytes:
     content_type = (image.content_type or "").lower()
     if content_type and content_type not in ALLOWED_IMAGE_CONTENT_TYPES:
@@ -345,6 +359,7 @@ def generate_scan_routine(scan_id: str, background_tasks: BackgroundTasks, user_
         scan_record = db.ai_scan_results.find_one({"_id": scan_id, "userId": user_id})
         if not scan_record:
             raise HTTPException(status_code=404, detail="Không tìm thấy bản quét hoặc bạn không có quyền truy cập.")
+        _require_reliable_skin_type(scan_record)
             
         # Kiểm tra xem routine đã tồn tại chưa
         existing_routine = db.skincare_routines.find_one({"scanId": scan_id})
