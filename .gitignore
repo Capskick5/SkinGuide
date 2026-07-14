@@ -96,6 +96,7 @@ Thumbs.db
 
 # Ignore uploaded images in ai-scan-service
 aiskin-server/ai-scan-service/uploads/
+aiskin-server/order-service/uploads/
 
 # Environment files
 *.env
