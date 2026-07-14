@@ -19,7 +19,7 @@ os.environ.setdefault("JWT_ISSUER", "aiskin-user-service")
 
 from app.security import JWT_SECRET, verify_token
 from app.main import _fallback_skin_issue_analysis
-from app.services.skin_type_inference import SkinTypeDetector
+from app.services.skin_type_inference import SkinTypeDetector, calibrated_softmax
 from app.utils.face_cropper import crop_face_from_bytes
 
 
@@ -65,6 +65,18 @@ class AiInputHardeningTest(unittest.TestCase):
 
 
 class ModelCheckpointContractTest(unittest.TestCase):
+    def test_temperature_scaling_reduces_overconfidence(self):
+        logits = torch.tensor([[6.0, 0.0, 0.0]])
+
+        raw_confidence = float(calibrated_softmax(logits, 1.0).max())
+        calibrated_confidence = float(calibrated_softmax(logits, 2.5).max())
+
+        self.assertLess(calibrated_confidence, raw_confidence)
+
+    def test_rejects_invalid_temperature(self):
+        with self.assertRaisesRegex(ValueError, "temperature"):
+            calibrated_softmax(torch.tensor([[1.0, 0.0, 0.0]]), 0.0)
+
     def test_rejects_checkpoint_with_wrong_architecture(self):
         checkpoint = {
             "model_state_dict": {},

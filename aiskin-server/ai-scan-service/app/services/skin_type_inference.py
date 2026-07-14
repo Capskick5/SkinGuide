@@ -16,6 +16,12 @@ EXPECTED_MEAN = [0.485, 0.456, 0.406]
 EXPECTED_STD = [0.229, 0.224, 0.225]
 
 
+def calibrated_softmax(logits: torch.Tensor, temperature: float) -> torch.Tensor:
+    if not 0 < temperature <= 10:
+        raise ValueError("Checkpoint Model A có temperature không hợp lệ.")
+    return torch.softmax(logits / temperature, dim=1)
+
+
 class SkinTypeDetector:
     def __init__(self, model_path: str = None):
         """
@@ -32,7 +38,12 @@ class SkinTypeDetector:
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Không tìm thấy file trọng số loại da tại {model_path}.")
 
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        if torch.cuda.is_available():
+            self.device = "cuda"
+        elif torch.backends.mps.is_available():
+            self.device = "mps"
+        else:
+            self.device = "cpu"
         print("Đang khởi tạo AI phân loại loại da (MobileNetV2)...")
         print(f"Đang nạp bộ nhớ từ: {model_path}...")
         checkpoint = torch.load(model_path, map_location=self.device)
@@ -52,6 +63,21 @@ class SkinTypeDetector:
             raise ValueError("Checkpoint Model A sai cấu hình chuẩn hóa ảnh.")
 
         self.class_names = list(class_names)
+        self.temperature = float(checkpoint.get("temperature", 1.0))
+        if not 0 < self.temperature <= 10:
+            raise ValueError("Checkpoint Model A có temperature không hợp lệ.")
+        self.minimum_confidence = float(checkpoint.get("minimum_confidence", 0.0))
+        if not 0 <= self.minimum_confidence <= 1:
+            raise ValueError("Checkpoint Model A có minimum_confidence không hợp lệ.")
+        dataset_metadata = checkpoint.get("dataset") or {}
+        test_metrics = checkpoint.get("test_metrics") or {}
+        self.evidence = {
+            "dataset": dataset_metadata.get("source", "unavailable"),
+            "testAccuracy": test_metrics.get("accuracy"),
+            "testMacroF1": test_metrics.get("macro_f1"),
+            "temperature": self.temperature,
+            "minimumConfidence": self.minimum_confidence,
+        }
         checkpoint_sha256 = hashlib.sha256(Path(model_path).read_bytes()).hexdigest()
         self.model_version = (
             f"{Path(model_path).name}:sha256-{checkpoint_sha256[:12]}:"
@@ -94,7 +120,7 @@ class SkinTypeDetector:
             logits = self.model(tensor)
             if logits.shape != (1, len(self.class_names)) or not torch.isfinite(logits).all():
                 raise RuntimeError("Model A trả về logits không hợp lệ.")
-            probabilities = torch.softmax(logits, dim=1)[0].detach().cpu()
+            probabilities = calibrated_softmax(logits, self.temperature)[0].detach().cpu()
             pred_idx = int(torch.argmax(probabilities).item())
 
         return {
@@ -105,5 +131,7 @@ class SkinTypeDetector:
                 for index in range(len(self.class_names))
             },
             "model_version": self.model_version,
-            "confidence_calibrated": False,
+            "confidence_calibrated": self.temperature != 1.0,
+            "minimum_confidence": self.minimum_confidence,
+            "reliable": float(probabilities[pred_idx].item()) >= self.minimum_confidence,
         }
