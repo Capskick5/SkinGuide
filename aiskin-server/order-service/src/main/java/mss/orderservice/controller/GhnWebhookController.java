@@ -2,7 +2,6 @@ package mss.orderservice.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mss.orderservice.model.Order;
 import mss.orderservice.model.ReturnOrder;
@@ -24,13 +23,22 @@ import java.security.MessageDigest;
 @RestController
 @RequestMapping("/api/orders/ghn-webhook")
 @Tag(name = "GHN Webhook", description = "Nhận cập nhật trạng thái đơn hàng từ GHN")
-@RequiredArgsConstructor
 public class GhnWebhookController {
 
     private final OrderRepository orderRepository;
     private final ReturnOrderRepository returnOrderRepository;
     private final OrderService orderService;
     private final GhnConfig ghnConfig;
+
+    public GhnWebhookController(OrderRepository orderRepository,
+                                ReturnOrderRepository returnOrderRepository,
+                                OrderService orderService,
+                                GhnConfig ghnConfig) {
+        this.orderRepository = orderRepository;
+        this.returnOrderRepository = returnOrderRepository;
+        this.orderService = orderService;
+        this.ghnConfig = ghnConfig;
+    }
 
     @PostMapping
     @Operation(summary = "GHN Webhook Endpoint")
@@ -43,15 +51,16 @@ public class GhnWebhookController {
             return ResponseEntity.status(401).body("Invalid webhook secret");
         }
         log.info("Nhận Webhook từ GHN: {}", payload);
-
         try {
-            String ghnOrderCode = (String) payload.get("OrderCode"); // Mã vận đơn GHN
-            String clientOrderCode = (String) payload.get("ClientOrderCode"); // Mã đơn hàng hệ thống (ORD-...)
-            String status = (String) payload.get("Status");
+            String ghnOrderCode = stringValue(payload.get("OrderCode"));
+            String clientOrderCode = stringValue(payload.get("ClientOrderCode"));
+            String status = stringValue(payload.get("Status"));
 
-            if (ghnOrderCode == null || status == null) {
+            if (isBlank(ghnOrderCode) || isBlank(status)) {
                 return ResponseEntity.badRequest().body("Thiếu dữ liệu OrderCode hoặc Status");
             }
+
+            log.info("Processing GHN webhook for order {} with status {}", ghnOrderCode, status);
 
             Order order = null;
             if (clientOrderCode != null && !clientOrderCode.trim().isEmpty()) {
@@ -131,7 +140,7 @@ public class GhnWebhookController {
             }
 
             if (newStatus != null) {
-                String description = (String) payload.get("Description");
+                String description = stringValue(payload.get("Description"));
                 String note = "Webhook cập nhật từ GHN";
                 if (description != null && !description.trim().isEmpty()) {
                     note = "GHN: " + description;
@@ -152,6 +161,14 @@ public class GhnWebhookController {
                 && MessageDigest.isEqual(
                         expected.getBytes(StandardCharsets.UTF_8),
                         suppliedSecret.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String stringValue(Object value) {
+        return value instanceof String string ? string.trim() : null;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private void handleReturnOrderWebhook(ReturnOrder returnOrder, String status) {

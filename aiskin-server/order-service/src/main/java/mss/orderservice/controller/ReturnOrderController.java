@@ -72,10 +72,12 @@ public class ReturnOrderController {
             @RequestBody Map<String, String> body) {
         String newStatus = body.get("status");
         String rejectReason = body.get("rejectReason");
+        String inventoryDisposition = body.get("inventoryDisposition");
         if (newStatus == null) {
             return ResponseEntity.badRequest().build();
         }
-        return ResponseEntity.ok(returnOrderService.updateReturnStatus(id, newStatus, rejectReason));
+        return ResponseEntity.ok(returnOrderService.updateReturnStatus(
+                id, newStatus, rejectReason, inventoryDisposition));
     }
 
     @PutMapping("/{id}")

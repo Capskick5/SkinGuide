@@ -445,7 +445,7 @@ export default function AdminReturnOrdersPage() {
     setPage(0)
   }
 
-  const handleStatusChange = async (req, newStatus, reason = null) => {
+  const handleStatusChange = async (req, newStatus, reason = null, inventoryDisposition = null) => {
     if (newStatus === 'REJECTED' && !reason) {
       setRejectingRequest(req)
       setRejectReason('')
@@ -454,7 +454,11 @@ export default function AdminReturnOrdersPage() {
 
     try {
       setUpdating(req.id)
-      await httpClient.put(`/returns/admin/${req.id}/status`, { status: newStatus, rejectReason: reason })
+      await httpClient.put(`/returns/admin/${req.id}/status`, {
+        status: newStatus,
+        rejectReason: reason,
+        inventoryDisposition,
+      })
       message.success('Cập nhật trạng thái thành công')
       setRejectingRequest(null)
       fetchReturns()
@@ -463,6 +467,51 @@ export default function AdminReturnOrdersPage() {
     } finally {
       setUpdating(null)
     }
+  }
+
+  const statusActions = (req) => {
+    const nextStatuses = req.status === 'PENDING'
+      ? ['APPROVED', 'REJECTED']
+      : ['APPROVED', 'DELIVERED'].includes(req.status) ? ['RECEIVED'] : []
+
+    return nextStatuses.flatMap(status => {
+      if (status === 'RECEIVED') {
+        return [
+          {
+            key: 'RECEIVED_RESTOCK',
+            label: (
+              <div className="flex items-center gap-2 px-1">
+                <Icon name="inventory_2" className="text-[15px] text-emerald-700" />
+                <span className="text-sm font-semibold">Nhận hàng và nhập lại kho</span>
+              </div>
+            ),
+            onClick: () => handleStatusChange(req, 'RECEIVED', null, 'RESTOCK'),
+          },
+          {
+            key: 'RECEIVED_DAMAGED',
+            label: (
+              <div className="flex items-center gap-2 px-1">
+                <Icon name="report" className="text-[15px] text-rose-700" />
+                <span className="text-sm font-semibold">Nhận hàng và đánh dấu hỏng</span>
+              </div>
+            ),
+            onClick: () => handleStatusChange(req, 'RECEIVED', null, 'DAMAGED'),
+          },
+        ]
+      }
+      return [{
+        key: status,
+        label: (
+          <div className="flex items-center gap-2 px-1">
+            <Icon name={RETURN_STATUS[status].icon} className={`text-[15px] ${RETURN_STATUS[status].tone.split(' ')[1]}`} />
+            <span className="text-sm font-semibold">
+              {status === 'APPROVED' ? 'Duyệt đơn' : RETURN_STATUS[status].label}
+            </span>
+          </div>
+        ),
+        onClick: () => handleStatusChange(req, status),
+      }]
+    })
   }
 
   return (
@@ -564,22 +613,7 @@ export default function AdminReturnOrdersPage() {
                         <div className="space-y-1">
                           <Dropdown
                             menu={{
-                              items: (req.status === 'PENDING'
-                                ? ['APPROVED', 'REJECTED']
-                                : ['APPROVED', 'DELIVERED'].includes(req.status)
-                                  ? ['RECEIVED']
-                                  : []).map(status => ({
-                                  key: status,
-                                  label: (
-                                    <div className="flex items-center gap-2 px-1">
-                                      <Icon name={RETURN_STATUS[status].icon} className={`text-[15px] ${RETURN_STATUS[status].tone.split(' ')[1]}`} />
-                                      <span className="font-semibold text-sm">
-                                        {status === 'APPROVED' ? 'Duyệt đơn' : RETURN_STATUS[status].label}
-                                      </span>
-                                    </div>
-                                  ),
-                                  onClick: () => handleStatusChange(req, status)
-                                }))
+                              items: statusActions(req)
                             }}
                             trigger={['click']}
                             disabled={['REFUNDED', 'REJECTED', 'RECEIVED', 'READY_TO_PICK', 'PICKING', 'PICKED', 'STORING', 'TRANSPORTING', 'SORTING', 'DELIVERING'].includes(req.status)}

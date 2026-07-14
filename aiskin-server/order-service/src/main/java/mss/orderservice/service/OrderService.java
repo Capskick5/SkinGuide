@@ -54,13 +54,14 @@ public class OrderService {
                         MomoConfig momoConfig,
                         VnpayConfig vnpayConfig,
                         GhnService ghnService,
+                        RestTemplate restTemplate,
                         @Value("${product-service.base-url}") String productServiceBaseUrl,
                         @Value("${product-service.internal-token}") String internalServiceToken) {
         this.orderRepository = orderRepository;
         this.momoConfig = momoConfig;
         this.vnpayConfig = vnpayConfig;
         this.ghnService = ghnService;
-        this.restTemplate = new RestTemplate();
+        this.restTemplate = restTemplate;
         this.productServiceBaseUrl = productServiceBaseUrl;
         this.internalServiceToken = internalServiceToken;
     }
@@ -117,11 +118,7 @@ public class OrderService {
         try {
             orderRepository.save(order);
         } catch (RuntimeException saveFailure) {
-            try {
-                callInventoryService("release", toInventoryRequest(order));
-            } catch (RuntimeException releaseFailure) {
-                log.error("Failed to compensate inventory for order {} after save failure", orderCode, releaseFailure);
-            }
+            compensateFailedOrderCreation(orderCode, request, saveFailure);
             throw saveFailure;
         }
 
@@ -180,6 +177,16 @@ public class OrderService {
                                 .build())
                         .toList())
                 .build();
+    }
+
+    private void compensateFailedOrderCreation(String orderCode, OrderRequest request, RuntimeException saveFailure) {
+        try {
+            callInventoryService("release", toInventoryRequest(orderCode, request));
+            log.info("Released inventory after order {} could not be persisted", orderCode);
+        } catch (RuntimeException releaseFailure) {
+            saveFailure.addSuppressed(releaseFailure);
+            log.error("Failed to release inventory after order {} could not be persisted", orderCode, releaseFailure);
+        }
     }
 
     private ProductInventoryRequest toInventoryRequest(Order order) {

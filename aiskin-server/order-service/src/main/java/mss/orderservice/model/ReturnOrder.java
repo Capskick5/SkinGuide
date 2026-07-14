@@ -51,6 +51,11 @@ public class ReturnOrder {
     // Trạng thái phiếu trả hàng
     private ReturnStatus status;
 
+    private InventoryDisposition inventoryDisposition;
+
+    @Builder.Default
+    private Boolean inventoryProcessed = false;
+
     @CreatedDate
     private LocalDateTime createdAt;
 
@@ -73,12 +78,20 @@ public class ReturnOrder {
         REFUNDED     // Đã hoàn tiền cho khách xong
     }
 
+    public enum InventoryDisposition {
+        RESTOCK,
+        DAMAGED
+    }
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
     public static class ReturnItem {
         private String productId;
+        private String variantId;
+        private String sku;
+        private String variantName;
         private String productName;
         private String imageUrl;
         private Integer quantity; // Số lượng trả lại
