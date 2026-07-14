@@ -79,11 +79,14 @@ export default function RoutineStep({ step, icon, category, title, instruction, 
                       </div>
                       <div>
                         <p className="text-sm font-bold text-green-600 mb-1">{formattedPrice}</p>
-                        {prod.ingredients && (
-                          <p className="text-[10px] text-gray-500 line-clamp-1" title={prod.ingredients}>
-                            <span className="font-semibold text-gray-600">Gồm:</span> {prod.ingredients}
+                        {prod.matchReasons?.slice(0, 2).map((reason) => (
+                          <p key={reason} className="text-[10px] text-gray-600 leading-4">{reason}</p>
+                        ))}
+                        {prod.matchedIngredients?.slice(0, 2).map((ingredient) => (
+                          <p key={ingredient.name} className="mt-1 text-[10px] font-medium text-indigo-600">
+                            {ingredient.name}: {ingredient.concentrationEvidence}
                           </p>
-                        )}
+                        ))}
                       </div>
                     </div>
                   </div>

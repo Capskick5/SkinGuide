@@ -107,6 +107,7 @@ export default function RoutinePage() {
   const [aiRoutine, setAiRoutine] = useState(location.state?.routine || null)
   const [topIngredients, setTopIngredients] = useState(location.state?.topIngredients || [])
   const [focusAreas, setFocusAreas] = useState(location.state?.focusAreas || [])
+  const [analysisScope, setAnalysisScope] = useState(location.state?.analysisScope || '')
   const [skinType, setSkinType] = useState(location.state?.skinType || '')
   const [productRecommendations, setProductRecommendations] = useState(location.state?.productRecommendations || [])
 
@@ -123,12 +124,14 @@ export default function RoutinePage() {
 
   const selectScan = useCallback(async (scan) => {
     setSelectedScanId(scan._id)
-    const typeLabel = scan.skinType === 'Dry' ? 'Da khô' : scan.skinType === 'Oily' ? 'Da dầu' : 'Da thường'
+    const predictedSkinType = scan.skinType?.predicted || scan.skinType
+    const typeLabel = predictedSkinType === 'Dry' ? 'Da khô' : predictedSkinType === 'Oily' ? 'Da dầu' : 'Da thường'
     setSkinType(typeLabel)
 
     setAiRoutine(null)
     setTopIngredients([])
     setFocusAreas([])
+    setAnalysisScope('')
     setProductRecommendations([])
     setSelectedRoutineId('')
 
@@ -141,6 +144,7 @@ export default function RoutinePage() {
           setAiRoutine(routineData.routine || null)
           setTopIngredients(routineData.topIngredients || [])
           setFocusAreas(routineData.focusAreas || [])
+          setAnalysisScope(routineData.analysisScope || '')
           setSelectedRoutineId(routineData._id || '')
 
           const recommendations = await getRoutineRecommendations(routineData._id)
@@ -477,6 +481,12 @@ export default function RoutinePage() {
         <div className="flex flex-col gap-6">
 
           {/* Focus Areas Box */}
+          {analysisScope === 'skin_type_only' && (
+            <div className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-body-sm text-on-surface">
+              Lộ trình này được xây dựng theo loại da. Model nhận diện vấn đề da chưa khả dụng nên hệ thống không suy diễn mụn, nám hoặc tình trạng bệnh lý.
+            </div>
+          )}
+
           {focusAreas.length > 0 && (
             <div className="bg-primary/10 rounded-2xl p-4 border border-border-pink">
               <h3 className="text-label-lg font-bold text-primary mb-2">🎯 Mục tiêu ưu tiên trị liệu</h3>
@@ -621,10 +631,10 @@ export default function RoutinePage() {
             <div className="mt-8 bg-gradient-to-b from-sky-50 to-indigo-50 border border-indigo-100 rounded-[10px] p-7 shadow-[0_8px_30px_rgba(99,102,241,0.1)]">
               <h3 className="text-title-lg text-indigo-700 mb-2 flex items-center gap-2 font-bold">
                 <Icon name="science" />
-                Thành phần Dược lý khuyên dùng
+                Thành phần nên ưu tiên
               </h3>
               <p className="text-body-sm text-indigo-600/80 mb-6 font-medium">
-                Các hoạt chất tối ưu nhất được AI bác sĩ lựa chọn dựa trên 7 lớp phân tích da của bạn:
+                Thành phần được xếp hạng theo quy tắc phù hợp loại da và vấn đề da có dữ liệu:
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -640,7 +650,7 @@ export default function RoutinePage() {
                         </h4>
                         <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-md text-[10px] font-bold whitespace-nowrap uppercase tracking-wider shrink-0 flex items-center gap-1 shadow-sm">
                           <Icon name="verified" className="text-[12px]" />
-                          Lý tưởng
+                          Điểm quy tắc {ing.match_score || 1}
                         </span>
                       </div>
                       <div className="flex items-start gap-2 bg-indigo-50/50 border border-indigo-50 p-3 rounded-[10px] h-32">

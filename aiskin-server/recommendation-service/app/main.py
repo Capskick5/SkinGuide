@@ -204,6 +204,8 @@ def generate_routine_recommendation(
                     "unit": r.get("unit"),
                     "availableQuantity": r.get("availableQuantity"),
                     "ingredients": r.get("ingredients"),
+                    "matchedIngredients": r.get("matchedIngredients", []),
+                    "matchReasons": r.get("matchReasons", []),
                     "match_score": round(r.get("match_score", 0), 4) if "match_score" in r else None
                 })
                 
@@ -337,6 +339,8 @@ def get_recommendations(
                 "availableQuantity": r.get("availableQuantity"),
                 "rank": r.get("rank"),
                 "ingredients": r.get("ingredients"),
+                "matchedIngredients": r.get("matchedIngredients", []),
+                "matchReasons": r.get("matchReasons", []),
                 "match_score": round(r.get("match_score", 0), 4) if "match_score" in r else None,
                 "skin_compatibility": {
                     "combination": r.get("combination") == 1,

@@ -11,7 +11,7 @@ def product(product_id, active=True, on_hand=10, reserved=0, variant_active=True
         "isActive": active,
         "categoryName": "Cleanser",
         "targetSkinTypes": ["Oily"],
-        "ingredients": [{"name": "Niacinamide"}],
+        "ingredients": [{"name": "Niacinamide", "percentage": None}],
         "variants": [
             {
                 "_id": f"variant-{product_id}",
@@ -51,6 +51,12 @@ class RecommendationInventoryTest(unittest.TestCase):
         self.assertEqual(result[0]["variantId"], "variant-sellable")
         self.assertEqual(result[0]["availableQuantity"], 7)
         self.assertEqual(result[0]["sku"], "SKU-sellable")
+        self.assertEqual(result[0]["matchedIngredients"], [{
+            "name": "Niacinamide",
+            "percentage": None,
+            "concentrationEvidence": "Chưa có dữ liệu nồng độ",
+        }])
+        self.assertIn("Có thành phần mục tiêu: Niacinamide", result[0]["matchReasons"])
 
     def test_non_tracked_active_variant_is_sellable(self):
         item = product("service-item", on_hand=0)
