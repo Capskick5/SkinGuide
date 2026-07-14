@@ -97,7 +97,8 @@ Script import 500 sản phẩm từ `my-doc/data/product_dataset.json`. Endpoint
 cd aiskin-server/ai-scan-service
 ./venv/bin/python training/audit_skin_type_dataset.py \
   --data-root /duong-dan/toi/skin-type-dataset \
-  --output-dir /tmp/skin-type-audit
+  --output-dir /tmp/skin-type-audit \
+  --check-production-input
 ```
 
 - Input guard bắt buộc một khuôn mặt rõ và từ chối ảnh sai thay vì cho model đoán.
