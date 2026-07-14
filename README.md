@@ -91,6 +91,15 @@ Script import 500 sản phẩm từ `my-doc/data/product_dataset.json`. Endpoint
 ## Sự thật về AI hiện tại
 
 - Model A production hiện là MobileNetV2, phân loại `Dry/Normal/Oily`.
+- Kết quả test `100%` cũ không được dùng làm bằng chứng vì dataset gốc có ảnh trùng xuyên split. Chạy audit và tạo split theo nhóm ảnh trước khi train lại:
+
+```bash
+cd aiskin-server/ai-scan-service
+./venv/bin/python training/audit_skin_type_dataset.py \
+  --data-root /duong-dan/toi/skin-type-dataset \
+  --output-dir /tmp/skin-type-audit
+```
+
 - Input guard bắt buộc một khuôn mặt rõ và từ chối ảnh sai thay vì cho model đoán.
 - Model B chưa có `ultimate_skin_resnet.pth`; UI chỉ tạo routine nền tảng theo loại da và không giả nhãn `Healthy`.
 - Catalog có 10.977 dòng thành phần nhưng chưa có dữ liệu `percentage`; recommendation chỉ nói thành phần khớp và ghi rõ nồng độ chưa được cung cấp.
