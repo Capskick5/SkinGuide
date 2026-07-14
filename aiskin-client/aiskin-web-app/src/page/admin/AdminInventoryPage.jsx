@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { message } from 'antd'
 import Icon from '@/components/common/Icon'
+import Pagination from '@/components/common/Pagination'
 import { productApi } from '@/api/productApi'
 
 const FILTERS = [
@@ -359,10 +360,10 @@ export default function AdminInventoryPage() {
             <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
               <tr>
                 <th className="px-4 py-3">Sản phẩm</th>
-                <th className="px-4 py-3">Variants</th>
-                <th className="px-4 py-3">On hand</th>
-                <th className="px-4 py-3">Reserved</th>
-                <th className="px-4 py-3">Available</th>
+                <th className="px-4 py-3">Biến thể</th>
+                <th className="px-4 py-3">Tồn vật lý</th>
+                <th className="px-4 py-3">Đang giữ</th>
+                <th className="px-4 py-3">Có thể bán</th>
                 <th className="px-4 py-3">Trạng thái</th>
                 <th className="px-4 py-3 text-right">Thao tác</th>
               </tr>
@@ -404,16 +405,16 @@ export default function AdminInventoryPage() {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
-          <p className="text-xs text-gray-500">
-            {filteredProducts.length === 0 ? 'Không có sản phẩm' : `${(productPage - 1) * PAGE_SIZE + 1}-${Math.min(productPage * PAGE_SIZE, filteredProducts.length)} / ${filteredProducts.length}`}
-          </p>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-gray-500">Trang {productPage}/{productPages}</span>
-            <button type="button" disabled={productPage <= 1} onClick={() => setProductPage((page) => page - 1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40" title="Trang trước"><Icon name="chevron_left" /></button>
-            <button type="button" disabled={productPage >= productPages} onClick={() => setProductPage((page) => page + 1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40" title="Trang sau"><Icon name="chevron_right" /></button>
+        {filteredProducts.length > 0 ? (
+          <div className="border-t border-gray-100 bg-gray-50/30 p-5">
+            <Pagination
+              currentPage={productPage}
+              totalPages={productPages}
+              onPageChange={setProductPage}
+              containerClass="!border-0 !bg-transparent !p-0 !shadow-none"
+            />
           </div>
-        </div>
+        ) : null}
       </section>
 
       {selectedProduct ? (
@@ -421,7 +422,7 @@ export default function AdminInventoryPage() {
           <section className="w-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-xl">
           <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-4">
             <div>
-              <h2 className="font-bold text-gray-950">Variants: {selectedProduct.name}</h2>
+              <h2 className="font-bold text-gray-950">Biến thể: {selectedProduct.name}</h2>
               <p className="text-xs text-gray-500">Nhập hàng, kiểm kê hoặc xuất hủy theo từng SKU.</p>
             </div>
             <button type="button" onClick={() => setSelectedProduct(null)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100" title="Đóng chi tiết">
@@ -432,12 +433,12 @@ export default function AdminInventoryPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
                 <tr>
-                  <th className="px-3 py-2">Variant / SKU</th>
+                  <th className="px-3 py-2">Biến thể / SKU</th>
                   <th className="px-3 py-2">Kho</th>
-                  <th className="px-3 py-2">On hand</th>
-                  <th className="px-3 py-2">Reserved</th>
-                  <th className="px-3 py-2">Available</th>
-                  <th className="px-3 py-2">Sold</th>
+                  <th className="px-3 py-2">Tồn vật lý</th>
+                  <th className="px-3 py-2">Đang giữ</th>
+                  <th className="px-3 py-2">Có thể bán</th>
+                  <th className="px-3 py-2">Đã bán</th>
                   <th className="px-3 py-2 text-right">Thao tác kho</th>
                 </tr>
               </thead>
@@ -491,8 +492,8 @@ export default function AdminInventoryPage() {
                 <th className="px-4 py-3">Sản phẩm / SKU</th>
                 <th className="px-4 py-3">Loại</th>
                 <th className="px-4 py-3">Số lượng</th>
-                <th className="px-4 py-3">On hand</th>
-                <th className="px-4 py-3">Reserved</th>
+                <th className="px-4 py-3">Tồn vật lý</th>
+                <th className="px-4 py-3">Đang giữ</th>
                 <th className="px-4 py-3">Tham chiếu / Lý do</th>
               </tr>
             </thead>
@@ -513,13 +514,16 @@ export default function AdminInventoryPage() {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
-          <p className="text-xs text-gray-500">Trang {movementPages === 0 ? 0 : movementPage + 1}/{movementPages}</p>
-          <div className="flex items-center gap-2">
-            <button type="button" disabled={movementLoading || movementPage <= 0} onClick={() => changeMovementPage(movementPage - 1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40" title="Trang trước"><Icon name="chevron_left" /></button>
-            <button type="button" disabled={movementLoading || movementPage + 1 >= movementPages} onClick={() => changeMovementPage(movementPage + 1)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40" title="Trang sau"><Icon name="chevron_right" /></button>
+        {movementPages > 0 ? (
+          <div className="border-t border-gray-100 bg-gray-50/30 p-5">
+            <Pagination
+              currentPage={movementPage + 1}
+              totalPages={movementPages}
+              onPageChange={(page) => changeMovementPage(page - 1)}
+              containerClass="!border-0 !bg-transparent !p-0 !shadow-none"
+            />
           </div>
-        </div>
+        ) : null}
           </section>
         </div>
       ) : null}

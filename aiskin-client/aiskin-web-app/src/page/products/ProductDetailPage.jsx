@@ -36,9 +36,17 @@ export default function ProductDetailPage() {
   const [translatedDesc, setTranslatedDesc] = useState('')
   const [showFullDescription, setShowFullDescription] = useState(false)
   const [showAllIngredients, setShowAllIngredients] = useState(false)
+  const trackedVariants = (product?.variants || []).filter(
+    (variant) => variant.isActive !== false && variant.trackInventory === true,
+  )
+  const sellableVariant = trackedVariants.find((variant) => Number(variant.availableQuantity || 0) > 0)
+    || trackedVariants[0]
+  const tracksInventory = trackedVariants.length > 0
+  const availableQuantity = Number(sellableVariant?.availableQuantity || 0)
+  const outOfStock = tracksInventory && availableQuantity <= 0
 
   function handleAddToCart() {
-    if (!product) return
+    if (!product || outOfStock) return
     if (!isAuthenticated) {
       navigate(PATHS.LOGIN, { state: { from: location } })
       return
@@ -49,6 +57,10 @@ export default function ProductDetailPage() {
       price: product.price,
       imageUrl: product.imageUrl || product.images?.[0],
       slug: product.slug,
+      variantId: sellableVariant?.id,
+      variantName: sellableVariant?.name,
+      sku: sellableVariant?.sku,
+      unit: sellableVariant?.unit,
     })
     setAddedToCart(true)
     setTimeout(() => setAddedToCart(false), 2000)
@@ -221,19 +233,30 @@ export default function ProductDetailPage() {
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-3">
+                {tracksInventory ? (
+                  <div className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${outOfStock ? 'border-error/20 bg-error/5 text-error' : 'border-success/20 bg-success/5 text-success'}`}>
+                    <Icon name={outOfStock ? 'remove_shopping_cart' : 'inventory_2'} className="text-lg" />
+                    {outOfStock ? 'Hết hàng' : `Còn ${availableQuantity} sản phẩm`}
+                    {sellableVariant?.name ? <span className="font-normal opacity-80">· {sellableVariant.name}</span> : null}
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
                 <button
                   id="product-add-to-cart-btn"
                   onClick={handleAddToCart}
-                  disabled={addedToCart}
+                  disabled={addedToCart || outOfStock}
                   className={[
                     'inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-label-md transition-all shadow-ambient-pink active:scale-95',
-                    addedToCart
-                      ? 'bg-success text-white'
-                      : 'gradient-bg text-white hover:opacity-90',
+                    outOfStock
+                      ? 'cursor-not-allowed bg-surface-container text-on-surface-variant shadow-none'
+                      : addedToCart
+                        ? 'bg-success text-white'
+                        : 'gradient-bg text-white hover:opacity-90',
                   ].join(' ')}
                 >
-                  <Icon name={addedToCart ? 'check' : 'add_shopping_cart'} className="text-base" />
-                  {!isAuthenticated ? 'Đăng nhập để mua' : addedToCart ? 'Đã thêm!' : inCart ? 'Thêm nữa' : 'Thêm vào giỏ'}
+                  <Icon name={outOfStock ? 'remove_shopping_cart' : addedToCart ? 'check' : 'add_shopping_cart'} className="text-base" />
+                  {outOfStock ? 'Hết hàng' : !isAuthenticated ? 'Đăng nhập để mua' : addedToCart ? 'Đã thêm!' : inCart ? 'Thêm nữa' : 'Thêm vào giỏ'}
                 </button>
 
                 <Link
