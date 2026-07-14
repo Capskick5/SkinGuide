@@ -101,6 +101,8 @@ cd aiskin-server/ai-scan-service
   --check-production-input
 ```
 
+- Hai entrypoint ResNet50 cũ đã bị khóa vì không thể tái lập nguồn dataset/split. Pipeline Model A được hỗ trợ nằm ở `audit_skin_type_dataset.py`, `prepare_skin_type_dataset.py`, `train_skin_type_mobilenet.py` và `evaluate_skin_type_checkpoint.py`.
+
 - Input guard bắt buộc một khuôn mặt rõ và từ chối ảnh sai thay vì cho model đoán.
 - Model B chưa có checkpoint đa nhãn đạt contract; UI chỉ tạo routine nền tảng theo loại da và không giả nhãn `Healthy`. Xem `aiskin-server/ai-scan-service/MODEL_B_REQUIREMENTS.md`.
 - Catalog có 10.977 dòng thành phần nhưng chưa có dữ liệu `percentage`; recommendation chỉ nói thành phần khớp và ghi rõ nồng độ chưa được cung cấp.
