@@ -36,6 +36,33 @@ class RecommendationEngine:
         if not sellable:
             return None
         return min(sellable, key=lambda item: float(item[0].get('price') or product.get('price') or 0))
+
+    @staticmethod
+    def _add_evidence(records, skin_type, target_ingredients):
+        requested = [str(item).strip().lower() for item in target_ingredients if str(item).strip()]
+        for record in records:
+            matched = []
+            for ingredient in record.get('ingredientDetails') or []:
+                name = ingredient.get('name', '')
+                normalized_name = name.lower()
+                if any(target in normalized_name or normalized_name in target for target in requested):
+                    percentage = ingredient.get('percentage')
+                    matched.append({
+                        'name': name,
+                        'percentage': percentage,
+                        'concentrationEvidence': (
+                            f"{percentage}%" if percentage is not None else "Chưa có dữ liệu nồng độ"
+                        ),
+                    })
+
+            reasons = []
+            if skin_type:
+                reasons.append(f"Phù hợp loại da {skin_type}")
+            if matched:
+                reasons.append("Có thành phần mục tiêu: " + ", ".join(item['name'] for item in matched))
+            record['matchedIngredients'] = matched
+            record['matchReasons'] = reasons
+        return records
             
     def update_data(self, products: list):
         """Cập nhật DataFrame từ danh sách JSON của Kafka/MongoDB."""
@@ -56,8 +83,18 @@ class RecommendationEngine:
             ing_list = p.get('ingredients', [])
             if isinstance(ing_list, list):
                 ing_str = ", ".join([i.get('name', '') if isinstance(i, dict) else str(i) for i in ing_list])
+                ingredient_details = [
+                    {
+                        'name': str(item.get('name', '')).strip(),
+                        'percentage': item.get('percentage'),
+                        'isKey': item.get('isKey') is True,
+                    }
+                    for item in ing_list
+                    if isinstance(item, dict) and str(item.get('name', '')).strip()
+                ]
             else:
                 ing_str = str(ing_list)
+                ingredient_details = []
                 
             # Skin types (one-hot encoding)
             skin_types_source = p.get('targetSkinTypes', p.get('skinTypes', []))
@@ -91,6 +128,7 @@ class RecommendationEngine:
                 'trackInventory': tracks_inventory,
                 'rank': 5.0, # Default rank
                 'ingredients': ing_str,
+                'ingredientDetails': ingredient_details,
                 'label': label,
                 'combination': 1 if 'combination' in skin_types else 0,
                 'dry': 1 if 'dry' in skin_types else 0,
@@ -143,7 +181,7 @@ class RecommendationEngine:
         # Nếu không có target_ingredients, chỉ trả về Top sản phẩm được rating cao (rank)
         if not target_ingredients:
             sorted_df = filtered_df.sort_values(by='rank', ascending=False).head(top_k)
-            return sorted_df.to_dict('records')
+            return self._add_evidence(sorted_df.to_dict('records'), skin_type, target_ingredients)
 
         # Gộp danh sách thành phần yêu cầu thành chuỗi (để đưa vào AI NLP)
         target_text = " ".join(target_ingredients).lower()
@@ -181,4 +219,5 @@ class RecommendationEngine:
             final_df = sorted_df.head(top_k)
 
         # Convert sang dạng Dictionary để trả về JSON
-        return final_df.to_dict('records')
+        records = final_df.to_dict('records')
+        return self._add_evidence(records, skin_type, target_ingredients)
