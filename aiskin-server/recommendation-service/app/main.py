@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
 import py_eureka_client.eureka_client as eureka_client
@@ -15,6 +15,7 @@ from pymongo import MongoClient
 import aiohttp
 from .similarity_engine import RecommendationEngine
 from .kafka_consumer import ProductKafkaConsumer
+from .security import get_current_user_id
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,6 +26,10 @@ APP_NAME = "recommendation-service"
 APP_PORT = 5001
 DATASET_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "datasets", "cosmetics.csv")
 MONGO_URI = os.getenv("MONGODB_URI_RECOMMENDATION")
+ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv(
+    "RECOMMENDATION_ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
+).split(",") if origin.strip()]
 
 # Global variables
 engine = None
@@ -43,17 +48,18 @@ STEP_TO_LABEL = {
     "Kem chống nắng": "Sun protect"
 }
 
-class RoutineRecommendRequest(BaseModel):
-    user_id: str
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global engine, db, kafka_consumer_task
     logger.info("Khởi động Recommendation Service...")
+    client = None
     
     # 0. Kết nối MongoDB
     try:
-        client = MongoClient(MONGO_URI)
+        if not MONGO_URI:
+            raise RuntimeError("MONGODB_URI_RECOMMENDATION is required")
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+        client.admin.command("ping")
         db = client.ai_scan_db
         logger.info("MongoDB connected thành công.")
     except Exception as e:
@@ -64,6 +70,8 @@ async def lifespan(app: FastAPI):
         engine = RecommendationEngine(DATASET_PATH)
         # Nạp tức thì (Zero-latency) dữ liệu thật từ MongoDB của Product-Service
         try:
+            if client is None:
+                raise RuntimeError("MongoDB client is not available")
             prod_db = client.aiskin_product
             db_products = list(prod_db.products.find())
             if db_products:
@@ -113,22 +121,23 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.post("/api/v1/recommend/routine/{routine_id}", tags=["Recommendations"])
-def generate_routine_recommendation(routine_id: str, req: RoutineRecommendRequest):
+def generate_routine_recommendation(
+    routine_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
     """
     Sinh danh sách gợi ý sản phẩm cho toàn bộ Lộ trình chăm sóc da.
     Kết quả sẽ được lưu vào DB và trả về ngay lập tức (Synchronous).
     """
     if db is None or engine is None:
         raise HTTPException(status_code=503, detail="DB hoặc Engine chưa sẵn sàng!")
-        
-    user_id = req.user_id
         
     try:
         # Lấy lộ trình từ MongoDB
@@ -137,7 +146,7 @@ def generate_routine_recommendation(routine_id: str, req: RoutineRecommendReques
             raise HTTPException(status_code=404, detail=f"Không tìm thấy routine_id {routine_id} trong DB")
             
         # Kiểm tra xem đã có gợi ý chưa, nếu có rồi thì trả về luôn không cần phân tích lại
-        existing_recs = db.product_recommendations.find_one({"routineId": routine_id})
+        existing_recs = db.product_recommendations.find_one({"routineId": routine_id, "userId": user_id})
         if existing_recs:
             return {
                 "status": "success",
@@ -226,10 +235,12 @@ class RecommendRequest(BaseModel):
     target_ingredients: List[str] # Ví dụ: ["Salicylic Acid", "Niacinamide"]
     top_k: int = 5
     routine_id: Optional[str] = None  # ID của Lộ trình (nếu có)
-    user_id: Optional[str] = None     # ID của người dùng (nếu có)
 
 @app.get("/api/v1/recommend/routine/{routine_id}", tags=["Recommendations"])
-def get_routine_recommendations(routine_id: str):
+def get_routine_recommendations(
+    routine_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
     """
     Lấy danh sách gợi ý mỹ phẩm đã tạo của một lộ trình
     """
@@ -237,7 +248,11 @@ def get_routine_recommendations(routine_id: str):
         raise HTTPException(status_code=503, detail="Database chưa sẵn sàng")
         
     try:
-        record = db.product_recommendations.find_one({"routineId": routine_id})
+        routine_record = db.skincare_routines.find_one({"_id": routine_id, "userId": user_id}, {"_id": 1})
+        if not routine_record:
+            raise HTTPException(status_code=404, detail="Không tìm thấy lộ trình hoặc bạn không có quyền truy cập")
+
+        record = db.product_recommendations.find_one({"routineId": routine_id, "userId": user_id})
         if not record:
             return {
                 "status": "success",
@@ -250,12 +265,17 @@ def get_routine_recommendations(routine_id: str):
             "message": "Lấy dữ liệu thành công",
             "data": record.get("recommendations", [])
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Lỗi khi lấy recommendations: {e}")
         raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ")
 
 @app.post("/api/v1/recommend", tags=["Recommendations"])
-def get_recommendations(req: RecommendRequest):
+def get_recommendations(
+    req: RecommendRequest,
+    user_id: str = Depends(get_current_user_id),
+):
     """
     Tìm kiếm sản phẩm phù hợp nhất dựa trên Loại da, Loại sản phẩm và Thành phần chỉ định.
     Thuật toán: Hybrid (Rule-based Filtering + TF-IDF Vectorization)
@@ -264,6 +284,14 @@ def get_recommendations(req: RecommendRequest):
         raise HTTPException(status_code=503, detail="Recommendation Engine chưa sẵn sàng.")
         
     try:
+        if req.routine_id and db is not None:
+            owned_routine = db.skincare_routines.find_one(
+                {"_id": req.routine_id, "userId": user_id},
+                {"_id": 1},
+            )
+            if not owned_routine:
+                raise HTTPException(status_code=404, detail="Không tìm thấy lộ trình hoặc bạn không có quyền truy cập")
+
         results = engine.recommend(
             product_label=req.product_label,
             skin_type=req.skin_type,
@@ -300,7 +328,7 @@ def get_recommendations(req: RecommendRequest):
             record = {
                 "_id": record_id,
                 "routineId": req.routine_id,
-                "userId": req.user_id,
+                "userId": user_id,
                 "productCategory": req.product_label,
                 "targetIngredients": req.target_ingredients,
                 "recommendedProducts": clean_results,
@@ -315,6 +343,8 @@ def get_recommendations(req: RecommendRequest):
             "data": clean_results
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Lỗi khi xử lý Recommend: {e}")
         raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ")
