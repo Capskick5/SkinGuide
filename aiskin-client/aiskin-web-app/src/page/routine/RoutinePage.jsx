@@ -111,7 +111,6 @@ export default function RoutinePage() {
   const [skinType, setSkinType] = useState(location.state?.skinType || '')
   const [productRecommendations, setProductRecommendations] = useState(location.state?.productRecommendations || [])
 
-  const [translatedDescriptions, setTranslatedDescriptions] = useState({})
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingRoutine, setIsLoadingRoutine] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -280,43 +279,6 @@ export default function RoutinePage() {
       setIsGeneratingRecs(false)
     }
   }
-
-  // Dịch description tiếng Anh sang tiếng Việt thông qua Google Translate API (Client-side)
-  useEffect(() => {
-    if (!topIngredients || topIngredients.length === 0) return
-
-    const translateAll = async () => {
-      const newTranslations = {}
-      let changed = false
-
-      for (const ing of topIngredients) {
-        if (!ing.description) continue
-        try {
-          const res = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=${encodeURIComponent(ing.description)}`)
-          const data = await res.json()
-          let translatedText = ''
-          // Google Translate chia câu dài thành nhiều mảng con
-          if (data && data[0]) {
-            data[0].forEach(part => {
-              if (part[0]) translatedText += part[0]
-            })
-          }
-          if (translatedText) {
-            newTranslations[ing.name] = translatedText
-            changed = true
-          }
-        } catch (err) {
-          console.error("Lỗi dịch:", err)
-        }
-      }
-
-      if (changed) {
-        setTranslatedDescriptions((current) => ({ ...current, ...newTranslations }))
-      }
-    }
-
-    translateAll()
-  }, [topIngredients])
 
   const formatDate = (isoString) => {
     const d = new Date(isoString)
@@ -639,9 +601,7 @@ export default function RoutinePage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {topIngredients.map((ing, idx) => {
-                  // Dùng bản dịch trực tiếp, nếu chưa dịch xong thì dùng description gốc hoặc fallback
-                  const description = translatedDescriptions[ing.name]
-                    || getIngredientDescription(ing);
+                  const description = getIngredientDescription(ing)
                   return (
                     <div key={idx} className="bg-white p-5 rounded-[10px] border border-indigo-100 hover:border-indigo-300 transition-colors shadow-sm flex flex-col justify-between group">
                       <div className="flex justify-between items-start mb-4 gap-2">
