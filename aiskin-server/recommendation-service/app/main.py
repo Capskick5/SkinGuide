@@ -1,22 +1,24 @@
-from fastapi import Depends, FastAPI, HTTPException
-from pydantic import BaseModel, Field
-from typing import List, Optional
-import py_eureka_client.eureka_client as eureka_client
 import logging
-import asyncio
-import json
-from contextlib import asynccontextmanager
 import os
-from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", ".env"))
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from pymongo import MongoClient
-import aiohttp
-from .similarity_engine import RecommendationEngine
-from .kafka_consumer import ProductKafkaConsumer
+from typing import List, Optional
+
+import py_eureka_client.eureka_client as eureka_client
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from pymongo import ASCENDING, DESCENDING, MongoClient
+from pymongo.errors import DuplicateKeyError
+
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", ".env"))
+
 from .chat_service import ChatRateLimiter, GroqChatService
+from .kafka_consumer import ProductKafkaConsumer
 from .security import get_current_user_id
+from .similarity_engine import RecommendationEngine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,8 +27,9 @@ logger = logging.getLogger(__name__)
 EUREKA_SERVER = os.getenv("EUREKA_URI")
 APP_NAME = "recommendation-service"
 APP_PORT = 5001
-DATASET_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "datasets", "cosmetics.csv")
 MONGO_URI = os.getenv("MONGODB_URI_RECOMMENDATION")
+RECOMMENDATION_SCHEMA_VERSION = 2
+ROUTINE_RECORD_TYPE = "routine"
 ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv(
     "RECOMMENDATION_ALLOWED_ORIGINS",
     "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
@@ -35,48 +38,161 @@ ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv(
 # Global variables
 engine = None
 db = None
+mongo_client = None
 kafka_consumer_task = None
 chat_service = GroqChatService()
 chat_rate_limiter = ChatRateLimiter()
 
 STEP_TO_LABEL = {
-    "Tẩy trang": "Cleanser",
-    "Sữa rửa mặt": "Cleanser",
-    "Toner": "Toner",
-    "Tẩy tế bào chết": "Treatment",
-    "Serum": "Treatment",
-    "Mặt nạ": "Face Mask",
-    "Kem mắt": "Eye cream",
-    "Kem dưỡng ẩm": "Moisturizer",
-    "Kem chống nắng": "Sun protect"
+    "makeup_remover": "Cleanser",
+    "cleanser": "Cleanser",
+    "toner": "Toner",
+    "exfoliant": "Treatment",
+    "serum": "Treatment",
+    "treatment": "Treatment",
+    "moisturizer": "Moisturizer",
+    "sunscreen": "Sun protect",
 }
+
+
+def _routine_recommendation_filter(routine_id: str, user_id: str) -> dict:
+    return {
+        "routineId": routine_id,
+        "userId": user_id,
+        "recordType": ROUTINE_RECORD_TYPE,
+        "schemaVersion": RECOMMENDATION_SCHEMA_VERSION,
+    }
+
+
+def _ensure_database_indexes(database) -> None:
+    database.product_recommendations.create_index(
+        [("routineId", ASCENDING), ("userId", ASCENDING)],
+        name="routine_recommendation_lookup",
+    )
+    database.product_recommendations.create_index(
+        [("userId", ASCENDING), ("createdAt", DESCENDING)],
+        name="user_recommendation_history",
+    )
+    # Keep legacy records untouched while making all v2 routine writes idempotent.
+    database.product_recommendations.create_index(
+        [("routineId", ASCENDING), ("userId", ASCENDING)],
+        name="unique_v2_recommendation_per_routine",
+        unique=True,
+        partialFilterExpression={
+            "recordType": ROUTINE_RECORD_TYPE,
+            "schemaVersion": RECOMMENDATION_SCHEMA_VERSION,
+        },
+    )
+
+
+def _clean_product(record: dict, include_skin_compatibility: bool = False) -> dict:
+    clean = {
+        "id": record.get("id"),
+        "slug": record.get("slug"),
+        "imageUrl": record.get("imageUrl"),
+        "brand": record.get("brand"),
+        "name": record.get("name"),
+        "price": record.get("price"),
+        "variantId": record.get("variantId"),
+        "variantName": record.get("variantName"),
+        "sku": record.get("sku"),
+        "volume": record.get("volume"),
+        "unit": record.get("unit"),
+        "availableQuantity": record.get("availableQuantity"),
+        "ingredients": record.get("ingredients"),
+        "matchedIngredients": record.get("matchedIngredients", []),
+        "matchReasons": record.get("matchReasons", []),
+        "evidenceLevel": record.get("evidenceLevel", "category_fallback"),
+        "match_score": round(float(record.get("match_score", 0)), 4)
+        if "match_score" in record
+        else None,
+    }
+    if include_skin_compatibility:
+        clean["rank"] = record.get("rank")
+        clean["skin_compatibility"] = {
+            "combination": record.get("combination") == 1,
+            "dry": record.get("dry") == 1,
+            "normal": record.get("normal") == 1,
+            "oily": record.get("oily") == 1,
+            "sensitive": record.get("sensitive") == 1,
+        }
+    return clean
+
+
+def _build_routine_recommendations(routine_record: dict, skin_type: str) -> list:
+    routine_data = routine_record.get("routine", {})
+    if isinstance(routine_data, dict):
+        all_steps = [
+            *(routine_data.get("morning") or []),
+            *(routine_data.get("evening") or []),
+        ]
+    elif isinstance(routine_data, list):
+        all_steps = routine_data
+    else:
+        all_steps = []
+
+    recommendations = []
+    seen_step_codes = set()
+    for step in all_steps:
+        if not isinstance(step, dict):
+            continue
+        step_code = str(step.get("step") or "").strip().lower()
+        if not step_code or step_code in seen_step_codes:
+            continue
+        seen_step_codes.add(step_code)
+
+        display_name = str(step.get("name") or step_code).strip()
+        product_label = STEP_TO_LABEL.get(step_code)
+        target_ingredients = step.get("recommended_ingredients") or []
+        products = []
+        if product_label:
+            products = engine.recommend(
+                product_label=product_label,
+                skin_type=skin_type,
+                target_ingredients=target_ingredients,
+                top_k=3,
+            )
+        else:
+            logger.warning("No product category mapping for routine step: %s", step_code)
+
+        recommendations.append({
+            "stepCode": step_code,
+            "step": display_name,
+            "productCategory": product_label,
+            "products": [_clean_product(product) for product in products],
+        })
+    return recommendations
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global engine, db, kafka_consumer_task
+    global engine, db, mongo_client, kafka_consumer_task
     logger.info("Khởi động Recommendation Service...")
-    client = None
     db_products = []
     
     # 0. Kết nối MongoDB
     try:
         if not MONGO_URI:
             raise RuntimeError("MONGODB_URI_RECOMMENDATION is required")
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-        client.admin.command("ping")
-        db = client.ai_scan_db
+        mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+        mongo_client.admin.command("ping")
+        db = mongo_client.ai_scan_db
+        _ensure_database_indexes(db)
         logger.info("MongoDB connected thành công.")
     except Exception as e:
+        db = None
+        if mongo_client is not None:
+            mongo_client.close()
+            mongo_client = None
         logger.error(f"MongoDB connection error: {e}")
 
     # 1. Khởi tạo Hybrid Recommendation Engine
     try:
-        engine = RecommendationEngine(DATASET_PATH)
+        engine = RecommendationEngine(None)
         # Nạp tức thì (Zero-latency) dữ liệu thật từ MongoDB của Product-Service
         try:
-            if client is None:
+            if mongo_client is None:
                 raise RuntimeError("MongoDB client is not available")
-            prod_db = client.aiskin_product
+            prod_db = mongo_client.aiskin_product
             db_products = list(prod_db.products.find())
             if db_products:
                 engine.update_data(db_products)
@@ -96,16 +212,21 @@ async def lifespan(app: FastAPI):
         logger.error(f"Lỗi khi khởi động Kafka Consumer: {e}")
 
     # 2. Đăng ký với Eureka Server
-    try:
-        await eureka_client.init_async(
-            eureka_server=EUREKA_SERVER,
-            app_name=APP_NAME,
-            instance_port=APP_PORT,
-            instance_host="127.0.0.1"
-        )
-        logger.info("Đã đăng ký với Eureka thành công!")
-    except Exception as e:
-        logger.error(f"Lỗi Eureka: {e}")
+    eureka_registered = False
+    if EUREKA_SERVER:
+        try:
+            await eureka_client.init_async(
+                eureka_server=EUREKA_SERVER,
+                app_name=APP_NAME,
+                instance_port=APP_PORT,
+                instance_host="127.0.0.1",
+            )
+            eureka_registered = True
+            logger.info("Đã đăng ký với Eureka thành công!")
+        except Exception as e:
+            logger.error(f"Lỗi Eureka: {e}")
+    else:
+        logger.warning("EUREKA_URI chưa được cấu hình; Recommendation Service chạy độc lập.")
         
     yield
     
@@ -113,15 +234,18 @@ async def lifespan(app: FastAPI):
     if kafka_consumer_task:
         await kafka_consumer_task.stop()
         
-    try:
-        await eureka_client.stop_async()
-        logger.info("Đã hủy đăng ký Eureka thành công!")
-    except Exception as e:
-        logger.error(f"Lỗi khi hủy Eureka: {e}")
+    if eureka_registered:
+        try:
+            await eureka_client.stop_async()
+            logger.info("Đã hủy đăng ký Eureka thành công!")
+        except Exception as e:
+            logger.error(f"Lỗi khi hủy Eureka: {e}")
+    if mongo_client is not None:
+        mongo_client.close()
+        mongo_client = None
+        db = None
 
 app = FastAPI(title="Recommendation Service", version="1.0.0", lifespan=lifespan)
-
-from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
@@ -149,8 +273,8 @@ def generate_routine_recommendation(
         if not routine_record:
             raise HTTPException(status_code=404, detail=f"Không tìm thấy routine_id {routine_id} trong DB")
             
-        # Kiểm tra xem đã có gợi ý chưa, nếu có rồi thì trả về luôn không cần phân tích lại
-        existing_recs = db.product_recommendations.find_one({"routineId": routine_id, "userId": user_id})
+        recommendation_filter = _routine_recommendation_filter(routine_id, user_id)
+        existing_recs = db.product_recommendations.find_one(recommendation_filter)
         if existing_recs:
             return {
                 "status": "success",
@@ -159,72 +283,30 @@ def generate_routine_recommendation(
             }
             
         scan_id = routine_record.get("scanId")
-        scan_record = db.ai_scan_results.find_one({"_id": scan_id})
+        scan_record = db.ai_scan_results.find_one({"_id": scan_id, "userId": user_id})
         skin_type = "Normal"
         if scan_record:
             skin_type = scan_record.get("skinType", {}).get("predicted", "Normal")
             
-        recommendations_list = []
-        
-        routine_data = routine_record.get("routine", {})
-        all_steps = []
-        if isinstance(routine_data, dict):
-            all_steps.extend(routine_data.get("morning", []))
-            all_steps.extend(routine_data.get("evening", []))
-        elif isinstance(routine_data, list):
-            all_steps = routine_data
-            
-        for step in all_steps:
-            vi_step = step.get("name", "")
-            en_label = STEP_TO_LABEL.get(vi_step, "")
-            ingredients = step.get("recommended_ingredients", [])
-            
-            # Gọi Engine Hybrid tìm Top 3 sản phẩm phù hợp nhất
-            recs = engine.recommend(
-                product_label=en_label,
-                skin_type=skin_type,
-                target_ingredients=ingredients,
-                top_k=3
-            )
-            
-            # Làm sạch dữ liệu recs
-            clean_recs = []
-            for r in recs:
-                clean_recs.append({
-                    "id": r.get("id"),
-                    "slug": r.get("slug"),
-                    "imageUrl": r.get("imageUrl"),
-                    "brand": r.get("brand"),
-                    "name": r.get("name"),
-                    "price": r.get("price"),
-                    "variantId": r.get("variantId"),
-                    "variantName": r.get("variantName"),
-                    "sku": r.get("sku"),
-                    "volume": r.get("volume"),
-                    "unit": r.get("unit"),
-                    "availableQuantity": r.get("availableQuantity"),
-                    "ingredients": r.get("ingredients"),
-                    "matchedIngredients": r.get("matchedIngredients", []),
-                    "matchReasons": r.get("matchReasons", []),
-                    "match_score": round(r.get("match_score", 0), 4) if "match_score" in r else None
-                })
-                
-            recommendations_list.append({
-                "step": vi_step,
-                "products": clean_recs
-            })
+        recommendations_list = _build_routine_recommendations(routine_record, skin_type)
             
         # Lưu vào Collection product_recommendations
         record_id = str(uuid.uuid4())
         record = {
             "_id": record_id,
-            "routineId": routine_id,
-            "userId": user_id,
+            **recommendation_filter,
             "scanId": scan_id,
             "recommendations": recommendations_list,
             "createdAt": datetime.now(timezone.utc)
         }
-        db.product_recommendations.insert_one(record)
+        try:
+            db.product_recommendations.insert_one(record)
+        except DuplicateKeyError:
+            winner = db.product_recommendations.find_one(recommendation_filter)
+            if winner:
+                recommendations_list = winner.get("recommendations", [])
+            else:
+                raise
         logger.info(f"Đã lưu thành công danh sách Recommend cho routine_id {routine_id} vào DB!")
         
         return {
@@ -245,7 +327,7 @@ class RecommendRequest(BaseModel):
     product_label: str  # Ví dụ: 'Cleanser', 'Moisturizer'
     skin_type: str      # Ví dụ: 'Oily', 'Dry', 'Sensitive'
     target_ingredients: List[str] # Ví dụ: ["Salicylic Acid", "Niacinamide"]
-    top_k: int = 5
+    top_k: int = Field(default=5, ge=1, le=20)
     routine_id: Optional[str] = None  # ID của Lộ trình (nếu có)
 
 
@@ -274,7 +356,9 @@ def get_routine_recommendations(
         if not routine_record:
             raise HTTPException(status_code=404, detail="Không tìm thấy lộ trình hoặc bạn không có quyền truy cập")
 
-        record = db.product_recommendations.find_one({"routineId": routine_id, "userId": user_id})
+        record = db.product_recommendations.find_one(
+            _routine_recommendation_filter(routine_id, user_id)
+        )
         if not record:
             return {
                 "status": "success",
@@ -321,35 +405,10 @@ def get_recommendations(
             top_k=req.top_k
         )
         
-        # Làm sạch dữ liệu trước khi trả về (chỉ giữ lại các field quan trọng)
-        clean_results = []
-        for r in results:
-            clean_results.append({
-                "id": r.get("id"),
-                "slug": r.get("slug"),
-                "imageUrl": r.get("imageUrl"),
-                "brand": r.get("brand"),
-                "name": r.get("name"),
-                "price": r.get("price"),
-                "variantId": r.get("variantId"),
-                "variantName": r.get("variantName"),
-                "sku": r.get("sku"),
-                "volume": r.get("volume"),
-                "unit": r.get("unit"),
-                "availableQuantity": r.get("availableQuantity"),
-                "rank": r.get("rank"),
-                "ingredients": r.get("ingredients"),
-                "matchedIngredients": r.get("matchedIngredients", []),
-                "matchReasons": r.get("matchReasons", []),
-                "match_score": round(r.get("match_score", 0), 4) if "match_score" in r else None,
-                "skin_compatibility": {
-                    "combination": r.get("combination") == 1,
-                    "dry": r.get("dry") == 1,
-                    "normal": r.get("normal") == 1,
-                    "oily": r.get("oily") == 1,
-                    "sensitive": r.get("sensitive") == 1
-                }
-            })
+        clean_results = [
+            _clean_product(result, include_skin_compatibility=True)
+            for result in results
+        ]
             
         # Lưu kết quả xuống Database nếu có routine_id
         if req.routine_id and db is not None:
@@ -357,6 +416,7 @@ def get_recommendations(
             now_utc = datetime.now(timezone.utc)
             record = {
                 "_id": record_id,
+                "recordType": "adhoc",
                 "routineId": req.routine_id,
                 "userId": user_id,
                 "productCategory": req.product_label,

@@ -1,6 +1,7 @@
 import base64
 import binascii
 import os
+from typing import Optional
 
 import jwt
 from fastapi import HTTPException, Security
@@ -8,7 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 
 JWT_ISSUER = os.getenv("JWT_ISSUER", "aiskin-user-service")
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
 def _load_jwt_secret() -> bytes:
@@ -28,8 +29,15 @@ JWT_SECRET = _load_jwt_secret()
 
 
 def get_current_user_id(
-    credentials: HTTPAuthorizationCredentials = Security(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(security),
 ) -> str:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     try:
         payload = jwt.decode(
             credentials.credentials,
@@ -38,8 +46,19 @@ def get_current_user_id(
             issuer=JWT_ISSUER,
             options={"require": ["exp", "iss", "sub"]},
         )
-        return str(payload["sub"])
+        user_id = str(payload["sub"]).strip()
+        if not user_id:
+            raise jwt.InvalidTokenError("Token subject is empty")
+        return user_id
     except jwt.ExpiredSignatureError as exc:
-        raise HTTPException(status_code=401, detail="Token expired") from exc
+        raise HTTPException(
+            status_code=401,
+            detail="Token expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
     except jwt.InvalidTokenError as exc:
-        raise HTTPException(status_code=401, detail="Invalid authentication token") from exc
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
