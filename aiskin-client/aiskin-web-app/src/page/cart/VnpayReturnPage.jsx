@@ -23,22 +23,27 @@ export default function VnpayReturnPage() {
         return
       }
 
+      let confirmation
       try {
-        // Gửi toàn bộ query string xuống server để IPN có thể chạy (trong thực tế server sẽ tự bắt IPN độc lập)
-        await httpClient.get(`/orders/payment/vnpay-ipn?${searchParams.toString()}`, { auth: false })
+        confirmation = await httpClient.get(`/orders/payment/vnpay-ipn?${searchParams.toString()}`, { auth: false })
       } catch (err) {
         console.error('Sync VNPay return failed:', err)
+        if (!cancelled) {
+          setStatus('fail')
+          setMessage('Không thể xác minh kết quả với máy chủ. Đơn hàng chưa được ghi nhận là đã thanh toán.')
+        }
+        return
       }
 
       if (cancelled) return
 
-      if (responseCode === '00') {
+      if (confirmation?.paymentStatus === 'PAID') {
         clearCart()
         setStatus('success')
         setMessage(`Đơn ${orderId} đã được thanh toán thành công qua VNPay sandbox.`)
       } else {
         setStatus('fail')
-        setMessage(`Giao dịch cho đơn ${orderId} bị hủy hoặc lỗi (Mã: ${responseCode}).`)
+        setMessage(`Giao dịch cho đơn ${orderId} chưa được máy chủ xác nhận thành công (Mã: ${responseCode}).`)
       }
     }
 

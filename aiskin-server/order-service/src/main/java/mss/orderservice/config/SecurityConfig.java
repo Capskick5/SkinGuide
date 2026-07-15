@@ -28,6 +28,7 @@ public class SecurityConfig {
             "/api/ghn/districts",
             "/api/ghn/wards",
             "/api/orders/payment/momo-ipn",
+            "/api/orders/payment/momo-return",
             "/api/orders/payment/vnpay-ipn",
             "/api/orders/ghn-webhook"
     };

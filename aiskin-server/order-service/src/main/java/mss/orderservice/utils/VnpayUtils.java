@@ -2,21 +2,23 @@ package mss.orderservice.utils;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
-public class VnpayUtils {
+public final class VnpayUtils {
+
+    private VnpayUtils() {
+    }
 
     public static String hmacSHA512(final String key, final String data) {
+        if (key == null || key.isBlank() || data == null) {
+            throw new IllegalArgumentException("VNPay signing key and data are required");
+        }
         try {
-            if (key == null || data == null) {
-                throw new NullPointerException();
-            }
             final Mac hmac512 = Mac.getInstance("HmacSHA512");
             byte[] hmacKeyBytes = key.getBytes(StandardCharsets.UTF_8);
             final SecretKeySpec secretKey = new SecretKeySpec(hmacKeyBytes, "HmacSHA512");
@@ -28,28 +30,19 @@ public class VnpayUtils {
                 sb.append(String.format("%02x", b & 0xff));
             }
             return sb.toString();
-        } catch (Exception ex) {
-            return "";
+        } catch (GeneralSecurityException exception) {
+            throw new IllegalStateException("Cannot calculate VNPay signature", exception);
         }
     }
-    
-    public static String hashAllFields(Map<String, String> fields, String secretKey) {
-        List<String> fieldNames = new ArrayList<>(fields.keySet());
-        Collections.sort(fieldNames);
-        StringBuilder sb = new StringBuilder();
-        Iterator<String> itr = fieldNames.iterator();
-        while (itr.hasNext()) {
-            String fieldName = (String) itr.next();
-            String fieldValue = (String) fields.get(fieldName);
-            if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                sb.append(fieldName);
-                sb.append("=");
-                sb.append(fieldValue);
-            }
-            if (itr.hasNext()) {
-                sb.append("&");
-            }
-        }
-        return hmacSHA512(secretKey, sb.toString());
+
+    public static String canonicalize(Map<String, String> fields) {
+        return new TreeMap<>(fields).entrySet().stream()
+                .filter(entry -> entry.getValue() != null && !entry.getValue().isEmpty())
+                .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
+                .collect(Collectors.joining("&"));
+    }
+
+    private static String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.US_ASCII);
     }
 }

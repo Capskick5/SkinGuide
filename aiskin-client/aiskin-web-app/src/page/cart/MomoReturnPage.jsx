@@ -24,24 +24,30 @@ export default function MomoReturnPage() {
         return
       }
 
+      let confirmation
       try {
         const momoPayload = Object.fromEntries(searchParams.entries())
         momoPayload.resultCode = Number(resultCode)
         momoPayload.amount = Number(momoPayload.amount)
-        await httpClient.post('/orders/payment/momo-ipn', momoPayload, { auth: false })
+        confirmation = await httpClient.post('/orders/payment/momo-return', momoPayload, { auth: false })
       } catch (err) {
         console.error('Sync MoMo return failed:', err)
+        if (!cancelled) {
+          setStatus('fail')
+          setMessage('Không thể xác minh kết quả với máy chủ. Đơn hàng chưa được ghi nhận là đã thanh toán.')
+        }
+        return
       }
 
       if (cancelled) return
 
-      if (resultCode === '0') {
+      if (confirmation?.confirmed && confirmation?.paymentStatus === 'PAID') {
         clearCart()
         setStatus('success')
         setMessage(`Đơn ${orderId} đã được thanh toán thành công qua MoMo sandbox.`)
       } else {
         setStatus('fail')
-        setMessage(momoMessage || `Giao dịch cho đơn ${orderId} chưa thành công.`)
+        setMessage(momoMessage || `Giao dịch cho đơn ${orderId} chưa được máy chủ xác nhận thành công.`)
       }
     }
 

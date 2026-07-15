@@ -39,11 +39,14 @@ class OrderServiceTest {
     @BeforeEach
     void setUp() {
         RestTemplate restTemplate = new RestTemplate();
+        MomoConfig momoConfig = new MomoConfig();
+        VnpayConfig vnpayConfig = new VnpayConfig();
         service = new OrderService(
                 orderRepository,
-                new MomoConfig(),
-                new VnpayConfig(),
+                momoConfig,
+                vnpayConfig,
                 ghnService,
+                new PaymentConfigurationValidator(momoConfig, vnpayConfig),
                 restTemplate,
                 "http://product-service",
                 "internal-token");
@@ -106,7 +109,7 @@ class OrderServiceTest {
         Order order = onlineOrder(Order.PaymentMethod.VNPAY);
         when(orderRepository.findByOrderCode("ORD-ONLINE")).thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> service.processMomoIpn("ORD-ONLINE", 0, 130_000))
+        assertThatThrownBy(() -> service.processMomoIpn("ORD-ONLINE", 0, 130_000, "TXN-1"))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
                 .hasMessageContaining("Callback không đúng phương thức");
     }
@@ -115,7 +118,8 @@ class OrderServiceTest {
     void rejectsPaymentCallbackForUnknownOrder() {
         when(orderRepository.findByOrderCode("ORD-MISSING")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.processVnpayIpn("ORD-MISSING", "00", 13_000_000))
+        assertThatThrownBy(() -> service.processVnpayIpn(
+                "ORD-MISSING", "00", "00", 13_000_000, "TXN-1"))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
                 .hasMessageContaining("Không tìm thấy đơn thanh toán");
     }
@@ -130,6 +134,67 @@ class OrderServiceTest {
         assertThatThrownBy(() -> service.getPaymentUrlForOrder("order-id"))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
                 .hasMessageContaining("hết thời gian thanh toán");
+    }
+
+    @Test
+    void rejectsUnavailableOnlineMethodBeforeReservingInventory() {
+        OrderRequest request = request();
+        request.setPaymentMethod(Order.PaymentMethod.VNPAY);
+
+        assertThatThrownBy(() -> service.createOrder(request, "key-1"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("VNPay chưa được cấu hình");
+
+        verify(orderRepository, times(0)).save(any());
+        inventoryServer.verify();
+    }
+
+    @Test
+    void vnpaySuccessRequiresBothSuccessCodesAndRecordsAuditData() {
+        Order order = onlineOrder(Order.PaymentMethod.VNPAY);
+        when(orderRepository.findByOrderCode("ORD-ONLINE")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var result = service.processVnpayIpn(
+                "ORD-ONLINE", "00", "00", 13_000_000, "VNP-TXN-1");
+
+        assertThat(result.paymentStatus()).isEqualTo(Order.PaymentStatus.PAID);
+        assertThat(result.alreadyProcessed()).isFalse();
+        assertThat(order.getStatus()).isEqualTo(Order.OrderStatus.PROCESSING);
+        assertThat(order.getPaymentTransactionId()).isEqualTo("VNP-TXN-1");
+        assertThat(order.getPaidAt()).isNotNull();
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    void vnpayDoesNotAcceptResponseCodeAloneAsSuccess() {
+        Order order = onlineOrder(Order.PaymentMethod.VNPAY);
+        when(orderRepository.findByOrderCode("ORD-ONLINE")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        expectInventory("release");
+
+        var result = service.processVnpayIpn(
+                "ORD-ONLINE", "00", "02", 13_000_000, "VNP-TXN-1");
+
+        assertThat(result.paymentStatus()).isEqualTo(Order.PaymentStatus.FAILED);
+        assertThat(order.getStatus()).isEqualTo(Order.OrderStatus.CANCELLED);
+        assertThat(order.getInventoryReserved()).isFalse();
+        inventoryServer.verify();
+    }
+
+    @Test
+    void repeatedSuccessfulCallbackDoesNotWriteOrderTwice() {
+        Order order = onlineOrder(Order.PaymentMethod.MOMO);
+        order.setPaymentStatus(Order.PaymentStatus.PAID);
+        order.setPaymentTransactionId("MOMO-TXN-1");
+        when(orderRepository.findByOrderCode("ORD-ONLINE")).thenReturn(Optional.of(order));
+
+        var result = service.processMomoIpn(
+                "ORD-ONLINE", 0, 130_000, "MOMO-TXN-1");
+
+        assertThat(result.alreadyProcessed()).isTrue();
+        assertThat(result.paymentStatus()).isEqualTo(Order.PaymentStatus.PAID);
+        verify(orderRepository, times(0)).save(any());
     }
 
     private Order onlineOrder(Order.PaymentMethod paymentMethod) {
