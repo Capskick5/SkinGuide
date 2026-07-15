@@ -47,6 +47,7 @@ public class ReturnOrder {
     // Thông tin vận chuyển khi trả hàng (do khách cung cấp)
     private String returnCourier; // Đơn vị vận chuyển (VD: GHN, Viettel Post)
     private String returnTrackingCode; // Mã vận đơn trả hàng
+    private String returnShipmentError; // Lỗi tạo vận đơn gần nhất, để admin biết cần xử lý thủ công
 
     // Trạng thái phiếu trả hàng
     private ReturnStatus status;

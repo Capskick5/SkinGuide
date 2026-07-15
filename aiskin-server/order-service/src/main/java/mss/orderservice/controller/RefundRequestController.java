@@ -2,18 +2,20 @@ package mss.orderservice.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import mss.orderservice.dto.RefundRequestDto;
+import mss.orderservice.dto.RefundBankDetailsRequest;
+import mss.orderservice.dto.RefundCompletionRequest;
+import mss.orderservice.dto.RefundCreateRequest;
 import mss.orderservice.model.RefundRequest;
-import mss.orderservice.service.RefundRequestService;
 import mss.orderservice.security.OrderAuthorizationService;
+import mss.orderservice.service.RefundRequestService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/refunds")
@@ -27,10 +29,10 @@ public class RefundRequestController {
     @PostMapping
     @Operation(summary = "Tạo yêu cầu hoàn tiền", description = "Khách hàng gửi thông tin tài khoản ngân hàng để hoàn tiền")
     public ResponseEntity<RefundRequest> createRefundRequest(
-            @RequestBody RefundRequestDto dto,
+            @Valid @RequestBody RefundCreateRequest request,
             Authentication authentication) {
-        dto.setCustomerId(authentication.getName());
-        return ResponseEntity.ok(refundRequestService.createRefundRequest(authentication.getName(), dto));
+        return ResponseEntity.ok(refundRequestService.createRefundRequest(
+                authentication.getName(), request));
     }
 
     @GetMapping("/me/{customerId}")
@@ -65,8 +67,8 @@ public class RefundRequestController {
     @Operation(summary = "Admin xác nhận đã chuyển khoản")
     public ResponseEntity<RefundRequest> completeRefund(
             @PathVariable String id,
-            @RequestBody(required = false) Map<String, String> body) {
-        String receiptUrl = body != null ? body.get("receiptUrl") : null;
+            @Valid @RequestBody(required = false) RefundCompletionRequest body) {
+        String receiptUrl = body != null ? body.receiptUrl() : null;
         return ResponseEntity.ok(refundRequestService.completeRefund(id, receiptUrl));
     }
 
@@ -81,9 +83,9 @@ public class RefundRequestController {
     @Operation(summary = "Khách hàng cập nhật lại thông tin ngân hàng")
     public ResponseEntity<RefundRequest> resubmitRefund(
             @PathVariable String id,
-            @RequestBody RefundRequestDto dto,
+            @Valid @RequestBody RefundBankDetailsRequest request,
             Authentication authentication) {
         authorizationService.requireRefundAccess(id, authentication);
-        return ResponseEntity.ok(refundRequestService.resubmitRefund(id, dto));
+        return ResponseEntity.ok(refundRequestService.resubmitRefund(id, request));
     }
 }

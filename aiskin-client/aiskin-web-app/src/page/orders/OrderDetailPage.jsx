@@ -154,22 +154,31 @@ function RefundModal({ returnOrder, existingRefund, onClose, onSuccess }) {
   const isResubmit = !!existingRefund
 
   const handleSubmit = async () => {
-    if (!bankName || !accountNumber || !accountName) {
+    const normalizedBankName = bankName.trim()
+    const normalizedAccountNumber = accountNumber.trim()
+    const normalizedAccountName = accountName.trim()
+    if (!normalizedBankName || !normalizedAccountNumber || !normalizedAccountName) {
       import('antd').then(({ message }) => message.error('Vui lòng điền đầy đủ thông tin'))
       return
+    }
+    if (!/^\d{6,20}$/.test(normalizedAccountNumber)) {
+      import('antd').then(({ message }) => message.error('Số tài khoản phải gồm 6 đến 20 chữ số'))
+      return
+    }
+    const bankDetails = {
+      bankName: normalizedBankName,
+      accountNumber: normalizedAccountNumber,
+      accountName: normalizedAccountName,
     }
     setLoading(true)
     try {
       if (isResubmit) {
-        await httpClient.put(`/refunds/${existingRefund.id}/resubmit`, { bankName, accountNumber, accountName })
+        await httpClient.put(`/refunds/${existingRefund.id}/resubmit`, bankDetails)
         import('antd').then(({ message }) => message.success('Đã cập nhật lại thông tin ngân hàng thành công'))
       } else {
         await httpClient.post('/refunds', {
           returnOrderId: returnOrder.id,
-          customerId: returnOrder.customerId,
-          bankName,
-          accountNumber,
-          accountName
+          ...bankDetails,
         })
         import('antd').then(({ message }) => message.success('Đã gửi thông tin nhận tiền hoàn thành công'))
       }
@@ -197,7 +206,7 @@ function RefundModal({ returnOrder, existingRefund, onClose, onSuccess }) {
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">Ngân hàng (Ví dụ: Vietcombank, Techcombank) <span className="text-red-500">*</span></label>
             <input 
-              value={bankName} onChange={e => setBankName(e.target.value)}
+              value={bankName} onChange={e => setBankName(e.target.value)} maxLength={100}
               placeholder="Nhập tên ngân hàng"
               className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
@@ -205,7 +214,8 @@ function RefundModal({ returnOrder, existingRefund, onClose, onSuccess }) {
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">Số tài khoản / Số thẻ <span className="text-red-500">*</span></label>
             <input 
-              value={accountNumber} onChange={e => setAccountNumber(e.target.value)}
+              value={accountNumber} onChange={e => setAccountNumber(e.target.value.replace(/\D/g, ''))}
+              inputMode="numeric" maxLength={20}
               placeholder="Nhập số tài khoản"
               className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
@@ -213,7 +223,7 @@ function RefundModal({ returnOrder, existingRefund, onClose, onSuccess }) {
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">Tên chủ tài khoản <span className="text-red-500">*</span></label>
             <input 
-              value={accountName} onChange={e => setAccountName(e.target.value)}
+              value={accountName} onChange={e => setAccountName(e.target.value)} maxLength={100}
               placeholder="Nhập tên chủ tài khoản (Viết hoa không dấu)"
               className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none focus:border-primary focus:ring-1 focus:ring-primary uppercase"
             />

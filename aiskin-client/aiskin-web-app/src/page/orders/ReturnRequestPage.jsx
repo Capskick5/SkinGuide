@@ -77,6 +77,11 @@ export default function ReturnRequestPage() {
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files)
     if (files.length === 0) return
+    if (images.length + files.length > 5) {
+      message.error('Chỉ được đính kèm tối đa 5 ảnh')
+      e.target.value = ''
+      return
+    }
     if (files.some((file) => !['image/jpeg', 'image/png'].includes(file.type) || file.size > 5 * 1024 * 1024)) {
       message.error('Chỉ nhận ảnh JPEG/PNG, tối đa 5 MB mỗi ảnh')
       e.target.value = ''
@@ -105,6 +110,7 @@ export default function ReturnRequestPage() {
         uploadedUrls.push(url) 
       }
       setImages(prev => [...prev, ...uploadedUrls])
+      e.target.value = ''
     } catch (err) {
       console.error(err)
       message.error('Lỗi khi tải ảnh lên')
