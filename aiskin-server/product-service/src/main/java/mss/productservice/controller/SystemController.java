@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,6 +24,7 @@ public class SystemController {
     }
 
     @GetMapping("/endpoints")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<Map<String, String>> getEndpoints() {
         List<Map<String, String>> endpoints = new ArrayList<>();
         handlerMapping.getHandlerMethods().forEach((info, method) -> {

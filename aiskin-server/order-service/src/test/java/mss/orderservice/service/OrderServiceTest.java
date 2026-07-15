@@ -197,6 +197,15 @@ class OrderServiceTest {
         verify(orderRepository, times(0)).save(any());
     }
 
+    @Test
+    void rejectsOversizedOrderPage() {
+        assertThatThrownBy(() -> service.getAllOrders(0, 101, "ALL"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("Phân trang không hợp lệ");
+
+        verify(orderRepository, times(0)).findAllByOrderByCreatedAtDesc(any());
+    }
+
     private Order onlineOrder(Order.PaymentMethod paymentMethod) {
         return Order.builder()
                 .orderCode("ORD-ONLINE")

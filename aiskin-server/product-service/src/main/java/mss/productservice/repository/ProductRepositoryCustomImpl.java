@@ -26,6 +26,8 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
 
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final MongoTemplate mongoTemplate;
 
     @Override
@@ -182,7 +184,8 @@ public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
             }
         }
 
-        PageRequest pageRequest = PageRequest.of(Math.max(0, request.getPage() - 1), Math.max(1, request.getSize()), sort);
+        int pageSize = Math.min(Math.max(1, request.getSize()), MAX_PAGE_SIZE);
+        PageRequest pageRequest = PageRequest.of(Math.max(0, request.getPage() - 1), pageSize, sort);
         query.with(pageRequest);
 
         List<Product> products = mongoTemplate.find(query, Product.class);

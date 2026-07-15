@@ -74,6 +74,19 @@ catalog_write_code="$(curl -sS -o /dev/null -w '%{http_code}' \
   || fail "customer catalog write returned $catalog_write_code instead of 403"
 echo "PASS: catalog reads are public and writes require management permission"
 
+inventory_read_code="$(curl -sS -o /dev/null -w '%{http_code}' \
+  -H "Authorization: Bearer $TOKEN" \
+  "$BASE_URL/api/products/inventory/movements")"
+[[ "$inventory_read_code" == "403" ]] \
+  || fail "customer inventory movement read returned $inventory_read_code instead of 403"
+
+endpoint_inventory_code="$(curl -sS -o /dev/null -w '%{http_code}' \
+  -H "Authorization: Bearer $TOKEN" \
+  "$BASE_URL/api/users/system/endpoints")"
+[[ "$endpoint_inventory_code" == "403" ]] \
+  || fail "customer endpoint inventory read returned $endpoint_inventory_code instead of 403"
+echo "PASS: operational inventory and route metadata require management access"
+
 echo "[3/7] Checking recommendation authentication and sellable variants..."
 unauthorized_code="$(curl -sS -o /dev/null -w '%{http_code}' \
   -H "Content-Type: application/json" \

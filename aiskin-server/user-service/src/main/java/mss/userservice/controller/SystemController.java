@@ -1,6 +1,7 @@
 package mss.userservice.controller;
 
 import mss.userservice.dto.SyncEndpointsRequest.EndpointDto;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +21,7 @@ public class SystemController {
     }
 
     @GetMapping("/endpoints")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<EndpointDto> getEndpoints() {
         List<EndpointDto> endpoints = new ArrayList<>();
         handlerMapping.getHandlerMethods().forEach((info, method) -> {
