@@ -109,12 +109,12 @@ export default function AdminProductsPage() {
       else if (statusFilter === 'inactive') isActiveParam = false
 
       const res = await productApi.searchAdvancedProducts({
-        query: debouncedSearch,
-        searchField,
-        isActive: isActiveParam,
-        page,
-        size: 15,
-      })
+          query: debouncedSearch,
+          searchField,
+          isActive: isActiveParam,
+          page,
+          size: 15,
+        }, { auth: true })
       setProducts(res?.content || [])
       setTotalPages(res?.totalPages || 1)
       setTotalElements(res?.totalElements || 0)
@@ -153,7 +153,7 @@ export default function AdminProductsPage() {
   const openEdit = async (product) => {
     let source = product
     try {
-      source = await productApi.getProduct(product.id)
+      source = await productApi.getProduct(product.id, { auth: true })
     } catch {
       message.warning('Không tải được chi tiết sản phẩm, đang dùng dữ liệu trên danh sách')
     }

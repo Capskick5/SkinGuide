@@ -52,8 +52,11 @@ public class ProductService {
         kafkaProductProducer.sendBulkProducts(products);
     }
 
-    public List<ProductSummaryResponse> getAllProducts() {
-        return enrichProducts(productRepository.findAll()).stream()
+    public List<ProductSummaryResponse> getProducts(boolean includeInactive) {
+        List<Product> products = includeInactive
+                ? productRepository.findAll()
+                : productRepository.findByIsActiveTrue();
+        return enrichProducts(products).stream()
                 .map(this::toSummaryResponse)
                 .toList();
     }
@@ -64,16 +67,18 @@ public class ProductService {
                 .toList();
     }
 
-    public ProductResponse getProductById(String id) {
+    public ProductResponse getProductById(String id, boolean includeInactive) {
         Product product = productRepository.findByFlexibleId(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", id));
+        requireVisible(product, includeInactive);
         enrichProduct(product);
         return toResponse(product);
     }
 
-    public ProductResponse getProductBySlug(String slug) {
+    public ProductResponse getProductBySlug(String slug, boolean includeInactive) {
         Product product = productRepository.findBySlug(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "slug", slug));
+        requireVisible(product, includeInactive);
         enrichProduct(product);
         return toResponse(product);
     }
@@ -114,8 +119,17 @@ public class ProductService {
                 .toList();
     }
 
-    public Page<ProductSummaryResponse> searchAdvanced(ProductSearchRequest request) {
+    public Page<ProductSummaryResponse> searchAdvanced(ProductSearchRequest request, boolean includeInactive) {
+        if (!includeInactive) {
+            request.setIsActive(true);
+        }
         return productRepository.searchAdvanced(request).map(product -> toSummaryResponse(enrichProduct(product)));
+    }
+
+    private void requireVisible(Product product, boolean includeInactive) {
+        if (!includeInactive && !Boolean.TRUE.equals(product.getIsActive())) {
+            throw new ResourceNotFoundException("Product", "id", product.getId());
+        }
     }
 
     public ProductResponse createProduct(ProductRequest request) {

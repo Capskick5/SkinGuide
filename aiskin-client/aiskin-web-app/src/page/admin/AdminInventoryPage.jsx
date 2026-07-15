@@ -87,7 +87,7 @@ export default function AdminInventoryPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const loadProducts = useCallback(async () => {
-    const response = await productApi.listProducts()
+    const response = await productApi.listProducts({ auth: true })
     setProducts(toArray(response))
   }, [])
 
@@ -175,7 +175,7 @@ export default function AdminInventoryPage() {
   const selectProduct = async (product) => {
     setDetailLoading(true)
     try {
-      const detail = await productApi.getProduct(product.id)
+      const detail = await productApi.getProduct(product.id, { auth: true })
       setSelectedProduct(detail)
       setSelectedVariantId('')
     } catch (error) {
@@ -256,7 +256,7 @@ export default function AdminInventoryPage() {
       message.success('Đã cập nhật kho và ghi lịch sử')
       setAdjustTarget(null)
       await loadProducts()
-      const detail = await productApi.getProduct(adjustTarget.productId)
+      const detail = await productApi.getProduct(adjustTarget.productId, { auth: true })
       setSelectedProduct(detail)
       if (historyOpen) {
         await loadMovements(historyProduct?.id || '', selectedVariantId, movementPage)

@@ -12,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,8 +31,8 @@ public class ProductController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getAllProducts() {
-        return ResponseEntity.ok(ApiResponse.ok(productService.getAllProducts()));
+    public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getAllProducts(Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.ok(productService.getProducts(canManageCatalog(authentication))));
     }
 
     @GetMapping("/active")
@@ -41,18 +42,26 @@ public class ProductController {
 
     @GetMapping("/search/advanced")
     public ResponseEntity<ApiResponse<Page<ProductSummaryResponse>>> searchAdvanced(
-            @ModelAttribute ProductSearchRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(productService.searchAdvanced(request)));
+            @ModelAttribute ProductSearchRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                productService.searchAdvanced(request, canManageCatalog(authentication))));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ProductResponse>> getProductById(@PathVariable String id) {
-        return ResponseEntity.ok(ApiResponse.ok(productService.getProductById(id)));
+    public ResponseEntity<ApiResponse<ProductResponse>> getProductById(
+            @PathVariable String id,
+            Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                productService.getProductById(id, canManageCatalog(authentication))));
     }
 
     @GetMapping("/slug/{slug}")
-    public ResponseEntity<ApiResponse<ProductResponse>> getProductBySlug(@PathVariable String slug) {
-        return ResponseEntity.ok(ApiResponse.ok(productService.getProductBySlug(slug)));
+    public ResponseEntity<ApiResponse<ProductResponse>> getProductBySlug(
+            @PathVariable String slug,
+            Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                productService.getProductBySlug(slug, canManageCatalog(authentication))));
     }
 
     @GetMapping("/brand/{brandId}")
@@ -104,5 +113,17 @@ public class ProductController {
     public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable String id) {
         productService.deleteProduct(id);
         return ResponseEntity.ok(ApiResponse.ok("Product deleted", null));
+    }
+
+    private boolean canManageCatalog(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .anyMatch(authority -> authority.equals("ROLE_ADMIN")
+                        || authority.equals("ROLE_MANAGER")
+                        || authority.equals("POST:/api/products")
+                        || authority.equals("ANY:/api/products"));
     }
 }
