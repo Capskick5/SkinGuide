@@ -191,6 +191,15 @@ available_reserved="$(curl -fsS "$BASE_URL/api/products/$product_id" \
   || fail "stock was not reserved: before=$available_before after=$available_reserved"
 echo "PASS: order $order_code reserved one unit"
 
+invalid_transition_code="$(curl -sS -o /dev/null -w '%{http_code}' -X PUT \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"DELIVERED"}' \
+  "$BASE_URL/api/orders/$ORDER_ID/status")"
+[[ "$invalid_transition_code" == "409" ]] \
+  || fail "invalid PENDING -> DELIVERED transition returned $invalid_transition_code instead of 409"
+echo "PASS: order state machine rejects invalid status jumps"
+
 echo "[5/7] Cancelling the order and verifying inventory release..."
 cancel_response="$(curl -fsS \
   -H "Authorization: Bearer $TOKEN" \

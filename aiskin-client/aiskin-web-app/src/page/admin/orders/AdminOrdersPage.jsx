@@ -529,6 +529,11 @@ export default function AdminOrdersPage() {
               <tbody className="divide-y divide-gray-100">
                 {orders.map((order) => {
                   const locked = order.status === 'CANCELLED'
+                  const manualStatuses = order.status === 'PENDING'
+                    ? ['PROCESSING', 'CANCELLED']
+                    : order.status === 'PROCESSING'
+                      ? ['READY_TO_PICK']
+                      : []
                   return (
                     <tr key={order.id} className="hover:bg-gray-50">
                       <td className="px-5 py-4 align-top">
@@ -565,14 +570,15 @@ export default function AdminOrdersPage() {
                             <StatusBadge status="CANCELLED" />
                             <p className="text-xs text-rose-600">Đã khóa</p>
                           </div>
+                        ) : manualStatuses.length === 0 ? (
+                          <div className="space-y-1">
+                            <StatusBadge status={order.status} />
+                            <p className="text-xs text-gray-500">Trạng thái giao vận được đồng bộ tự động</p>
+                          </div>
                         ) : (
                           <Dropdown
                             menu={{
-                              items: (order.status === 'PENDING' 
-                                ? ['PROCESSING', 'CANCELLED'] 
-                                : order.status === 'PROCESSING' 
-                                  ? ['READY_TO_PICK'] 
-                                  : ['READY_TO_PICK', 'CANCELLED']).map(status => ({
+                              items: manualStatuses.map(status => ({
                                   key: status,
                                   label: (
                                     <div className="flex items-center gap-2 px-1">
