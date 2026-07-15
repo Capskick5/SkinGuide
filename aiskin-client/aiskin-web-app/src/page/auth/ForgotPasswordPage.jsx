@@ -9,7 +9,7 @@ import { authApi } from '@/api/authApi'
 
 /**
  * Quên mật khẩu - luồng 2 bước:
- *  1) Nhập email -> nhận OTP (mock email; dev trả OTP về để test).
+ *  1) Nhập email -> nhận OTP qua SMTP; local mode có thể trả devOtp để test.
  *  2) Nhập OTP + mật khẩu mới -> đặt lại.
  */
 export default function ForgotPasswordPage() {
