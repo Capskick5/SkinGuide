@@ -3,6 +3,7 @@ package mss.userservice.service;
 import mss.userservice.config.OtpProperties;
 import mss.userservice.dto.AuthResponse;
 import mss.userservice.dto.LoginRequest;
+import mss.userservice.dto.RegisterRequest;
 import mss.userservice.model.User;
 import mss.userservice.repository.UserRepository;
 import mss.userservice.security.AuthRateLimiter;
@@ -11,6 +12,7 @@ import mss.userservice.security.OtpStore;
 import mss.userservice.security.RefreshTokenStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.mail.MailSendException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Duration;
@@ -19,6 +21,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -108,6 +112,23 @@ class AuthServiceTest {
         verify(authRateLimiter).consume(
                 "send-password-reset-otp", "missing@example.com", 3, Duration.ofMinutes(15));
         verify(userRepository).findByEmail("missing@example.com");
+    }
+
+    @Test
+    void registrationDoesNotPersistAccountWhenSmtpDeliveryFails() {
+        when(userRepository.existsByEmail("user@example.com")).thenReturn(false);
+        when(passwordEncoder.encode("strong-password")).thenReturn("hashed-password");
+        when(otpStore.generate(OtpStore.Purpose.EMAIL_VERIFICATION, "user@example.com"))
+                .thenReturn("123456");
+        doThrow(new MailSendException("SMTP unavailable"))
+                .when(emailService).sendOtp("user@example.com", "Xác thực email", "123456");
+
+        assertThatThrownBy(() -> authService.register(
+                new RegisterRequest("user@example.com", "strong-password", "Test User")))
+                .isInstanceOfSatisfying(mss.userservice.exception.ApiException.class,
+                        exception -> assertThat(exception.getStatus().value()).isEqualTo(503));
+
+        verify(userRepository, never()).save(any(User.class));
     }
 
     private User activeUser() {

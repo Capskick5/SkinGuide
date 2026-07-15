@@ -66,6 +66,12 @@
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 
+		<!-- SMTP delivery for verification and password-reset OTPs -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+
 		<!-- JWT (jjwt) -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
