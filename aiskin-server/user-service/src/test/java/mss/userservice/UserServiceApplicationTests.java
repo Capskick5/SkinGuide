@@ -15,8 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 		"app.jwt.refresh-token-ttl-seconds=3600",
 		"app.otp.ttl-seconds=300",
 		"app.otp.expose-in-response=true",
-		"app.google.client-id=test-client",
-		"app.google.client-secret=test-secret"
+		"app.google.client-id=test-client"
 })
 class UserServiceApplicationTests {
 
