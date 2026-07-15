@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import jwt
+import numpy as np
 import torch
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
@@ -20,7 +21,7 @@ os.environ.setdefault("JWT_ISSUER", "aiskin-user-service")
 from app.security import JWT_SECRET, verify_token
 from app.main import _fallback_skin_issue_analysis, _require_reliable_skin_type
 from app.services.skin_type_inference import SkinTypeDetector, calibrated_softmax
-from app.utils.face_cropper import crop_face_from_bytes
+from app.utils.face_cropper import _decode_image, _resize_for_output, crop_face_from_bytes
 
 
 class JwtSecurityTest(unittest.TestCase):
@@ -42,9 +43,35 @@ class JwtSecurityTest(unittest.TestCase):
         payload = verify_token(self._credentials("aiskin-user-service"))
         self.assertEqual(payload["sub"], "student-user")
 
+    def test_rejects_missing_bearer_token_with_authentication_challenge(self):
+        with self.assertRaises(HTTPException) as context:
+            verify_token(None)
+
+        self.assertEqual(context.exception.status_code, 401)
+        self.assertEqual(context.exception.headers["WWW-Authenticate"], "Bearer")
+
     def test_rejects_token_from_wrong_issuer(self):
         with self.assertRaises(HTTPException) as context:
             verify_token(self._credentials("attacker-service"))
+        self.assertEqual(context.exception.status_code, 401)
+
+    def test_rejects_token_with_empty_subject(self):
+        now = datetime.now(timezone.utc)
+        token = jwt.encode(
+            {
+                "sub": "",
+                "iss": "aiskin-user-service",
+                "iat": now,
+                "exp": now + timedelta(minutes=5),
+            },
+            JWT_SECRET,
+            algorithm="HS256",
+        )
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+        with self.assertRaises(HTTPException) as context:
+            verify_token(credentials)
+
         self.assertEqual(context.exception.status_code, 401)
 
 
@@ -52,9 +79,34 @@ class AiInputHardeningTest(unittest.TestCase):
     def test_unexpected_decoder_error_fails_closed(self):
         image_buffer = io.BytesIO()
         Image.new("RGB", (200, 200), "white").save(image_buffer, format="JPEG")
-        with patch("app.utils.face_cropper.cv2.imdecode", side_effect=RuntimeError("decoder failed")):
-            with self.assertRaisesRegex(ValueError, "Không thể kiểm định ảnh"):
+        with patch("app.utils.face_cropper.ImageOps.exif_transpose", side_effect=RuntimeError("decoder failed")):
+            with self.assertRaisesRegex(ValueError, "Không thể đọc định dạng ảnh"):
                 crop_face_from_bytes(image_buffer.getvalue())
+
+    def test_rejects_spoofed_unsupported_image_format(self):
+        image_buffer = io.BytesIO()
+        Image.new("RGB", (200, 200), "white").save(image_buffer, format="GIF")
+
+        with self.assertRaisesRegex(ValueError, "JPG, PNG hoặc WEBP"):
+            crop_face_from_bytes(image_buffer.getvalue())
+
+    def test_applies_exif_orientation_before_face_detection(self):
+        image = Image.new("RGB", (320, 180), "white")
+        exif = Image.Exif()
+        exif[274] = 6
+        image_buffer = io.BytesIO()
+        image.save(image_buffer, format="JPEG", exif=exif)
+
+        decoded = _decode_image(image_buffer.getvalue())
+
+        self.assertEqual(decoded.shape[:2], (320, 180))
+
+    def test_limits_processed_preview_dimension(self):
+        source = np.zeros((1600, 2400, 3), dtype=np.uint8)
+
+        resized = _resize_for_output(source)
+
+        self.assertEqual(resized.shape[:2], (683, 1024))
 
     def test_missing_skin_issue_model_does_not_report_healthy_skin(self):
         fallback = _fallback_skin_issue_analysis("weight missing")

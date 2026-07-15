@@ -1,10 +1,11 @@
 import io
+import os
+import threading
+
 import cv2
 import mediapipe as mp
 import numpy as np
-import os
-import threading
-from PIL import Image
+from PIL import Image, ImageOps
 
 # Nạp vài Haar Cascade sẵn có để giảm rớt ảnh mặt hợp lệ do góc chụp/ánh sáng.
 _FACE_CASCADES = [
@@ -20,6 +21,8 @@ _FACE_CASCADES = [
 _MIN_IMAGE_SIZE = 160
 _MAX_IMAGE_DIMENSION = 6000
 _MAX_IMAGE_PIXELS = 20_000_000
+_MAX_OUTPUT_DIMENSION = 1024
+_ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP"}
 _MIN_FACE_AREA_RATIO = 0.04
 _MIN_DETECTED_FACE_AREA_RATIO = 0.003
 _MIN_SECONDARY_FACE_AREA_RATIO = 0.05
@@ -41,6 +44,45 @@ _MEDIAPIPE_MODEL_PATH = os.path.join(
 _MEDIAPIPE_DETECTOR = None
 _MEDIAPIPE_INIT_ATTEMPTED = False
 _MEDIAPIPE_LOCK = threading.Lock()
+
+
+def _decode_image(image_bytes: bytes) -> np.ndarray:
+    """Decode an allowed image and apply its EXIF orientation before OpenCV sees it."""
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as source_image:
+            if source_image.format not in _ALLOWED_IMAGE_FORMATS:
+                raise ValueError("File tải lên phải là ảnh JPG, PNG hoặc WEBP.")
+
+            source_width, source_height = source_image.size
+            if (
+                max(source_width, source_height) > _MAX_IMAGE_DIMENSION
+                or source_width * source_height > _MAX_IMAGE_PIXELS
+            ):
+                raise ValueError("Ảnh có độ phân giải quá lớn. Vui lòng dùng ảnh tối đa 20 megapixel.")
+
+            oriented_image = ImageOps.exif_transpose(source_image)
+            rgb_image = np.asarray(oriented_image.convert("RGB"), dtype=np.uint8)
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(
+            "Không thể đọc định dạng ảnh. Vui lòng tải lên ảnh JPG, PNG hoặc WEBP hợp lệ."
+        ) from exc
+
+    if rgb_image.ndim != 3 or rgb_image.shape[2] != 3:
+        raise ValueError("Không thể đọc dữ liệu màu của ảnh. Vui lòng tải lên ảnh khác.")
+    return cv2.cvtColor(np.ascontiguousarray(rgb_image), cv2.COLOR_RGB2BGR)
+
+
+def _resize_for_output(image_bgr: np.ndarray) -> np.ndarray:
+    height, width = image_bgr.shape[:2]
+    largest_dimension = max(height, width)
+    if largest_dimension <= _MAX_OUTPUT_DIMENSION:
+        return image_bgr
+
+    scale = _MAX_OUTPUT_DIMENSION / largest_dimension
+    output_size = (max(1, round(width * scale)), max(1, round(height * scale)))
+    return cv2.resize(image_bgr, output_size, interpolation=cv2.INTER_AREA)
 
 
 def _get_mediapipe_detector():
@@ -67,21 +109,7 @@ def crop_face_from_bytes(image_bytes: bytes) -> bytes:
     Mọi lỗi kiểm định hoặc xử lý đều từ chối ảnh để ảnh chưa xác thực không lọt vào model.
     """
     try:
-        try:
-            with Image.open(io.BytesIO(image_bytes)) as source_image:
-                source_width, source_height = source_image.size
-        except Exception as exc:
-            raise ValueError("Không thể đọc định dạng ảnh. Vui lòng tải lên ảnh JPG, PNG hoặc WEBP hợp lệ.") from exc
-
-        if max(source_width, source_height) > _MAX_IMAGE_DIMENSION or source_width * source_height > _MAX_IMAGE_PIXELS:
-            raise ValueError("Ảnh có độ phân giải quá lớn. Vui lòng dùng ảnh tối đa 20 megapixel.")
-
-        # Chuyển bytes thành mảng numpy
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-        if img is None:
-            raise ValueError("Không thể đọc định dạng ảnh. Vui lòng tải lên ảnh JPG hoặc PNG hợp lệ.")
+        img = _decode_image(image_bytes)
 
         H, W = img.shape[:2]
         if min(H, W) < _MIN_IMAGE_SIZE:
@@ -239,7 +267,7 @@ def crop_face_from_bytes(image_bytes: bytes) -> bytes:
         if len(faces) > 1:
             raise ValueError("Ảnh không hợp lệ: Phát hiện nhiều khuôn mặt. Vui lòng tải ảnh chỉ có một người.")
 
-        # Lấy khuôn mặt to nhất (trường hợp có nhiều người hoặc nhận diện nhầm)
+        # Guard ở trên đảm bảo chỉ còn đúng một khuôn mặt.
         x, y, w, h = faces[0]
         if w * h < H * W * _MIN_FACE_AREA_RATIO:
             raise ValueError("Ảnh khuôn mặt quá nhỏ. Vui lòng chụp gần mặt hơn để AI phân tích chính xác.")
@@ -268,9 +296,14 @@ def crop_face_from_bytes(image_bytes: bytes) -> bytes:
         
         # Áp dụng CLAHE tăng cường chi tiết cho khuôn mặt vừa cắt
         enhanced_cropped_img = apply_clahe(cropped_img)
+        enhanced_cropped_img = _resize_for_output(enhanced_cropped_img)
         
         # Chuyển lại thành bytes
-        success, encoded_img = cv2.imencode('.jpg', enhanced_cropped_img)
+        success, encoded_img = cv2.imencode(
+            ".jpg",
+            enhanced_cropped_img,
+            [int(cv2.IMWRITE_JPEG_QUALITY), 92],
+        )
         if success:
             return encoded_img.tobytes()
         raise ValueError("Không thể xử lý ảnh khuôn mặt. Vui lòng thử lại với ảnh JPG hoặc PNG khác.")

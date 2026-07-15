@@ -1,26 +1,33 @@
-import os
-from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", ".env"))
-import jwt
-import uuid
-from datetime import datetime, timezone, timedelta
-from pymongo import MongoClient
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends, BackgroundTasks, Query
-from fastapi.responses import FileResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import py_eureka_client.eureka_client as eureka_client
-from contextlib import asynccontextmanager
-import json
 import asyncio
-import requests
+import base64
+import hashlib
+import logging
+import os
+import threading
+import uuid
+from contextlib import asynccontextmanager, suppress
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
+
+import py_eureka_client.eureka_client as eureka_client
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pymongo import ASCENDING, DESCENDING, MongoClient
+from pymongo.errors import DuplicateKeyError
+
+SERVICE_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(SERVICE_DIR.parent / ".env")
+
+from app.formulas.routine_builder import generate_routine
+from app.security import has_permission, verify_token
 from app.services.skin_type_inference import SkinTypeDetector
 from app.services.ultimate_skin_inference import UltimateSkinDetector
 from app.utils.face_cropper import crop_face_from_bytes
 from app.utils.rate_limiter import SlidingWindowRateLimiter
 from app.utils.scan_image_store import ScanImageStore
-from app.formulas.routine_builder import generate_routine
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,9 +35,9 @@ logger = logging.getLogger(__name__)
 # Constants
 EUREKA_SERVER = os.getenv("EUREKA_URI")
 APP_NAME = "ai-scan-service"
-APP_PORT = 5000
+APP_PORT = int(os.getenv("AI_SCAN_PORT", "5000"))
 MONGO_URI = os.getenv("MONGODB_URI_SCAN")
-UPLOAD_DIR = "uploads"
+UPLOAD_DIR = Path(os.getenv("AI_SCAN_UPLOAD_DIR") or SERVICE_DIR / "uploads")
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024
 ALLOWED_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
 ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv(
@@ -40,24 +47,41 @@ ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv(
 SCAN_RATE_LIMIT_PER_MINUTE = int(os.getenv("SCAN_RATE_LIMIT_PER_MINUTE", "10"))
 VALIDATE_RATE_LIMIT_PER_MINUTE = int(os.getenv("VALIDATE_RATE_LIMIT_PER_MINUTE", "30"))
 SCAN_RETENTION_DAYS = int(os.getenv("SCAN_RETENTION_DAYS", "90"))
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+MAX_CONCURRENT_INFERENCE = max(1, int(os.getenv("AI_MAX_CONCURRENT_INFERENCE", "2")))
+INFERENCE_QUEUE_TIMEOUT_SECONDS = max(
+    0.1,
+    float(os.getenv("AI_INFERENCE_QUEUE_TIMEOUT_SECONDS", "5")),
+)
+ROUTINE_SCHEMA_VERSION = 2
+
+
+def _image_signing_secret() -> str:
+    dedicated_secret = os.getenv("SCAN_IMAGE_SIGNING_SECRET")
+    if dedicated_secret:
+        return dedicated_secret
+    jwt_secret = os.getenv("JWT_SECRET", "")
+    if not jwt_secret:
+        return ""
+    return hashlib.sha256(f"scan-image-url:{jwt_secret}".encode("utf-8")).hexdigest()
+
+
 image_store = ScanImageStore(
     UPLOAD_DIR,
-    os.getenv("SCAN_IMAGE_SIGNING_SECRET") or os.getenv("JWT_SECRET", ""),
+    _image_signing_secret(),
 )
 rate_limiter = SlidingWindowRateLimiter()
+inference_slots = threading.BoundedSemaphore(MAX_CONCURRENT_INFERENCE)
 
 # Global AI model & DB instance
 skin_detector = None
 ultimate_detector = None
 ultimate_model_error = "No validated multi-label Model B checkpoint is installed."
 db = None
-RECOMMENDATION_SERVICE_URL = os.getenv("RECOMMENDATION_SERVICE_URL")
+mongo_client = None
 
-from app.security import verify_token, has_permission
 
 def get_current_user_id(payload: dict = Depends(verify_token)):
-    return payload.get("sub", "unknown_user")
+    return payload["sub"]
 
 
 def _round_probability(value):
@@ -124,6 +148,27 @@ def _cleanup_expired_scans() -> None:
         db.ai_scan_results.delete_one({"_id": record["_id"]})
 
 
+def _ensure_database_indexes(database) -> None:
+    database.ai_scan_results.create_index(
+        [("userId", ASCENDING), ("analyzedAt", DESCENDING)],
+        name="user_scan_history",
+    )
+    database.ai_scan_results.create_index("analyzedAt", name="scan_retention_lookup")
+    database.skincare_routines.create_index("scanId", name="routine_scan_lookup")
+    database.skincare_routines.create_index(
+        [("userId", ASCENDING), ("generatedAt", DESCENDING)],
+        name="user_routine_history",
+    )
+    # Legacy data contains duplicate routines. Apply uniqueness only to schema v2
+    # so new requests are race-safe without deleting the team's existing records.
+    database.skincare_routines.create_index(
+        "scanId",
+        name="unique_v2_routine_per_scan",
+        unique=True,
+        partialFilterExpression={"schemaVersion": ROUTINE_SCHEMA_VERSION},
+    )
+
+
 async def _retention_worker() -> None:
     while True:
         try:
@@ -135,20 +180,26 @@ async def _retention_worker() -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    global skin_detector, ultimate_detector, ultimate_model_error, db
+async def lifespan(_app: FastAPI):
+    global skin_detector, ultimate_detector, ultimate_model_error, db, mongo_client
     logger.info("Khởi động AI Scan Service...")
+    eureka_registered = False
     
     # 1. Connect MongoDB
     try:
         if not MONGO_URI:
             raise RuntimeError("MONGODB_URI_SCAN is required")
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-        client.admin.command("ping")
-        db = client.ai_scan_db
+        mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+        mongo_client.admin.command("ping")
+        connected_database = mongo_client.ai_scan_db
+        _ensure_database_indexes(connected_database)
+        db = connected_database
         logger.info("MongoDB connected thành công.")
     except Exception as e:
         db = None
+        if mongo_client is not None:
+            mongo_client.close()
+            mongo_client = None
         logger.error(f"MongoDB connection error: {e}")
 
     # 2. Khởi tạo mô hình AI (Load weight tốn khoảng vài giây)
@@ -168,32 +219,39 @@ async def lifespan(app: FastAPI):
         ultimate_model_error = "No validated multi-label Model B checkpoint is installed."
         logger.warning(f"Model B không khả dụng, API sẽ trả fallback minh bạch: {e}")
         
-    # 2. Register to Eureka on startup
-    try:
-        # Chạy init_async nhưng không await nếu không muốn nó block, 
-        # Tuy nhiên py-eureka-client yêu cầu await để hoàn tất đăng ký trước khi nhận request
-        await eureka_client.init_async(
-            eureka_server=EUREKA_SERVER,
-            app_name=APP_NAME,
-            instance_port=APP_PORT,
-            instance_host="127.0.0.1"
-        )
-        logger.info("Đã đăng ký với Eureka thành công!")
-    except Exception as e:
-        logger.error(f"Lỗi Eureka: {e}")
+    # 3. Register to Eureka on startup
+    if EUREKA_SERVER:
+        try:
+            await eureka_client.init_async(
+                eureka_server=EUREKA_SERVER,
+                app_name=APP_NAME,
+                instance_port=APP_PORT,
+                instance_host="127.0.0.1",
+            )
+            eureka_registered = True
+            logger.info("Đã đăng ký với Eureka thành công!")
+        except Exception as e:
+            logger.error(f"Lỗi Eureka: {e}")
+    else:
+        logger.warning("EUREKA_URI chưa được cấu hình; AI Scan Service chạy độc lập.")
         
     retention_task = asyncio.create_task(_retention_worker())
     yield
     retention_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await retention_task
     
     # Unregister from Eureka on shutdown
-    try:
-        await eureka_client.stop_async()
-        logger.info("Đã hủy đăng ký Eureka thành công!")
-    except Exception as e:
-        logger.error(f"Lỗi khi hủy Eureka: {e}")
-
-from fastapi.middleware.cors import CORSMiddleware
+    if eureka_registered:
+        try:
+            await eureka_client.stop_async()
+            logger.info("Đã hủy đăng ký Eureka thành công!")
+        except Exception as e:
+            logger.error(f"Lỗi khi hủy Eureka: {e}")
+    if mongo_client is not None:
+        mongo_client.close()
+        mongo_client = None
+        db = None
 
 app = FastAPI(title="AI Scan Service", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
@@ -246,22 +304,30 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
         # Cắt hậu cảnh và chuẩn hóa đúng một khuôn mặt trước khi đưa vào các model AI.
         cropped_bytes_data = crop_face_from_bytes(bytes_data)
         
-        # Gọi mô hình phân loại da (Dùng ảnh đã cắt)
-        skin_type_result = skin_detector.predict_with_probabilities(cropped_bytes_data)
-        skin_type = skin_type_result["predicted"]
-        skin_type_confidence = _round_probability(skin_type_result["confidence"])
-        skin_type_probabilities = {
-            label: _round_probability(probability)
-            for label, probability in skin_type_result["probabilities"].items()
-        }
-        
-        # Gọi Model B phân tích vấn đề da. Nếu chưa có weight thật, trả fallback minh bạch thay vì chạy random.
-        if ultimate_detector is not None:
-            ultimate_analysis = ultimate_detector.predict(cropped_bytes_data, top_k=3)
-            skin_issue_model_status = "loaded"
-        else:
-            ultimate_analysis = _fallback_skin_issue_analysis(ultimate_model_error)
-            skin_issue_model_status = "unavailable"
+        if not inference_slots.acquire(timeout=INFERENCE_QUEUE_TIMEOUT_SECONDS):
+            raise HTTPException(
+                status_code=503,
+                detail="AI đang xử lý nhiều ảnh cùng lúc. Vui lòng thử lại sau ít giây.",
+            )
+        try:
+            # Model A và Model B dùng chung giới hạn đồng thời để tránh quá tải RAM/GPU.
+            skin_type_result = skin_detector.predict_with_probabilities(cropped_bytes_data)
+            skin_type = skin_type_result["predicted"]
+            skin_type_confidence = _round_probability(skin_type_result["confidence"])
+            skin_type_probabilities = {
+                label: _round_probability(probability)
+                for label, probability in skin_type_result["probabilities"].items()
+            }
+
+            # Model B thiếu checkpoint phải trả trạng thái rõ ràng, không chạy trọng số ngẫu nhiên.
+            if ultimate_detector is not None:
+                ultimate_analysis = ultimate_detector.predict(cropped_bytes_data, top_k=3)
+                skin_issue_model_status = "loaded"
+            else:
+                ultimate_analysis = _fallback_skin_issue_analysis(ultimate_model_error)
+                skin_issue_model_status = "unavailable"
+        finally:
+            inference_slots.release()
 
         # Chỉ lưu ảnh sau khi pass AI guard và chạy model thành công.
         # Ảnh lưu là bản đã crop/chuẩn hóa đúng với đầu vào model.
@@ -309,11 +375,11 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
 
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Lỗi trong quá trình predict: {e}")
         raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ")
-
-import base64
 
 @app.post("/api/scans/validate", tags=["AI Skin Scan"])
 def validate_skin_image(image: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
@@ -346,7 +412,7 @@ def validate_skin_image(image: UploadFile = File(...), user_id: str = Depends(ge
 
 
 @app.post("/api/scans/{scan_id}/routine", tags=["AI Skin Scan"])
-def generate_scan_routine(scan_id: str, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user_id)):
+def generate_scan_routine(scan_id: str, user_id: str = Depends(get_current_user_id)):
     """
     API để sinh lộ trình dựa trên một kết quả Scan đã có trong hệ thống.
     Chỉ khi nào người dùng có nhu cầu thì mới gọi API này để tạo Lộ trình.
@@ -390,7 +456,9 @@ def generate_scan_routine(scan_id: str, background_tasks: BackgroundTasks, user_
         routine, top_ingredients = generate_routine(skin_type, flat_conditions)
         
         # Lấy tối đa 2 vấn đề nổi cộm làm Focus Areas
-        focus_areas = list(set([c["name"] for c in flat_conditions if c.get("name") != "Healthy"]))[:2]
+        focus_areas = list(dict.fromkeys(
+            c["name"] for c in flat_conditions if c.get("name") != "Healthy"
+        ))[:2]
         if not focus_areas:
             focus_areas = [f"Chăm sóc nền tảng cho loại da {skin_type}"]
         
@@ -401,6 +469,7 @@ def generate_scan_routine(scan_id: str, background_tasks: BackgroundTasks, user_
             "_id": routine_id,
             "scanId": scan_id,
             "userId": user_id,
+            "schemaVersion": ROUTINE_SCHEMA_VERSION,
             "focusAreas": focus_areas,
             "topIngredients": top_ingredients,
             "routine": routine,
@@ -409,7 +478,19 @@ def generate_scan_routine(scan_id: str, background_tasks: BackgroundTasks, user_
             "generatedAt": now_utc
         }
         
-        db.skincare_routines.insert_one(routine_record)
+        try:
+            db.skincare_routines.insert_one(routine_record)
+        except DuplicateKeyError:
+            # Hai request đồng thời cho cùng scan: trả routine đã thắng thay vì lỗi 500.
+            existing_routine = db.skincare_routines.find_one({"scanId": scan_id, "userId": user_id})
+            if not existing_routine:
+                raise
+            existing_routine["_id"] = str(existing_routine["_id"])
+            return {
+                "status": "success",
+                "message": "Lộ trình đã tồn tại",
+                "routine_result": existing_routine,
+            }
         
         return {
             "status": "success",
@@ -479,7 +560,7 @@ def get_scan_history(request: Request, user_id: str = Depends(get_current_user_i
         }
     except Exception as e:
         logger.error(f"Lỗi khi lấy lịch sử quét: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ khi lấy lịch sử quét.")
 
 @app.get("/api/scans/admin/stats", tags=["Admin"])
 def get_scan_admin_stats(
@@ -530,7 +611,7 @@ def get_scan_admin_stats(
         }
     except Exception as e:
         logger.error(f"Admin scan stats error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ khi tổng hợp số liệu quét.")
 
 @app.get("/api/scans/{scan_id}/routine", tags=["AI Skin Scan"])
 def get_scan_routine_details(scan_id: str, user_id: str = Depends(get_current_user_id)):
@@ -593,7 +674,7 @@ def delete_scan_history(scan_id: str, user_id: str = Depends(get_current_user_id
         raise
     except Exception as e:
         logger.error(f"Lỗi khi xóa lịch sử quét: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ khi xóa lịch sử quét.")
 
 @app.get("/api/scans/system/endpoints", tags=["System"])
 def get_endpoints(payload: dict = Depends(has_permission("/api/scans/system/endpoints", "GET"))):

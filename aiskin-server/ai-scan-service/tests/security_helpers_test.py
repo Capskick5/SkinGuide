@@ -20,7 +20,7 @@ class SlidingWindowRateLimiterTest(unittest.TestCase):
 class ScanImageStoreTest(unittest.TestCase):
     def test_signed_url_allows_expected_file_and_rejects_tampering(self):
         with tempfile.TemporaryDirectory() as directory:
-            store = ScanImageStore(directory, "test-secret", url_ttl_seconds=60)
+            store = ScanImageStore(directory, "test-secret-that-is-at-least-32-bytes", url_ttl_seconds=60)
             filename = store.save("scan-1", b"image")
             url = store.signed_url("http://localhost:8080", "scan-1", filename)
             query = dict(part.split("=", 1) for part in url.split("?", 1)[1].split("&"))
@@ -33,10 +33,15 @@ class ScanImageStoreTest(unittest.TestCase):
 
     def test_rejects_expired_signature_and_path_traversal(self):
         with tempfile.TemporaryDirectory() as directory:
-            store = ScanImageStore(directory, "test-secret")
+            store = ScanImageStore(directory, "test-secret-that-is-at-least-32-bytes")
             self.assertFalse(store.verify("scan-1", "scan-1.jpg", int(time.time()) - 1, "invalid"))
             with self.assertRaises(ValueError):
                 store.path("../secret.jpg")
+
+    def test_rejects_weak_signing_secret(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "at least 32 bytes"):
+                ScanImageStore(directory, "too-short")
 
 
 if __name__ == "__main__":
