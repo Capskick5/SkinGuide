@@ -5,7 +5,8 @@ check_url() {
   local name="$1"
   local url="$2"
   local code
-  code="$(curl -sS -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)"
+  code="$(curl -sS --connect-timeout 2 --max-time 8 \
+    -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)"
   if [[ "$code" == "200" ]]; then
     printf '%-18s UP   %s\n' "$name" "$url"
   else
@@ -23,8 +24,8 @@ check_url "AI Scan" "http://127.0.0.1:5000/health"
 check_url "Recommendation" "http://127.0.0.1:5001/health"
 
 if command -v jq >/dev/null; then
-  ai_health="$(curl -fsS http://127.0.0.1:5000/health 2>/dev/null || true)"
-  recommendation_health="$(curl -fsS http://127.0.0.1:5001/health 2>/dev/null || true)"
+  ai_health="$(curl -fsS --connect-timeout 2 --max-time 8 http://127.0.0.1:5000/health 2>/dev/null || true)"
+  recommendation_health="$(curl -fsS --connect-timeout 2 --max-time 8 http://127.0.0.1:5001/health 2>/dev/null || true)"
   if [[ -n "$ai_health" ]]; then
     printf '  AI readiness:       %s | Model A: %s | Model B: %s\n' \
       "$(jq -r '.status' <<<"$ai_health")" \
