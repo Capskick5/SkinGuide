@@ -5,6 +5,7 @@ import mss.userservice.dto.RoleResponse;
 import mss.userservice.exception.ApiException;
 import mss.userservice.model.Role;
 import mss.userservice.repository.RoleRepository;
+import mss.userservice.repository.PermissionRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,9 +16,11 @@ import java.util.stream.Collectors;
 public class RoleService {
 
     private final RoleRepository roleRepository;
+    private final PermissionRepository permissionRepository;
 
-    public RoleService(RoleRepository roleRepository) {
+    public RoleService(RoleRepository roleRepository, PermissionRepository permissionRepository) {
         this.roleRepository = roleRepository;
+        this.permissionRepository = permissionRepository;
     }
 
     public List<RoleResponse> getAllRoles() {
@@ -40,7 +43,14 @@ public class RoleService {
     public RoleResponse assignPermissions(String roleId, Set<String> permissionIds) {
         Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> ApiException.notFound("Role không tồn tại"));
-        role.setPermissions(permissionIds);
+        Set<String> requestedIds = permissionIds == null ? Set.of() : Set.copyOf(permissionIds);
+        Set<String> existingIds = permissionRepository.findAllById(requestedIds).stream()
+                .map(mss.userservice.model.Permission::getId)
+                .collect(Collectors.toSet());
+        if (!existingIds.equals(requestedIds)) {
+            throw ApiException.badRequest("Danh sách permission có phần tử không tồn tại");
+        }
+        role.setPermissions(requestedIds);
         return RoleResponse.from(roleRepository.save(role));
     }
     

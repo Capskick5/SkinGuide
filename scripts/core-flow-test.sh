@@ -118,6 +118,24 @@ endpoint_inventory_code="$(curl -sS -o /dev/null -w '%{http_code}' \
   || fail "customer endpoint inventory read returned $endpoint_inventory_code instead of 403"
 echo "PASS: operational inventory and route metadata require management access"
 
+unknown_role_code="$(curl -sS -o /dev/null -w '%{http_code}' -X PUT \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "$BASE_URL/api/admin/users/nonexistent-user/role?role=MADE_UP_ROLE")"
+[[ "$unknown_role_code" == "400" ]] \
+  || fail "unknown role assignment returned $unknown_role_code instead of 400"
+
+role_id="$(curl -fsS -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "$BASE_URL/api/admin/roles" | jq -r '.[0].id // empty')"
+[[ -n "$role_id" ]] || fail "role catalog is empty"
+unknown_permission_code="$(curl -sS -o /dev/null -w '%{http_code}' \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '["permission-does-not-exist"]' \
+  "$BASE_URL/api/admin/roles/$role_id/permissions")"
+[[ "$unknown_permission_code" == "400" ]] \
+  || fail "unknown permission assignment returned $unknown_permission_code instead of 400"
+echo "PASS: role and permission assignments reject unknown references"
+
 echo "[3/7] Checking recommendation authentication and sellable variants..."
 unauthorized_code="$(curl -sS -o /dev/null -w '%{http_code}' \
   -H "Content-Type: application/json" \
