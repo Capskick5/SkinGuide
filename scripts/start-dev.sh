@@ -71,6 +71,22 @@ start_process ai-scan "$SERVER_DIR/ai-scan-service" "$SERVER_DIR/ai-scan-service
 start_process recommendation "$SERVER_DIR/recommendation-service" "$SERVER_DIR/recommendation-service/venv/bin/python" -m app.main
 start_process frontend "$ROOT_DIR/aiskin-client/aiskin-web-app" npm run dev -- --host 127.0.0.1 --port 5174
 
+ready=false
+for attempt in {1..30}; do
+  if SMOKE_ATTEMPTS=1 "$ROOT_DIR/scripts/smoke-test.sh" >/dev/null 2>&1; then
+    ready=true
+    break
+  fi
+  sleep 2
+done
+
+if [[ "$ready" != "true" ]]; then
+  echo "SkinGuide did not become ready. Current status:"
+  "$ROOT_DIR/scripts/status-dev.sh"
+  "$ROOT_DIR/scripts/stop-dev.sh"
+  exit 1
+fi
+
 shutdown() {
   trap - INT TERM HUP
   "$ROOT_DIR/scripts/stop-dev.sh"
@@ -79,7 +95,7 @@ shutdown() {
 
 trap shutdown INT TERM HUP
 
-echo "SkinGuide is starting. Run scripts/status-dev.sh in another terminal to verify readiness."
+echo "SkinGuide is ready. All smoke checks passed."
 echo "Press Ctrl+C to stop all SkinGuide services."
 
 while true; do

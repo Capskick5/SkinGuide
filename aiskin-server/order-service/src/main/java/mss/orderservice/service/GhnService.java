@@ -7,11 +7,13 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @Service
@@ -22,16 +24,24 @@ public class GhnService {
 
     private final GhnConfig ghnConfig;
     private final RestTemplate restTemplate;
+    private final AtomicBoolean credentialsRejected = new AtomicBoolean(false);
 
     private HttpHeaders createHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("Token", ghnConfig.getToken());
-        headers.set("ShopId", ghnConfig.getShopId());
+        if (hasText(ghnConfig.getToken())) {
+            headers.set("Token", ghnConfig.getToken());
+        }
+        if (hasText(ghnConfig.getShopId())) {
+            headers.set("ShopId", ghnConfig.getShopId());
+        }
         return headers;
     }
 
     public Map<String, Object> calculateFee(int toDistrictId, String toWardCode, int weight, int serviceTypeId) {
+        if (!canCallGhn()) {
+            return fallbackFee();
+        }
         String url = ghnConfig.getApiUrl() + "/shipping-order/fee";
         
         Map<String, Object> request = new HashMap<>();
@@ -47,15 +57,16 @@ public class GhnService {
             Map response = restTemplate.postForObject(url, entity, Map.class);
             return (Map<String, Object>) response.get("data");
         } catch (Exception e) {
-            log.error("Lỗi tính phí GHN: {}", e.getMessage());
-            // Trả về phí mặc định nếu lỗi (Ví dụ: 30k)
-            Map<String, Object> defaultFee = new HashMap<>();
-            defaultFee.put("total", 30000);
-            return defaultFee;
+            rejectInvalidCredentials(e);
+            log.warn("Không tính được phí GHN, dùng phí dự phòng ({})", failureSummary(e));
+            return fallbackFee();
         }
     }
 
     public String createOrder(Map<String, Object> orderData) {
+        if (!canCallGhn()) {
+            throw new IllegalStateException("GHN chưa được cấu hình hoặc credential đã bị từ chối");
+        }
         String url = ghnConfig.getApiUrl() + "/shipping-order/create";
         
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(orderData, createHeaders());
@@ -65,12 +76,15 @@ public class GhnService {
             Map<String, Object> data = (Map<String, Object>) response.get("data");
             return (String) data.get("order_code");
         } catch (Exception e) {
-            log.error("Lỗi tạo đơn GHN: {}", e.getMessage());
-            throw new RuntimeException("Lỗi kết nối GHN");
+            rejectInvalidCredentials(e);
+            throw new IllegalStateException("Không thể tạo vận đơn GHN", e);
         }
     }
 
     public Map<String, Object> getOrderDetail(String trackingCode) {
+        if (!canCallGhn()) {
+            return null;
+        }
         String url = ghnConfig.getApiUrl() + "/shipping-order/detail";
         
         Map<String, Object> request = new HashMap<>();
@@ -82,7 +96,8 @@ public class GhnService {
             Map response = restTemplate.postForObject(url, entity, Map.class);
             return (Map<String, Object>) response.get("data");
         } catch (Exception e) {
-            log.error("Lỗi lấy chi tiết đơn GHN {}: {}", trackingCode, e.getMessage());
+            rejectInvalidCredentials(e);
+            log.warn("Không lấy được chi tiết đơn GHN {} ({})", trackingCode, failureSummary(e));
             return null;
         }
     }
@@ -111,6 +126,9 @@ public class GhnService {
             String nestedListKey,
             String targetCodeKey,
             String targetNameKey) {
+        if (!canCallGhn()) {
+            return getFallbackOptions(fallbackPath, nestedListKey, targetCodeKey, targetNameKey);
+        }
         HttpEntity<String> entity = new HttpEntity<>(createHeaders());
         try {
             Map response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, Map.class).getBody();
@@ -120,9 +138,45 @@ public class GhnService {
             }
             throw new IllegalStateException("GHN trả về danh sách rỗng");
         } catch (Exception e) {
-            log.error("Lỗi lấy danh sách {} GHN: {}", label, e.getMessage());
+            rejectInvalidCredentials(e);
+            log.warn("Không lấy được danh sách {} từ GHN, dùng dữ liệu dự phòng ({})",
+                    label, failureSummary(e));
             return getFallbackOptions(fallbackPath, nestedListKey, targetCodeKey, targetNameKey);
         }
+    }
+
+    private boolean canCallGhn() {
+        return hasText(ghnConfig.getToken())
+                && hasText(ghnConfig.getShopId())
+                && !credentialsRejected.get();
+    }
+
+    private void rejectInvalidCredentials(Exception exception) {
+        if (exception instanceof HttpClientErrorException clientError
+                && (clientError.getStatusCode().value() == 401
+                || clientError.getStatusCode().value() == 403)) {
+            if (credentialsRejected.compareAndSet(false, true)) {
+                log.warn("GHN credential bị từ chối; tạm ngừng gọi GHN cho tới khi service restart");
+            }
+        }
+    }
+
+    private Map<String, Object> fallbackFee() {
+        Map<String, Object> fee = new HashMap<>();
+        fee.put("total", 30000);
+        fee.put("source", "FALLBACK");
+        return fee;
+    }
+
+    private String failureSummary(Exception exception) {
+        if (exception instanceof HttpClientErrorException clientError) {
+            return "HTTP " + clientError.getStatusCode().value();
+        }
+        return exception.getClass().getSimpleName();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     /**
