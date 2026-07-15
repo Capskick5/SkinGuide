@@ -4,17 +4,15 @@ import time
 from pymongo import MongoClient
 import google.generativeai as genai
 
-# 1. Cấu hình MongoDB
-MONGO_URI = 'mongodb+srv://hoannaa2011_db_user:nonoru04@user-service.hil3ccd.mongodb.net/aiskin_product?retryWrites=true&w=majority'
-db = MongoClient(MONGO_URI).aiskin_product
-products_col = db.products
+model = None
+products_col = None
 
-# 2. Cấu hình Gemini API (BẠN CẦN ĐIỀN API KEY CỦA BẠN VÀO ĐÂY)
-GEMINI_API_KEY = "ĐIỀN_API_KEY_CỦA_BẠN_VÀO_ĐÂY"
-genai.configure(api_key=GEMINI_API_KEY)
 
-# Dùng model Gemini 1.5 Flash (nhanh và rẻ)
-model = genai.GenerativeModel('gemini-1.5-flash')
+def required_env(name):
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
 
 # 3. Định dạng System Prompt
 PROMPT = """
@@ -57,44 +55,49 @@ def translate_product(product):
         return None
 
 def main():
-    if GEMINI_API_KEY == "ĐIỀN_API_KEY_CỦA_BẠN_VÀO_ĐÂY":
-        print("LỖI: Bạn chưa điền GEMINI_API_KEY ở dòng 12!")
-        return
-        
-    print("Bắt đầu tiến trình dịch sản phẩm...")
-    
-    # Chỉ lấy các sản phẩm chưa được dịch
-    products = list(products_col.find({"isTranslated": {"$ne": True}}))
-    print(f"Tìm thấy {len(products)} sản phẩm cần dịch.")
-    
-    translated_count = 0
-    
-    for idx, product in enumerate(products):
-        print(f"[{idx+1}/{len(products)}] Đang dịch: {product.get('name')} ...")
-        
-        translated_data = translate_product(product)
-        if translated_data:
-            # Ghi đè lại các trường theo yêu cầu
-            update_fields = {
-                "name": translated_data.get("name", product.get("name")),
-                "description": translated_data.get("description", product.get("description")),
-                "categoryName": translated_data.get("categoryName", product.get("categoryName")),
-                "isTranslated": True # Đánh dấu đã dịch
-            }
-            
-            products_col.update_one(
-                {"_id": product["_id"]},
-                {"$set": update_fields}
-            )
-            translated_count += 1
-            print(f" -> Thành công!")
-        else:
-            print(f" -> Thất bại.")
-            
-        # Nghỉ 2 giây để tránh hit rate limit
-        time.sleep(2)
-        
-    print(f"\nHoàn tất! Đã dịch thành công {translated_count}/{len(products)} sản phẩm.")
+    global model, products_col
+
+    mongo_uri = required_env('MONGODB_URI_PRODUCT')
+    gemini_api_key = required_env('GEMINI_API_KEY')
+    genai.configure(api_key=gemini_api_key)
+    model = genai.GenerativeModel('gemini-1.5-flash')
+
+    client = MongoClient(mongo_uri)
+    try:
+        products_col = client.get_default_database('aiskin_product').products
+        print("Bắt đầu tiến trình dịch sản phẩm...")
+
+        # Chỉ lấy các sản phẩm chưa được dịch
+        products = list(products_col.find({"isTranslated": {"$ne": True}}))
+        print(f"Tìm thấy {len(products)} sản phẩm cần dịch.")
+
+        translated_count = 0
+        for idx, product in enumerate(products):
+            print(f"[{idx + 1}/{len(products)}] Đang dịch: {product.get('name')} ...")
+
+            translated_data = translate_product(product)
+            if translated_data:
+                update_fields = {
+                    "name": translated_data.get("name", product.get("name")),
+                    "description": translated_data.get("description", product.get("description")),
+                    "categoryName": translated_data.get("categoryName", product.get("categoryName")),
+                    "isTranslated": True,
+                }
+                products_col.update_one(
+                    {"_id": product["_id"]},
+                    {"$set": update_fields},
+                )
+                translated_count += 1
+                print(" -> Thành công!")
+            else:
+                print(" -> Thất bại.")
+
+            # Nghỉ 2 giây để tránh hit rate limit
+            time.sleep(2)
+
+        print(f"\nHoàn tất! Đã dịch thành công {translated_count}/{len(products)} sản phẩm.")
+    finally:
+        client.close()
 
 if __name__ == "__main__":
     main()
