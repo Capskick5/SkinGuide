@@ -10,6 +10,7 @@ import mss.userservice.model.DeliveryAddress;
 import mss.userservice.repository.UserRepository;
 import mss.userservice.security.RefreshTokenStore;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class UserService {
+
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -69,10 +72,13 @@ public class UserService {
     // ---------- Admin operations ----------
 
     public Page<UserResponse> listUsers(String role, Pageable pageable) {
+        Pageable safePageable = pageable.isPaged()
+                ? PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), MAX_PAGE_SIZE), pageable.getSort())
+                : PageRequest.of(0, MAX_PAGE_SIZE);
         if (role != null && !role.isBlank()) {
-            return userRepository.findByRoles(role.toUpperCase(), pageable).map(UserResponse::from);
+            return userRepository.findByRoles(role.toUpperCase(), safePageable).map(UserResponse::from);
         }
-        return userRepository.findAll(pageable).map(UserResponse::from);
+        return userRepository.findAll(safePageable).map(UserResponse::from);
     }
 
     /** Enable/disable an account (soft delete via isActive). */

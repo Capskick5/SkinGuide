@@ -27,6 +27,7 @@ public class InventoryController {
     private final InventoryService inventoryService;
 
     @GetMapping("/movements")
+    @PreAuthorize("hasPermission('/api/products/inventory/movements', 'GET')")
     public ResponseEntity<ApiResponse<Page<InventoryMovementResponse>>> getMovements(
             @RequestParam(required = false) String productId,
             @RequestParam(required = false) String variantId,

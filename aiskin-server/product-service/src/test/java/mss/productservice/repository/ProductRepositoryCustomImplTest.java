@@ -2,6 +2,7 @@ package mss.productservice.repository;
 
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
+import mss.productservice.dto.request.ProductSearchRequest;
 import mss.productservice.model.Product;
 import org.bson.Document;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.convert.MongoConverter;
 import com.mongodb.client.result.UpdateResult;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.mongodb.core.query.Query;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -78,6 +80,18 @@ class ProductRepositoryCustomImplTest {
         assertThat(filter.getValue().get("_id")).isInstanceOf(org.bson.types.ObjectId.class);
         assertThat(saved).isSameAs(product);
         assertThat(saved.getUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    void capsAdvancedSearchPageSize() {
+        MongoTemplate mongoTemplate = mock(MongoTemplate.class);
+        when(mongoTemplate.count(any(Query.class), org.mockito.ArgumentMatchers.eq(Product.class))).thenReturn(0L);
+        when(mongoTemplate.find(any(Query.class), org.mockito.ArgumentMatchers.eq(Product.class))).thenReturn(java.util.List.of());
+        ProductSearchRequest request = ProductSearchRequest.builder().page(1).size(10_000).build();
+
+        var result = new ProductRepositoryCustomImpl(mongoTemplate).searchAdvanced(request);
+
+        assertThat(result.getSize()).isEqualTo(100);
     }
 
     @SuppressWarnings("unchecked")

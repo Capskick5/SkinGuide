@@ -31,6 +31,16 @@ class CatalogWriteAuthorizationTest {
                         .isNotNull());
     }
 
+    @Test
+    void operationalReadEndpointsRequireManagementAccess() throws NoSuchMethodException {
+        Method movements = InventoryController.class.getDeclaredMethod(
+                "getMovements", String.class, String.class, int.class, int.class);
+        Method endpoints = SystemController.class.getDeclaredMethod("getEndpoints");
+
+        assertThat(movements.getAnnotation(PreAuthorize.class)).isNotNull();
+        assertThat(endpoints.getAnnotation(PreAuthorize.class)).isNotNull();
+    }
+
     private boolean isWriteEndpoint(Method method) {
         return method.isAnnotationPresent(PostMapping.class)
                 || method.isAnnotationPresent(PutMapping.class)

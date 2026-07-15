@@ -5,12 +5,16 @@ import mss.userservice.model.User;
 import mss.userservice.repository.UserRepository;
 import mss.userservice.security.RefreshTokenStore;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,5 +49,22 @@ class UserServiceTest {
         assertEquals(address, result);
         assertEquals(address, user.getDeliveryAddress());
         verify(repository).save(user);
+    }
+
+    @Test
+    void capsAdminUserPageSize() {
+        UserRepository repository = mock(UserRepository.class);
+        UserService service = new UserService(
+                repository,
+                mock(PasswordEncoder.class),
+                mock(RefreshTokenStore.class)
+        );
+        when(repository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(java.util.List.of()));
+
+        service.listUsers(null, PageRequest.of(0, 10_000));
+
+        org.mockito.ArgumentCaptor<Pageable> captor = org.mockito.ArgumentCaptor.forClass(Pageable.class);
+        verify(repository).findAll(captor.capture());
+        assertEquals(100, captor.getValue().getPageSize());
     }
 }

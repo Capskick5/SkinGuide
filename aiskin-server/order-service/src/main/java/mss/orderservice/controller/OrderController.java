@@ -56,13 +56,7 @@ public class OrderController {
             Authentication authentication) {
         authorizationService.requireOrderAccess(id, authentication);
         String reason = body.get("cancelReason");
-        try {
-            return ResponseEntity.ok(orderService.cancelOrder(id, reason));
-        } catch (org.springframework.web.server.ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode()).body(Map.of("message", e.getReason()));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", e.getMessage()));
-        }
+        return ResponseEntity.ok(orderService.cancelOrder(id, reason));
     }
 
     @PostMapping("/payment/momo-ipn")
@@ -216,14 +210,8 @@ public class OrderController {
     @Operation(summary = "Get payment URL for an existing order", description = "Generates a payment URL for an unpaid order (VNPAY/MOMO)")
     public ResponseEntity<?> getPaymentUrl(@PathVariable String id, Authentication authentication) {
         authorizationService.requireOrderAccess(id, authentication);
-        try {
-            String paymentUrl = orderService.getPaymentUrlForOrder(id);
-            return ResponseEntity.ok(Map.of("paymentUrl", paymentUrl));
-        } catch (org.springframework.web.server.ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode()).body(Map.of("message", e.getReason()));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", e.getMessage()));
-        }
+        String paymentUrl = orderService.getPaymentUrlForOrder(id);
+        return ResponseEntity.ok(Map.of("paymentUrl", paymentUrl));
     }
 
     @GetMapping("/user/{customerId}")
@@ -266,13 +254,8 @@ public class OrderController {
         if (newStatus == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Status is required"));
         }
-        try {
-            return ResponseEntity.ok(orderService.updateOrderStatus(id, newStatus, cancelReason, weight, length, width, height, requiredNote));
-        } catch (org.springframework.web.server.ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode()).body(Map.of("message", e.getReason()));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", e.getMessage()));
-        }
+        return ResponseEntity.ok(orderService.updateOrderStatus(
+                id, newStatus, cancelReason, weight, length, width, height, requiredNote));
     }
 
     private Integer parseInteger(String value) {
@@ -288,12 +271,8 @@ public class OrderController {
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Đồng bộ GHN thủ công", description = "Đồng bộ trạng thái toàn bộ đơn hàng từ GHN")
     public ResponseEntity<?> syncGhnOrderStatusManual() {
-        try {
-            orderService.syncGhnOrderStatus();
-            return ResponseEntity.ok(Map.of("message", "Đồng bộ thành công"));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("message", "Lỗi đồng bộ: " + e.getMessage()));
-        }
+        orderService.syncGhnOrderStatus();
+        return ResponseEntity.ok(Map.of("message", "Đồng bộ thành công"));
     }
 
     @GetMapping("/admin/dashboard")

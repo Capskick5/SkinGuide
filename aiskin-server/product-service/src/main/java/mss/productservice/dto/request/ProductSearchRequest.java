@@ -15,6 +15,8 @@ public class ProductSearchRequest {
     private String categoryId; // "all" or specific category ID
     private Boolean isActive; // null (all), true (active), false (inactive)
     private String sortBy; // "relevance", "name-asc", "name-desc", "price-asc", "price-desc"
+    @Builder.Default
     private int page = 1;
+    @Builder.Default
     private int size = 12;
 }

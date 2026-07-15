@@ -48,6 +48,7 @@ public class OrderService {
 
     private static final ZoneId VIETNAM_TIME_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter VNPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final OrderRepository orderRepository;
     private final MomoConfig momoConfig;
@@ -266,10 +267,18 @@ public class OrderService {
                 HttpStatus status = e.getStatusCode().value() == HttpStatus.UNAUTHORIZED.value()
                         ? HttpStatus.SERVICE_UNAVAILABLE
                         : HttpStatus.BAD_REQUEST;
-                throw new ResponseStatusException(status, "Không thể cập nhật tồn kho: " + e.getResponseBodyAsString());
+                log.warn("Inventory action {} failed with HTTP {} for order {}",
+                        action, e.getStatusCode().value(), request.getOrderCode());
+                String message = status == HttpStatus.SERVICE_UNAVAILABLE
+                        ? "Tạm thời không thể xử lý tồn kho"
+                        : "Sản phẩm hoặc số lượng tồn kho không hợp lệ";
+                throw new ResponseStatusException(status, message);
             } catch (Exception e) {
-                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                        "Không kết nối được product-service để xử lý tồn kho: " + e.getMessage());
+                log.error("Inventory action {} could not reach product-service for order {}",
+                        action, request.getOrderCode(), e);
+                throw new ResponseStatusException(
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "Tạm thời không thể xử lý tồn kho");
             }
         }
         throw new ResponseStatusException(HttpStatus.CONFLICT, "Tồn kho vừa thay đổi, vui lòng thử lại");
@@ -547,7 +556,7 @@ public class OrderService {
     }
 
     public Page<Order> getOrdersByCustomerId(String customerId, int page, int size, String status) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = validatedPageRequest(page, size);
         if (status != null && !status.trim().isEmpty() && !status.equalsIgnoreCase("ALL")) {
             try {
                 String[] statusArray = status.split(",");
@@ -567,7 +576,7 @@ public class OrderService {
         return orderRepository.findByCustomerIdOrderByCreatedAtDesc(customerId, pageable);
     }
     public Page<Order> getAllOrders(int page, int size, String status) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = validatedPageRequest(page, size);
         if (status != null && !status.trim().isEmpty() && !status.equalsIgnoreCase("ALL")) {
             try {
                 String[] statusArray = status.split(",");
@@ -585,6 +594,13 @@ public class OrderService {
             }
         }
         return orderRepository.findAllByOrderByCreatedAtDesc(pageable);
+    }
+
+    private Pageable validatedPageRequest(int page, int size) {
+        if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phân trang không hợp lệ");
+        }
+        return PageRequest.of(page, size);
     }
 
     public Order updateOrderStatus(String orderId, String newStatus, String cancelReason, Integer weight, Integer length, Integer width, Integer height, String requiredNote) {
