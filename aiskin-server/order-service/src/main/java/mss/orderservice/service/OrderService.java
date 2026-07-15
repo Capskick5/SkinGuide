@@ -679,7 +679,10 @@ public class OrderService {
                         String trackingCode = ghnService.createOrder(ghnData);
                         order.setTrackingCode(trackingCode);
                     } catch (Exception e) {
-                        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Không thể kết nối GHN: " + e.getMessage());
+                        log.error("Không thể tạo vận đơn GHN cho đơn {}", order.getOrderCode(), e);
+                        throw new ResponseStatusException(
+                                HttpStatus.SERVICE_UNAVAILABLE,
+                                "Chưa thể tạo vận đơn GHN lúc này, vui lòng thử lại sau");
                     }
                 }
                 

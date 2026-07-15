@@ -8,12 +8,17 @@ check() {
   local url="$2"
   local expected="${3:-200}"
   local method="${4:-GET}"
+  local max_attempts="${SMOKE_ATTEMPTS:-5}"
   local code
-  for attempt in {1..5}; do
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
     code="$(curl -sS --connect-timeout 2 --max-time 8 -X "$method" \
       -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)"
-    [[ "$code" == "$expected" ]] && break
-    sleep 2
+    if [[ "$code" == "$expected" ]]; then
+      break
+    fi
+    if (( attempt < max_attempts )); then
+      sleep 2
+    fi
   done
   if [[ "$code" == "$expected" ]]; then
     printf '%-24s PASS (HTTP %s)\n' "$name" "$code"
