@@ -607,11 +607,13 @@ public class OrderService {
         return orderRepository.findById(orderId).map(order -> {
             try {
                 Order.OrderStatus status = Order.OrderStatus.valueOf(newStatus.toUpperCase());
-                
-                // Block changing from cancelled/refused
-                if ((order.getStatus() == Order.OrderStatus.CANCELLED || order.getStatus() == Order.OrderStatus.REFUSED) 
-                    && (status != Order.OrderStatus.CANCELLED && status != Order.OrderStatus.REFUSED)) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cancelled/Refused orders cannot be changed");
+                if (status == order.getStatus()) {
+                    return order;
+                }
+                if (!OrderStatusTransitionPolicy.isAdminTransitionAllowed(order.getStatus(), status)) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Chuyển trạng thái không hợp lệ; trạng thái giao vận do GHN cập nhật");
                 }
 
                 // Rule for PENDING orders
@@ -808,6 +810,11 @@ public class OrderService {
 
     public Order applyShippingStatus(Order order, Order.OrderStatus newStatus, String note) {
         if (order.getStatus() == newStatus) {
+            return order;
+        }
+        if (!OrderStatusTransitionPolicy.isCarrierTransitionAllowed(order.getStatus(), newStatus)) {
+            log.warn("Ignored stale or invalid shipping transition for order {}: {} -> {}",
+                    order.getOrderCode(), order.getStatus(), newStatus);
             return order;
         }
         order.addStatusHistory(newStatus, note);
