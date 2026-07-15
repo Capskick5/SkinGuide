@@ -11,6 +11,7 @@ import mss.userservice.security.OtpStore;
 import mss.userservice.security.RefreshTokenStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.mail.MailException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -76,11 +77,12 @@ public class AuthService {
                 .isActive(true)
                 .emailVerified(false)
                 .build();
+        // Deliver before persistence so an SMTP failure does not leave a new
+        // account that cannot complete verification or be registered again.
+        issueOtp(OtpStore.Purpose.EMAIL_VERIFICATION, email, "Xác thực email");
+
         user = userRepository.save(user);
         log.debug("Registered new user {}", user.getId());
-
-        // Fire-and-forget verification OTP (mock email).
-        issueOtp(OtpStore.Purpose.EMAIL_VERIFICATION, email, "Xác thực email");
 
         return issueTokens(user);
     }
@@ -194,7 +196,13 @@ public class AuthService {
 
     private String issueOtp(OtpStore.Purpose purpose, String email, String label) {
         String code = otpStore.generate(purpose, email);
-        emailService.sendOtp(email, label, code);
+        try {
+            emailService.sendOtp(email, label, code);
+        } catch (MailException ex) {
+            log.error("Unable to deliver {} OTP through SMTP", purpose, ex);
+            throw ApiException.serviceUnavailable(
+                    "Không thể gửi mã OTP lúc này. Vui lòng thử lại sau.");
+        }
         return code;
     }
 
