@@ -31,6 +31,13 @@ class RecommendationSecurityTest(unittest.TestCase):
     def test_reads_user_id_from_valid_token(self):
         self.assertEqual(get_current_user_id(self._credentials()), "user-1")
 
+    def test_rejects_missing_credentials_with_bearer_challenge(self):
+        with self.assertRaises(HTTPException) as context:
+            get_current_user_id(None)
+
+        self.assertEqual(context.exception.status_code, 401)
+        self.assertEqual(context.exception.headers, {"WWW-Authenticate": "Bearer"})
+
     def test_rejects_wrong_issuer(self):
         with self.assertRaises(HTTPException) as context:
             get_current_user_id(self._credentials(issuer="attacker-service"))

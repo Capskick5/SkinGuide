@@ -1,7 +1,21 @@
 import pandas as pd
-import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
+
+CATEGORY_TO_LABEL = {
+    'cleanser': 'Cleanser',
+    'cleansers': 'Cleanser',
+    'moisturizer': 'Moisturizer',
+    'moisturizers': 'Moisturizer',
+    'treatment': 'Treatment',
+    'treatments': 'Treatment',
+    'mask': 'Face Mask',
+    'masks': 'Face Mask',
+    'eye care': 'Eye cream',
+    'sunscreen': 'Sun protect',
+    'sunscreens': 'Sun protect',
+}
 
 class RecommendationEngine:
     def __init__(self, dataset_path: str):
@@ -40,6 +54,7 @@ class RecommendationEngine:
     @staticmethod
     def _add_evidence(records, skin_type, target_ingredients):
         requested = [str(item).strip().lower() for item in target_ingredients if str(item).strip()]
+        skin_type_key = str(skin_type or '').strip().lower()
         for record in records:
             matched = []
             for ingredient in record.get('ingredientDetails') or []:
@@ -55,13 +70,28 @@ class RecommendationEngine:
                         ),
                     })
 
+            skin_type_matched = skin_type_key in record and record.get(skin_type_key) == 1
             reasons = []
-            if skin_type:
+            if skin_type_matched:
                 reasons.append(f"Phù hợp loại da {skin_type}")
             if matched:
                 reasons.append("Có thành phần mục tiêu: " + ", ".join(item['name'] for item in matched))
+            elif requested:
+                reasons.append("Chưa có bằng chứng chứa thành phần mục tiêu trong dữ liệu catalog")
+
+            if matched and skin_type_matched:
+                evidence_level = 'ingredient_and_skin_type'
+            elif matched:
+                evidence_level = 'ingredient'
+            elif skin_type_matched:
+                evidence_level = 'skin_type'
+            else:
+                evidence_level = 'category_fallback'
+                reasons.append("Gợi ý dự phòng theo đúng nhóm sản phẩm")
+
             record['matchedIngredients'] = matched
             record['matchReasons'] = reasons
+            record['evidenceLevel'] = evidence_level
         return records
             
     def update_data(self, products: list):
@@ -104,13 +134,7 @@ class RecommendationEngine:
             cat = str(p.get('categoryName', p.get('categoryId', '')) or '')
             
             # Map category to label
-            label = cat
-            if 'Cleanser' in cat: label = 'Cleanser'
-            elif 'Moisturizer' in cat: label = 'Moisturizer'
-            elif 'Treatment' in cat: label = 'Treatment'
-            elif 'Mask' in cat: label = 'Face Mask'
-            elif 'Eye' in cat: label = 'Eye cream'
-            elif 'Sunscreen' in cat: label = 'Sun protect'
+            label = CATEGORY_TO_LABEL.get(cat.strip().lower(), cat)
             
             formatted_list.append({
                 'id': p.get('id', p.get('_id')),
@@ -156,9 +180,10 @@ class RecommendationEngine:
         
         # 1.1. Lọc theo Loại Sản Phẩm (Label)
         if product_label:
-            # Ví dụ: Label trong dataset có thể là 'Cleanser', 'Moisturizer'...
-            # Ta dùng str.contains để match không phân biệt hoa thường
-            filtered_df = filtered_df[filtered_df['label'].str.contains(product_label, case=False, na=False)]
+            normalized_label = str(product_label).strip().casefold()
+            filtered_df = filtered_df[
+                filtered_df['label'].fillna('').str.strip().str.casefold() == normalized_label
+            ]
         
         # 1.2. Lọc theo Loại Da (Skin Type)
         skin_type_col = skin_type.lower()
@@ -195,7 +220,11 @@ class RecommendationEngine:
         product_ingredients = filtered_df['ingredients'].fillna("").str.lower()
         
         # Biến toàn bộ thành ma trận
-        tfidf_matrix = vectorizer.fit_transform(product_ingredients)
+        try:
+            tfidf_matrix = vectorizer.fit_transform(product_ingredients)
+        except ValueError:
+            fallback_df = filtered_df.sort_values(by='rank', ascending=False).head(top_k)
+            return self._add_evidence(fallback_df.to_dict('records'), skin_type, target_ingredients)
         
         # Biến "Đơn thuốc" thành 1 vector để so khớp
         target_vector = vectorizer.transform([target_text])

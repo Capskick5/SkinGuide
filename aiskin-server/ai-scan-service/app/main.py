@@ -144,6 +144,7 @@ def _cleanup_expired_scans() -> None:
     expired = list(db.ai_scan_results.find({"analyzedAt": {"$lt": cutoff}}, {"_id": 1, "imageFile": 1, "imageUrl": 1}))
     for record in expired:
         image_store.delete(image_store.filename_from_record(record))
+        db.product_recommendations.delete_many({"scanId": str(record["_id"])})
         db.skincare_routines.delete_many({"scanId": str(record["_id"])})
         db.ai_scan_results.delete_one({"_id": record["_id"]})
 
@@ -663,6 +664,7 @@ def delete_scan_history(scan_id: str, user_id: str = Depends(get_current_user_id
             raise HTTPException(status_code=403, detail="Bạn không có quyền xóa bản quét này.")
             
         image_store.delete(image_store.filename_from_record(record))
+        db.product_recommendations.delete_many({"scanId": scan_id})
         db.ai_scan_results.delete_one({"_id": scan_id})
         db.skincare_routines.delete_many({"scanId": scan_id})
         

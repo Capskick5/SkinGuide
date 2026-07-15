@@ -86,6 +86,7 @@ const mapAiRoutineToSteps = (aiRoutineArray) => {
 
     return {
       step: index + 1,
+      stepCode: item.step,
       icon: icon,
       category: item.name,
       title: title,
@@ -575,7 +576,9 @@ export default function RoutinePage() {
               <p className="text-center text-on-surface-variant py-8">Chưa có bước nào trong buổi này.</p>
             ) : (
               steps.map((s, i) => {
-                const stepRecs = productRecommendations.find(r => r.step === s.category)
+                const stepRecs = productRecommendations.find(
+                  r => r.stepCode === s.stepCode || r.step === s.category,
+                )
                 const products = stepRecs ? stepRecs.products : []
                 return (
                   <RoutineStep

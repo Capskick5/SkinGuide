@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import jwt
 import numpy as np
@@ -19,6 +19,7 @@ os.environ.setdefault("JWT_SECRET", base64.b64encode(b"test-secret-key-that-is-a
 os.environ.setdefault("JWT_ISSUER", "aiskin-user-service")
 
 from app.security import JWT_SECRET, verify_token
+from app import main as main_module
 from app.main import _fallback_skin_issue_analysis, _require_reliable_skin_type
 from app.services.skin_type_inference import SkinTypeDetector, calibrated_softmax
 from app.utils.face_cropper import _decode_image, _resize_for_output, crop_face_from_bytes
@@ -164,6 +165,26 @@ class ModelCheckpointContractTest(unittest.TestCase):
             torch.save(checkpoint, path)
             with self.assertRaisesRegex(ValueError, "sai kiến trúc"):
                 SkinTypeDetector(str(path))
+
+
+class RelatedDataCleanupTest(unittest.TestCase):
+    def test_deleting_scan_also_deletes_routine_recommendations(self):
+        original_db = main_module.db
+        fake_db = MagicMock()
+        main_module.db = fake_db
+        fake_db.ai_scan_results.find_one.return_value = {
+            "_id": "scan-1",
+            "userId": "user-1",
+        }
+        try:
+            with patch.object(main_module.image_store, "delete"):
+                response = main_module.delete_scan_history("scan-1", "user-1")
+        finally:
+            main_module.db = original_db
+
+        self.assertEqual(response["status"], "success")
+        fake_db.product_recommendations.delete_many.assert_called_once_with({"scanId": "scan-1"})
+        fake_db.skincare_routines.delete_many.assert_called_once_with({"scanId": "scan-1"})
 
 
 if __name__ == "__main__":

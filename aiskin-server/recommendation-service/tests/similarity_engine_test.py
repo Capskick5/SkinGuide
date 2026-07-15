@@ -3,15 +3,28 @@ import unittest
 from app.similarity_engine import RecommendationEngine
 
 
-def product(product_id, active=True, on_hand=10, reserved=0, variant_active=True):
+def product(
+    product_id,
+    active=True,
+    on_hand=10,
+    reserved=0,
+    variant_active=True,
+    category="Cleanser",
+    skin_types=None,
+    ingredients=None,
+):
     return {
         "_id": product_id,
         "name": f"Product {product_id}",
         "slug": f"product-{product_id}",
         "isActive": active,
-        "categoryName": "Cleanser",
-        "targetSkinTypes": ["Oily"],
-        "ingredients": [{"name": "Niacinamide", "percentage": None}],
+        "categoryName": category,
+        "targetSkinTypes": ["Oily"] if skin_types is None else skin_types,
+        "ingredients": (
+            [{"name": "Niacinamide", "percentage": None}]
+            if ingredients is None
+            else ingredients
+        ),
         "variants": [
             {
                 "_id": f"variant-{product_id}",
@@ -65,6 +78,36 @@ class RecommendationInventoryTest(unittest.TestCase):
         self.engine.update_data([item])
 
         self.assertEqual(self.engine.df["id"].tolist(), ["service-item"])
+
+    def test_does_not_claim_skin_type_without_catalog_evidence(self):
+        self.engine.update_data([product("normal-fallback", skin_types=["Oily"])])
+
+        result = self.engine.recommend("Cleanser", "Normal", ["Niacinamide"], top_k=1)
+
+        self.assertEqual(result[0]["evidenceLevel"], "ingredient")
+        self.assertNotIn("Phù hợp loại da Normal", result[0]["matchReasons"])
+
+    def test_category_filter_is_exact(self):
+        self.engine.update_data([
+            product("cleanser", category="Cleanser"),
+            product("not-cleanser", category="Cleanser Accessories"),
+        ])
+
+        result = self.engine.recommend("Cleanser", "Oily", [], top_k=5)
+
+        self.assertEqual([item["id"] for item in result], ["cleanser"])
+
+    def test_empty_ingredient_catalog_falls_back_without_crashing(self):
+        self.engine.update_data([product("empty", ingredients=[])])
+
+        result = self.engine.recommend("Cleanser", "Oily", ["Ceramide"], top_k=1)
+
+        self.assertEqual(result[0]["id"], "empty")
+        self.assertEqual(result[0]["evidenceLevel"], "skin_type")
+        self.assertIn(
+            "Chưa có bằng chứng chứa thành phần mục tiêu trong dữ liệu catalog",
+            result[0]["matchReasons"],
+        )
 
 
 if __name__ == "__main__":
