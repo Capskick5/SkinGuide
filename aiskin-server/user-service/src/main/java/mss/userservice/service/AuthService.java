@@ -114,6 +114,10 @@ public class AuthService {
         }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> ApiException.unauthorized("Người dùng không tồn tại"));
+        if (!user.isActive()) {
+            refreshTokenStore.revokeAllForUser(userId);
+            throw ApiException.unauthorized("Tài khoản đã bị vô hiệu hóa");
+        }
 
         String newRefresh = refreshTokenStore.rotate(refreshToken, userId);
         String accessToken = jwtService.generateAccessToken(user);

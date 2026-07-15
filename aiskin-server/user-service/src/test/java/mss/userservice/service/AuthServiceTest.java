@@ -104,6 +104,22 @@ class AuthServiceTest {
     }
 
     @Test
+    void refreshRejectsDeactivatedAccountAndRevokesSessions() {
+        User user = activeUser();
+        user.setActive(false);
+        when(refreshTokenStore.resolveUserId("refresh-token")).thenReturn(user.getId());
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authService.refresh("refresh-token"))
+                .isInstanceOfSatisfying(mss.userservice.exception.ApiException.class,
+                        exception -> assertThat(exception.getStatus().value()).isEqualTo(401));
+
+        verify(refreshTokenStore).revokeAllForUser(user.getId());
+        verify(refreshTokenStore, never()).rotate(any(), any());
+        verify(jwtService, never()).generateAccessToken(any());
+    }
+
+    @Test
     void forgotPasswordConsumesOtpRequestBeforeLookingUpAccount() {
         when(userRepository.findByEmail("missing@example.com")).thenReturn(Optional.empty());
 
