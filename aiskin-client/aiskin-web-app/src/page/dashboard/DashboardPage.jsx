@@ -89,12 +89,12 @@ export default function DashboardPage() {
           Quét &amp; phân tích làn da
         </h1>
         <p className="text-body-md text-on-surface-variant max-w-md mx-auto">
-          Tải ảnh khuôn mặt của bạn trực tiếp lên đây để AI phân tích tình trạng da.
+          Tải ảnh khuôn mặt để hệ thống kiểm định chất lượng ảnh và phân loại loại da.
         </p>
       </section>
 
       <section className="max-w-3xl mx-auto mb-8">
-        <Spin spinning={isLoading} tip="AI đang phân tích từng nốt mụn... vui lòng đợi!">
+        <Spin spinning={isLoading} tip="Hệ thống đang kiểm định và phân loại ảnh...">
           {previewUrl && scanError ? (
             <div className="w-full h-[500px] rounded-xl border-2 border-[#ef4444] border-dashed flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#fef2f2]">
               <img src={previewUrl} alt="Preview" className="w-40 h-40 object-cover rounded-2xl mb-6 shadow-lg border-2 border-[#ef4444]" />

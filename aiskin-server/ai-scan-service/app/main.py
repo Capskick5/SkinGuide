@@ -12,7 +12,7 @@ from typing import Optional
 
 import py_eureka_client.eureka_client as eureka_client
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pymongo import ASCENDING, DESCENDING, MongoClient
@@ -130,11 +130,33 @@ def _enforce_rate_limit(user_id: str, action: str) -> None:
         raise HTTPException(status_code=429, detail="Bạn thao tác quá nhanh. Vui lòng thử lại sau một phút.")
 
 
-def _signed_image_url(base_url: str, record: dict) -> Optional[str]:
+def _signed_image_url(record: dict) -> Optional[str]:
     filename = image_store.filename_from_record(record)
     if not filename:
         return None
-    return image_store.signed_url(base_url, str(record["_id"]), filename)
+    return image_store.signed_url("", str(record["_id"]), filename)
+
+
+def _serialize_scan_record(record: dict) -> dict:
+    result = dict(record)
+    result["_id"] = str(result["_id"])
+    result["imageUrl"] = _signed_image_url(result)
+
+    analyzed_at = result.get("analyzedAt")
+    if isinstance(analyzed_at, datetime):
+        result["analyzedAt"] = analyzed_at.replace(tzinfo=timezone.utc)
+    elif isinstance(result.get("createdAt"), datetime):
+        result["createdAt"] = result["createdAt"].replace(tzinfo=timezone.utc)
+        result["analyzedAt"] = result["createdAt"]
+
+    routine_record = db.skincare_routines.find_one(
+        {"scanId": result["_id"], "userId": result.get("userId")},
+        {"_id": 1},
+    )
+    result["hasRoutine"] = routine_record is not None
+    if routine_record:
+        result["routineId"] = str(routine_record["_id"])
+    return result
 
 
 def _cleanup_expired_scans() -> None:
@@ -288,7 +310,7 @@ def health_check():
     }
 
 @app.post("/api/scans/analyze", tags=["AI Skin Scan"])
-def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
+def analyze_skin(image: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
     """
     Nhận file ảnh từ người dùng, chạy các mô hình AI để đánh giá tổng quan tình trạng da, lưu lịch sử quét.
     """
@@ -335,8 +357,7 @@ def analyze_skin(request: Request, image: UploadFile = File(...), user_id: str =
         # 3. Lưu lịch sử vào MongoDB (Chỉ lưu kết quả Scan)
         scan_id = str(uuid.uuid4())
         unique_filename = image_store.save(scan_id, cropped_bytes_data)
-        base_url = str(request.base_url).rstrip("/")
-        image_url = image_store.signed_url(base_url, scan_id, unique_filename)
+        image_url = image_store.signed_url("", scan_id, unique_filename)
         now_utc = datetime.now(timezone.utc)
         
         scan_record = {
@@ -524,7 +545,7 @@ def get_scan_image(scan_id: str, file: str, expires: int, signature: str):
 
 
 @app.get("/api/scans/history", tags=["AI Skin Scan"])
-def get_scan_history(request: Request, user_id: str = Depends(get_current_user_id)):
+def get_scan_history(user_id: str = Depends(get_current_user_id)):
     """
     Lấy danh sách lịch sử quét da của user hiện tại (chỉ lấy scan_results).
     """
@@ -533,27 +554,7 @@ def get_scan_history(request: Request, user_id: str = Depends(get_current_user_i
         
     try:
         cursor = db.ai_scan_results.find({"userId": user_id}).sort("analyzedAt", -1).limit(50)
-        histories = []
-        for record in cursor:
-            record["_id"] = str(record["_id"])
-            record["imageUrl"] = _signed_image_url(str(request.base_url), record)
-            if "analyzedAt" in record and isinstance(record["analyzedAt"], datetime):
-                record["analyzedAt"] = record["analyzedAt"].replace(tzinfo=timezone.utc)
-            else:
-                # Tương thích ngược với dữ liệu cũ (createdAt)
-                if "createdAt" in record and isinstance(record["createdAt"], datetime):
-                    record["createdAt"] = record["createdAt"].replace(tzinfo=timezone.utc)
-                    record["analyzedAt"] = record["createdAt"]
-            
-            # Kiểm tra nhanh xem đã có routine chưa (không fetch chi tiết, không gọi API ngoại)
-            routine_record = db.skincare_routines.find_one({"scanId": record["_id"]}, {"_id": 1})
-            if routine_record:
-                record["hasRoutine"] = True
-                record["routineId"] = str(routine_record["_id"])
-            else:
-                record["hasRoutine"] = False
-                
-            histories.append(record)
+        histories = [_serialize_scan_record(record) for record in cursor]
             
         return {
             "status": "success",
@@ -562,6 +563,29 @@ def get_scan_history(request: Request, user_id: str = Depends(get_current_user_i
     except Exception as e:
         logger.error(f"Lỗi khi lấy lịch sử quét: {e}")
         raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ khi lấy lịch sử quét.")
+
+
+@app.get("/api/scans/history/{scan_id}", tags=["AI Skin Scan"])
+def get_scan_history_detail(
+    scan_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database chưa được kết nối.")
+
+    try:
+        record = db.ai_scan_results.find_one({"_id": scan_id, "userId": user_id})
+        if not record:
+            raise HTTPException(
+                status_code=404,
+                detail="Không tìm thấy bản quét hoặc bạn không có quyền truy cập.",
+            )
+        return {"status": "success", "data": _serialize_scan_record(record)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Lỗi khi lấy chi tiết lịch sử quét: {e}")
+        raise HTTPException(status_code=500, detail="Lỗi hệ thống nội bộ khi lấy bản quét.")
 
 @app.get("/api/scans/admin/stats", tags=["Admin"])
 def get_scan_admin_stats(

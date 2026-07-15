@@ -18,6 +18,14 @@ class SlidingWindowRateLimiterTest(unittest.TestCase):
 
 
 class ScanImageStoreTest(unittest.TestCase):
+    def test_can_generate_gateway_relative_signed_url(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = ScanImageStore(directory, "test-secret-that-is-at-least-32-bytes")
+
+            url = store.signed_url("", "scan-1", "scan-1.jpg")
+
+            self.assertTrue(url.startswith("/api/scans/images/scan-1?"))
+
     def test_signed_url_allows_expected_file_and_rejects_tampering(self):
         with tempfile.TemporaryDirectory() as directory:
             store = ScanImageStore(directory, "test-secret-that-is-at-least-32-bytes", url_ttl_seconds=60)

@@ -53,8 +53,6 @@ export default function RoutineStep({ step, icon, category, title, instruction, 
             <h5 className="text-[12px] uppercase font-bold text-gray-500 mb-3">AI Đề xuất sản phẩm cho bước này</h5>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {recommendedProducts.map((prod, idx) => {
-                const seed = encodeURIComponent(prod.brand || prod.name || 'skincare');
-                const imgUrl = prod.imageUrl || `https://images.unsplash.com/photo-1620916566398-39f1143ab7be?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80&seed=${seed}`;
                 const matchPercent = prod.match_score ? (prod.match_score * 100).toFixed(0) : null;
                 const formattedPrice = prod.price ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(prod.price) : 'Liên hệ';
                 
@@ -65,10 +63,16 @@ export default function RoutineStep({ step, icon, category, title, instruction, 
                     className="bg-white border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col cursor-pointer"
                   >
                     <div className="h-28 w-full bg-gray-100 relative">
-                      <img src={imgUrl} alt="product" className="w-full h-full object-cover mix-blend-multiply opacity-90" />
+                      {prod.imageUrl ? (
+                        <img src={prod.imageUrl} alt={prod.name} className="w-full h-full object-cover mix-blend-multiply opacity-90" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-gray-300">
+                          <Icon name="image_not_supported" className="text-3xl" />
+                        </div>
+                      )}
                       {matchPercent && (
                         <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                          Phù hợp {matchPercent}%
+                          Khớp TP {matchPercent}%
                         </div>
                       )}
                     </div>

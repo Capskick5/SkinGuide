@@ -95,9 +95,9 @@ function ProductCard({ product }) {
 
 // ─── Main ChatbotWidget ───────────────────────────────────────────────────────
 /**
- * AI Chatbot sử dụng Gemini 2.0 Flash, chuyên tư vấn da mặt & mỹ phẩm.
- * - Stream response từng ký tự như ChatGPT
- * - Inject context sản phẩm thực từ backend
+ * Trợ lý skincare gọi recommendation-service ở backend.
+ * - Giữ tối đa 10 lượt hội thoại gần nhất
+ * - Dùng context sản phẩm thực từ backend
  * - Hiển thị product cards khi AI đề cập sản phẩm
  * - Ghi nhớ toàn bộ lịch sử chat
  */
@@ -107,7 +107,7 @@ export default function ChatbotWidget() {
     {
       id: 'init',
       role: 'model',
-      text: 'Xin chào! 👋 Tôi là **AiSkin AI** — chuyên gia tư vấn da mặt và mỹ phẩm của bạn.\n\nBạn đang gặp vấn đề gì với da? Tôi có thể giúp bạn chọn sản phẩm phù hợp, giải thích thành phần, hoặc xây dựng quy trình skincare riêng! 🌸',
+      text: 'Xin chào! Tôi là **trợ lý AiSkin**. Tôi có thể giải thích thành phần và hỗ trợ tìm sản phẩm trong cửa hàng. Nội dung chỉ mang tính tham khảo, không thay thế tư vấn y khoa.',
       products: [],
     },
   ])
@@ -156,7 +156,7 @@ export default function ChatbotWidget() {
     setStreaming(true)
     abortRef.current = false
 
-    // Build history for Gemini (exclude init message and product cards)
+    // Exclude the initial greeting and product cards from conversation history.
     const botMsgId = Date.now() + 1
     const placeholder = { id: botMsgId, role: 'model', text: '', products: [], streaming: true }
     setMessages((prev) => [...prev, placeholder])
@@ -196,9 +196,7 @@ export default function ChatbotWidget() {
       )
       if (!open) setUnread((n) => n + 1)
     } catch (err) {
-      const errText = err?.message?.includes('API_KEY_INVALID') || err?.message?.includes('API key')
-        ? '❌ API key không hợp lệ. Vui lòng kiểm tra lại VITE_GEMINI_API_KEY trong file .env.'
-        : `❌ Có lỗi xảy ra: ${err?.message || 'Vui lòng thử lại.'}`
+      const errText = `Không thể kết nối trợ lý: ${err?.message || 'Vui lòng thử lại.'}`
       setMessages((prev) =>
         prev.map((m) =>
           m.id === botMsgId ? { ...m, text: errText, streaming: false } : m

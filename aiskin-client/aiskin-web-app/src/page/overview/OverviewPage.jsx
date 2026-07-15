@@ -168,7 +168,7 @@ export default function OverviewPage() {
           />
           <span className="inline-flex items-center gap-2 px-4 py-2 bg-primary-light border border-border-pink rounded-full text-label-md text-primary mb-5">
             <Icon name="preview" filled className="text-base" />
-            Tổng quan tính năng AiSkin
+            Dữ liệu minh họa giao diện, không phải kết quả AI thật
           </span>
           <h1 className="text-4xl md:text-5xl font-extrabold text-on-surface mb-4 leading-tight">
             Khám phá trước,{' '}
@@ -203,7 +203,7 @@ export default function OverviewPage() {
           <SectionHeader
             icon="document_scanner"
             title="Quét da bằng AI"
-            subtitle="Chụp hoặc tải ảnh khuôn mặt — AI phân tích tình trạng da trong vài giây"
+            subtitle="Chụp hoặc tải ảnh khuôn mặt để kiểm định ảnh và phân loại loại da"
             gradient="bg-gradient-to-br from-pink-500 to-rose-600"
           />
           <div className="relative">
@@ -256,8 +256,8 @@ export default function OverviewPage() {
         <section>
           <SectionHeader
             icon="face_retouching_natural"
-            title="Phân tích da chuyên sâu"
-            subtitle="AI phát hiện mụn, thâm, lỗ chân lông, mẩn đỏ và nhiều vấn đề khác"
+            title="Màn hình phân tích minh họa"
+            subtitle="Các nhãn vấn đề da chỉ xuất hiện khi Model B có checkpoint đã được kiểm chứng"
             gradient="bg-gradient-to-br from-purple-500 to-indigo-600"
           />
           <div className="relative">
@@ -521,7 +521,7 @@ export default function OverviewPage() {
         <div className="max-w-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <div>
             <p className="text-label-md font-bold text-on-surface">Sẵn sàng bắt đầu?</p>
-            <p className="text-caption text-on-surface-variant">Miễn phí · Kết quả trong 3 giây · Không cần thẻ tín dụng</p>
+            <p className="text-caption text-on-surface-variant">Miễn phí · Cần ảnh mặt rõ · Không thay thế chẩn đoán y khoa</p>
           </div>
           <div className="flex gap-3">
             <button
