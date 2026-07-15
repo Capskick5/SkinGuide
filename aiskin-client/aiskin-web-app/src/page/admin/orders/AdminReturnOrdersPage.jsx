@@ -225,6 +225,16 @@ function ReturnDetailsModal({ request, onClose }) {
             </div>
           )}
 
+          {request.returnShipmentError && (
+            <div className="mt-4 flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900">
+              <Icon name="warning" className="mt-0.5 shrink-0 text-xl text-amber-600" />
+              <div>
+                <p className="text-sm font-semibold">Chưa tạo được vận đơn trả hàng</p>
+                <p className="mt-1 text-sm">{request.returnShipmentError}</p>
+              </div>
+            </div>
+          )}
+
           {request.items && request.items.length > 0 && (
             <div className="mt-4 overflow-hidden rounded-lg border border-gray-100">
               <div className="border-b border-gray-100 bg-gray-50 px-4 py-3">
