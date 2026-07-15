@@ -8,6 +8,7 @@ import mss.userservice.exception.ApiException;
 import mss.userservice.model.User;
 import mss.userservice.model.DeliveryAddress;
 import mss.userservice.repository.UserRepository;
+import mss.userservice.repository.RoleRepository;
 import mss.userservice.security.RefreshTokenStore;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -24,13 +25,16 @@ public class UserService {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenStore refreshTokenStore;
 
     public UserService(UserRepository userRepository,
+                       RoleRepository roleRepository,
                        PasswordEncoder passwordEncoder,
                        RefreshTokenStore refreshTokenStore) {
         this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.refreshTokenStore = refreshTokenStore;
     }
@@ -93,7 +97,10 @@ public class UserService {
 
     /** Assign a single role to user (replaces existing roles). */
     public UserResponse setRole(String userId, String roleName) {
-        String upperRole = roleName.toUpperCase();
+        String upperRole = roleName == null ? "" : roleName.trim().toUpperCase(java.util.Locale.ROOT);
+        if (upperRole.isEmpty() || roleRepository.findByName(upperRole).isEmpty()) {
+            throw ApiException.badRequest("Role không tồn tại");
+        }
         User user = loadUser(userId);
         user.setRoles(java.util.Set.of(upperRole));
         return UserResponse.from(userRepository.save(user));
