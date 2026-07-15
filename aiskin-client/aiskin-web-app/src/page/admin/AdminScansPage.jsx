@@ -37,22 +37,28 @@ function StatCard({ label, value, hint, icon, tone }) {
 
 export default function AdminScansPage() {
   const [stats, setStats] = useState(null)
-  const [totalUsers, setTotalUsers] = useState(0)
+  const [totalUsers, setTotalUsers] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [query, setQuery] = useState('')
 
   const fetchStats = useCallback(async () => {
     setLoading(true)
+    setError('')
     try {
-      const [scanData, usersPage] = await Promise.all([
+      const [scanResult, usersResult] = await Promise.allSettled([
         httpClient.get('/scans/admin/stats?limit=100'),
         adminApi.listUsers({ page: 0, size: 1, sort: 'createdAt,desc' }),
       ])
-      setStats(scanData)
-      setTotalUsers(usersPage.totalElements || 0)
+      if (scanResult.status === 'rejected') throw scanResult.reason
+
+      setStats(scanResult.value)
+      setTotalUsers(usersResult.status === 'fulfilled' ? usersResult.value.totalElements || 0 : null)
     } catch (err) {
       console.error('Fetch scan stats failed:', err)
-      setStats({ totalScans: 0, uniqueScanUsers: 0, scansToday: 0, skinTypeBreakdown: {}, latestScans: [] })
+      setStats(null)
+      setTotalUsers(null)
+      setError(err?.message || 'Không tải được dữ liệu quét da.')
     } finally {
       setLoading(false)
     }
@@ -73,13 +79,31 @@ export default function AdminScansPage() {
   }, [query, stats?.latestScans])
 
   const skinBreakdown = Object.entries(stats?.skinTypeBreakdown || {})
-  const conversionRate = totalUsers ? Math.round((stats?.uniqueScanUsers / totalUsers) * 100) : 0
+  const conversionRate = totalUsers > 0 ? Math.round((stats?.uniqueScanUsers / totalUsers) * 100) : null
   const maxBreakdown = Math.max(...skinBreakdown.map(([, count]) => count), 1)
 
   if (loading) {
     return (
       <div className="flex h-80 items-center justify-center">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="mx-auto flex min-h-80 max-w-2xl flex-col items-center justify-center rounded-lg border border-red-200 bg-red-50 px-6 py-10 text-center">
+        <Icon name="error" className="text-4xl text-red-500" />
+        <h1 className="mt-3 text-xl font-bold text-gray-950">Không tải được dữ liệu quét da</h1>
+        <p className="mt-2 text-sm text-gray-600">{error}</p>
+        <button
+          type="button"
+          onClick={fetchStats}
+          className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-md bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
+        >
+          <Icon name="refresh" />
+          Thử lại
+        </button>
       </div>
     )
   }
@@ -127,9 +151,11 @@ export default function AdminScansPage() {
           tone="bg-primary"
         />
         <StatCard
-          label="Tỷ lệ scan / lượt"
-          value={`${conversionRate}%`}
-          hint={`${number(stats?.uniqueScanUsers)} / ${number(totalUsers)} người dùng`}
+          label="Tỷ lệ người dùng đã quét"
+          value={conversionRate === null ? '—' : `${conversionRate}%`}
+          hint={totalUsers === null
+            ? 'Không có quyền đọc tổng người dùng'
+            : `${number(stats?.uniqueScanUsers)} / ${number(totalUsers)} người dùng`}
           icon="analytics"
           tone="bg-gray-950"
         />
