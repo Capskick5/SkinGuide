@@ -1,0 +1,109 @@
+{
+  "scope": "Quy tắc hỗ trợ chọn thành phần mỹ phẩm; không phải chẩn đoán hoặc đơn điều trị.",
+  "sources": {
+    "aad_dry_skin": "https://www.aad.org/public/everyday-care/skin-care-basics/dry/dermatologists-tips-relieve-dry-skin",
+    "aad_moisturizer": "https://www.aad.org/public/everyday-care/skin-care-basics/dry/pick-moisturizer",
+    "aad_acne": "https://www.aad.org/public/diseases/acne/diy/adult-acne-treatment",
+    "aad_dark_spots": "https://www.aad.org/public/everyday-care/skin-care-secrets/routine/fade-dark-spots",
+    "aad_retinoid": "https://www.aad.org/public/everyday-care/skin-care-secrets/anti-aging/retinoid-retinol",
+    "aad_masks": "https://www.aad.org/public/everyday-care/skin-care-secrets/routine/facial-masks-and-skin-care",
+    "pubmed_panthenol": "https://pubmed.ncbi.nlm.nih.gov/27425824/",
+    "pubmed_niacinamide": "https://pubmed.ncbi.nlm.nih.gov/39171587/"
+  },
+  "ingredients": {
+    "Hyaluronic Acid": {
+      "description": "Chất hút ẩm hỗ trợ giữ nước, phù hợp khi mục tiêu là giảm cảm giác khô căng.",
+      "usage": "Ưu tiên trong serum hoặc kem dưỡng và khóa ẩm sau đó.",
+      "caution": "Hiệu quả còn phụ thuộc toàn bộ công thức sản phẩm.",
+      "evidence": ["aad_dry_skin", "aad_moisturizer"]
+    },
+    "Glycerin": {
+      "description": "Chất hút ẩm phổ biến giúp duy trì độ ẩm của lớp ngoài da.",
+      "usage": "Có thể dùng hằng ngày trong sữa rửa mặt hoặc kem dưỡng.",
+      "caution": "Chọn công thức phù hợp loại da và ngưng dùng nếu kích ứng.",
+      "evidence": ["aad_dry_skin"]
+    },
+    "Ceramide": {
+      "description": "Nhóm lipid thường có trong kem dưỡng nhằm hỗ trợ hàng rào giữ ẩm của da.",
+      "usage": "Ưu tiên trong bước dưỡng ẩm sáng hoặc tối.",
+      "caution": "Không suy ra hiệu quả chỉ từ tên thành phần; cần xem toàn bộ công thức.",
+      "evidence": ["aad_moisturizer"]
+    },
+    "Panthenol": {
+      "description": "Thành phần dưỡng ẩm có bằng chứng hỗ trợ độ ẩm và chức năng hàng rào da.",
+      "usage": "Phù hợp trong serum hoặc kem dưỡng phục hồi.",
+      "caution": "Ngưng dùng nếu xuất hiện đỏ, ngứa hoặc rát kéo dài.",
+      "evidence": ["pubmed_panthenol"]
+    },
+    "Niacinamide": {
+      "description": "Thành phần mỹ phẩm có dữ liệu hỗ trợ độ ẩm, hàng rào da và kiểm soát bã nhờn.",
+      "usage": "Bắt đầu với một sản phẩm và dùng theo hướng dẫn của nhà sản xuất.",
+      "caution": "Không khẳng định nồng độ vì catalog hiện chưa cung cấp dữ liệu này.",
+      "evidence": ["pubmed_niacinamide"]
+    },
+    "Salicylic Acid": {
+      "description": "BHA hỗ trợ làm thông thoáng lỗ chân lông; thường dùng cho mụn đầu đen hoặc mụn nhẹ.",
+      "usage": "Dùng đúng tần suất trên nhãn và tăng dần nếu da dung nạp.",
+      "caution": "Có thể gây khô hoặc kích ứng; tránh chồng nhiều sản phẩm tẩy da chết cùng lúc.",
+      "evidence": ["aad_acne"]
+    },
+    "Azelaic Acid": {
+      "description": "Hoạt chất có thể hỗ trợ mụn nhẹ và làm mờ thâm sau mụn.",
+      "usage": "Dùng theo hướng dẫn trên nhãn; ưu tiên thử trên vùng nhỏ trước.",
+      "caution": "Nếu mụn viêm nhiều hoặc kích ứng kéo dài, nên gặp bác sĩ da liễu.",
+      "evidence": ["aad_acne", "aad_dark_spots"]
+    },
+    "Retinol": {
+      "description": "Retinoid mỹ phẩm có thể hỗ trợ mụn nhẹ, sắc tố không đều và nếp nhăn nhỏ.",
+      "usage": "Ưu tiên buổi tối, bắt đầu chậm và dùng chống nắng vào ban ngày.",
+      "caution": "Có thể gây kích ứng; không dùng retinoid khi mang thai và nên hỏi bác sĩ nếu da nhạy cảm.",
+      "evidence": ["aad_retinoid"]
+    },
+    "Ascorbic Acid": {
+      "description": "Một dạng vitamin C thường được dùng để hỗ trợ chống oxy hóa và làm đều màu da.",
+      "usage": "Dùng theo nhãn và luôn kết hợp chống nắng ban ngày.",
+      "caution": "Công thức và độ ổn định ảnh hưởng lớn đến hiệu quả thực tế.",
+      "evidence": ["aad_dark_spots", "aad_masks"]
+    },
+    "Glycolic Acid": {
+      "description": "AHA hỗ trợ tẩy tế bào chết bề mặt và có thể giúp cải thiện vùng da không đều màu.",
+      "usage": "Dùng với tần suất thấp lúc bắt đầu và chống nắng hằng ngày.",
+      "caution": "Không dùng đồng thời nhiều acid hoặc retinol nếu chưa biết da có dung nạp hay không.",
+      "evidence": ["aad_dark_spots", "aad_masks"]
+    },
+    "Lactic Acid": {
+      "description": "AHA có tác dụng tẩy tế bào chết bề mặt và thường xuất hiện trong sản phẩm dưỡng ẩm.",
+      "usage": "Dùng đúng hướng dẫn và tăng tần suất từ từ.",
+      "caution": "Có thể làm da nhạy cảm hơn; cần chống nắng và ngưng nếu kích ứng.",
+      "evidence": ["aad_dry_skin", "aad_masks"]
+    },
+    "Peptide": {
+      "description": "Nhóm peptide thường được dùng trong mỹ phẩm chăm sóc dấu hiệu lão hóa.",
+      "usage": "Có thể dùng trong serum hoặc kem dưỡng theo hướng dẫn sản phẩm.",
+      "caution": "Không xem đây là chất thay thế điều trị y khoa.",
+      "evidence": ["aad_masks"]
+    },
+    "Zinc Oxide": {
+      "description": "Bộ lọc khoáng thường có trong kem chống nắng.",
+      "usage": "Chọn sản phẩm phổ rộng SPF 30 trở lên và thoa lại theo hướng dẫn.",
+      "caution": "Tên thành phần không thay thế thông tin SPF và khả năng chống nước trên nhãn.",
+      "evidence": ["aad_retinoid"]
+    }
+  },
+  "skinTypes": {
+    "Dry": ["Hyaluronic Acid", "Glycerin", "Ceramide", "Panthenol"],
+    "Normal": ["Glycerin", "Hyaluronic Acid", "Ceramide", "Niacinamide"],
+    "Oily": ["Niacinamide", "Glycerin", "Hyaluronic Acid", "Panthenol"],
+    "Combination": ["Niacinamide", "Glycerin", "Hyaluronic Acid", "Ceramide"],
+    "Sensitive": ["Ceramide", "Panthenol", "Glycerin", "Hyaluronic Acid"]
+  },
+  "issues": {
+    "Acne": ["Salicylic Acid", "Azelaic Acid", "Niacinamide"],
+    "Blackheads": ["Salicylic Acid", "Retinol", "Glycolic Acid"],
+    "Dark_Spots": ["Ascorbic Acid", "Azelaic Acid", "Retinol", "Glycolic Acid"],
+    "Pigmentation": ["Ascorbic Acid", "Azelaic Acid", "Retinol", "Glycolic Acid"],
+    "Pores": ["Niacinamide", "Salicylic Acid", "Retinol"],
+    "Redness": ["Panthenol", "Ceramide", "Glycerin"],
+    "Wrinkles": ["Retinol", "Peptide", "Hyaluronic Acid", "Ascorbic Acid"]
+  }
+}
