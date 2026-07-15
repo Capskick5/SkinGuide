@@ -102,6 +102,7 @@ function RefundStatusCell({ returnId }) {
 }
 
 function ReturnDetailsModal({ request, onClose }) {
+  const { message } = AntApp.useApp()
   const [fullOrder, setFullOrder] = useState(null)
 
   const [refundRequest, setRefundRequest] = useState(null)
@@ -125,10 +126,10 @@ function ReturnDetailsModal({ request, onClose }) {
     setCompleting(true)
     try {
       await httpClient.put(`/refunds/admin/${refundRequest.id}/complete`, { receiptUrl })
-      import('antd').then(({ message }) => message.success('Đã xác nhận hoàn tiền thành công'))
+      message.success('Đã xác nhận hoàn tiền thành công')
       setTimeout(() => window.location.reload(), 500)
     } catch (err) {
-      import('antd').then(({ message }) => message.error(err.response?.data?.message || 'Có lỗi xảy ra'))
+      message.error(err.response?.data?.message || 'Có lỗi xảy ra')
     } finally {
       setCompleting(false)
     }
@@ -138,10 +139,10 @@ function ReturnDetailsModal({ request, onClose }) {
     setCompleting(true)
     try {
       await httpClient.put(`/refunds/admin/${refundRequest.id}/reject`)
-      import('antd').then(({ message }) => message.warning('Đã đánh dấu thông tin ngân hàng không hợp lệ'))
+      message.warning('Đã đánh dấu thông tin ngân hàng không hợp lệ')
       setTimeout(() => window.location.reload(), 500)
     } catch (err) {
-      import('antd').then(({ message }) => message.error(err.response?.data?.message || 'Có lỗi xảy ra'))
+      message.error(err.response?.data?.message || 'Có lỗi xảy ra')
     } finally {
       setCompleting(false)
     }

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { PATHS } from './paths'
 import AppLayout from '@/components/layout/AppLayout'
@@ -6,46 +7,55 @@ import ProtectedRoute from './ProtectedRoute'
 import AdminRoute from './AdminRoute'
 import ManagerRoute from './ManagerRoute'
 
-import LandingPage from '@/page/landing/LandingPage'
-import AuthPage from '@/page/auth/AuthPage'
-import ForgotPasswordPage from '@/page/auth/ForgotPasswordPage'
-import DashboardPage from '@/page/dashboard/DashboardPage'
-import SkinQuizPage from '@/page/skin-quiz/SkinQuizPage'
-import RoutinePage from '@/page/routine/RoutinePage'
-import ProductsPage from '@/page/products/ProductsPage'
-import FavoriteProductsPage from '@/page/products/FavoriteProductsPage'
-import CompareProductsPage from '@/page/products/CompareProductsPage'
-import ProductDetailPage from '@/page/products/ProductDetailPage'
-import CartPage from '@/page/cart/CartPage'
-import CheckoutPage from '@/page/cart/CheckoutPage'
-import MomoReturnPage from '@/page/cart/MomoReturnPage'
-import VnpayReturnPage from '@/page/cart/VnpayReturnPage'
-import OrdersPage from '@/page/orders/OrdersPage'
-import OrderDetailPage from '@/page/orders/OrderDetailPage'
-import HistoryPage from '@/page/history/HistoryPage'
-import HistoryDetailPage from '@/page/history/HistoryDetailPage'
-import ProfilePage from '@/page/profile/ProfilePage'
-import SettingsPage from '@/page/settings/SettingsPage'
-import NotFoundPage from '@/page/misc/NotFoundPage'
-import OverviewPage from '@/page/overview/OverviewPage'
+const LandingPage = lazy(() => import('@/page/landing/LandingPage'))
+const AuthPage = lazy(() => import('@/page/auth/AuthPage'))
+const ForgotPasswordPage = lazy(() => import('@/page/auth/ForgotPasswordPage'))
+const DashboardPage = lazy(() => import('@/page/dashboard/DashboardPage'))
+const SkinQuizPage = lazy(() => import('@/page/skin-quiz/SkinQuizPage'))
+const RoutinePage = lazy(() => import('@/page/routine/RoutinePage'))
+const ProductsPage = lazy(() => import('@/page/products/ProductsPage'))
+const FavoriteProductsPage = lazy(() => import('@/page/products/FavoriteProductsPage'))
+const CompareProductsPage = lazy(() => import('@/page/products/CompareProductsPage'))
+const ProductDetailPage = lazy(() => import('@/page/products/ProductDetailPage'))
+const CartPage = lazy(() => import('@/page/cart/CartPage'))
+const CheckoutPage = lazy(() => import('@/page/cart/CheckoutPage'))
+const MomoReturnPage = lazy(() => import('@/page/cart/MomoReturnPage'))
+const VnpayReturnPage = lazy(() => import('@/page/cart/VnpayReturnPage'))
+const OrdersPage = lazy(() => import('@/page/orders/OrdersPage'))
+const OrderDetailPage = lazy(() => import('@/page/orders/OrderDetailPage'))
+const ReturnRequestPage = lazy(() => import('@/page/orders/ReturnRequestPage'))
+const HistoryPage = lazy(() => import('@/page/history/HistoryPage'))
+const HistoryDetailPage = lazy(() => import('@/page/history/HistoryDetailPage'))
+const ProfilePage = lazy(() => import('@/page/profile/ProfilePage'))
+const SettingsPage = lazy(() => import('@/page/settings/SettingsPage'))
+const NotFoundPage = lazy(() => import('@/page/misc/NotFoundPage'))
+const OverviewPage = lazy(() => import('@/page/overview/OverviewPage'))
 
-import AdminDashboardPage from '@/page/admin/AdminDashboardPage'
-import AdminUsersPage from '@/page/admin/AdminUsersPage'
-import RolePermissionPage from '@/page/admin/RolePermissionPage'
-import AdminProductsPage from '@/page/admin/AdminProductsPage'
-import AdminInventoryPage from '@/page/admin/AdminInventoryPage'
-import AdminBrandsPage from '@/page/admin/AdminBrandsPage'
-import AdminCategoriesPage from '@/page/admin/AdminCategoriesPage'
-import AdminIngredientsPage from '@/page/admin/AdminIngredientsPage'
-import ReturnRequestPage from '@/page/orders/ReturnRequestPage'
-import AdminOrdersPage from '@/page/admin/orders/AdminOrdersPage'
-import AdminReturnOrdersPage from '@/page/admin/orders/AdminReturnOrdersPage'
-import AdminScansPage from '@/page/admin/AdminScansPage'
+const AdminDashboardPage = lazy(() => import('@/page/admin/AdminDashboardPage'))
+const AdminUsersPage = lazy(() => import('@/page/admin/AdminUsersPage'))
+const RolePermissionPage = lazy(() => import('@/page/admin/RolePermissionPage'))
+const AdminProductsPage = lazy(() => import('@/page/admin/AdminProductsPage'))
+const AdminInventoryPage = lazy(() => import('@/page/admin/AdminInventoryPage'))
+const AdminBrandsPage = lazy(() => import('@/page/admin/AdminBrandsPage'))
+const AdminCategoriesPage = lazy(() => import('@/page/admin/AdminCategoriesPage'))
+const AdminIngredientsPage = lazy(() => import('@/page/admin/AdminIngredientsPage'))
+const AdminOrdersPage = lazy(() => import('@/page/admin/orders/AdminOrdersPage'))
+const AdminReturnOrdersPage = lazy(() => import('@/page/admin/orders/AdminReturnOrdersPage'))
+const AdminScansPage = lazy(() => import('@/page/admin/AdminScansPage'))
+
+function PageLoading() {
+  return (
+    <div className="flex min-h-64 items-center justify-center" role="status" aria-label="Đang tải trang">
+      <span className="h-8 w-8 animate-spin rounded-full border-3 border-primary border-t-transparent" />
+    </div>
+  )
+}
 
 export default function AppRoutes() {
   return (
     <BrowserRouter>
-      <Routes>
+      <Suspense fallback={<PageLoading />}>
+        <Routes>
         <Route path={PATHS.LANDING} element={<LandingPage />} />
         <Route path={PATHS.OVERVIEW} element={<OverviewPage />} />
         <Route path={PATHS.LOGIN} element={<AuthPage mode="login" />} />
@@ -105,7 +115,8 @@ export default function AppRoutes() {
         </Route>
 
         <Route path={PATHS.NOT_FOUND} element={<NotFoundPage />} />
-      </Routes>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }
