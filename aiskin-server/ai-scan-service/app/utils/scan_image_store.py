@@ -11,14 +11,18 @@ class ScanImageStore:
     def __init__(self, upload_dir: str, signing_secret: str, url_ttl_seconds: int = 900):
         if not signing_secret:
             raise ValueError("SCAN_IMAGE_SIGNING_SECRET or JWT_SECRET is required")
+        if len(signing_secret.encode("utf-8")) < 32:
+            raise ValueError("Scan image signing secret must contain at least 32 bytes")
         self.upload_dir = Path(upload_dir).resolve()
-        self.upload_dir.mkdir(parents=True, exist_ok=True)
+        self.upload_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.signing_secret = signing_secret.encode("utf-8")
         self.url_ttl_seconds = url_ttl_seconds
 
     def save(self, scan_id: str, image_bytes: bytes) -> str:
         filename = f"{scan_id}.jpg"
-        self.path(filename).write_bytes(image_bytes)
+        destination = self.path(filename)
+        destination.write_bytes(image_bytes)
+        destination.chmod(0o600)
         return filename
 
     def delete(self, filename: Optional[str]) -> None:

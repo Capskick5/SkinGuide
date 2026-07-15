@@ -1,6 +1,7 @@
 import base64
-import os
 import binascii
+import os
+from typing import Optional
 
 import jwt
 from fastapi import Request, HTTPException, Security
@@ -24,9 +25,20 @@ def _load_jwt_secret() -> bytes:
 
 JWT_SECRET = _load_jwt_secret()
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
-def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+
+def _unauthorized(detail: str) -> HTTPException:
+    return HTTPException(
+        status_code=401,
+        detail=detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def verify_token(credentials: Optional[HTTPAuthorizationCredentials] = Security(security)):
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise _unauthorized("Authentication required")
     token = credentials.credentials
     try:
         payload = jwt.decode(
@@ -36,11 +48,14 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
             issuer=JWT_ISSUER,
             options={"require": ["exp", "iss", "sub"]},
         )
+        subject = payload.get("sub")
+        if not isinstance(subject, str) or not subject.strip():
+            raise jwt.InvalidTokenError("Token subject must be a non-empty string")
         return payload
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
+        raise _unauthorized("Token expired")
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise _unauthorized("Invalid token")
 
 def has_permission(resource: str, method: str):
     def permission_checker(request: Request, payload: dict = Security(verify_token)):
