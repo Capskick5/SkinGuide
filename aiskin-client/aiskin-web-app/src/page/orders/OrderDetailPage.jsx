@@ -158,11 +158,11 @@ function RefundModal({ returnOrder, existingRefund, onClose, onSuccess }) {
     const normalizedAccountNumber = accountNumber.trim()
     const normalizedAccountName = accountName.trim()
     if (!normalizedBankName || !normalizedAccountNumber || !normalizedAccountName) {
-      import('antd').then(({ message }) => message.error('Vui lòng điền đầy đủ thông tin'))
+      message.error('Vui lòng điền đầy đủ thông tin')
       return
     }
     if (!/^\d{6,20}$/.test(normalizedAccountNumber)) {
-      import('antd').then(({ message }) => message.error('Số tài khoản phải gồm 6 đến 20 chữ số'))
+      message.error('Số tài khoản phải gồm 6 đến 20 chữ số')
       return
     }
     const bankDetails = {
@@ -174,17 +174,17 @@ function RefundModal({ returnOrder, existingRefund, onClose, onSuccess }) {
     try {
       if (isResubmit) {
         await httpClient.put(`/refunds/${existingRefund.id}/resubmit`, bankDetails)
-        import('antd').then(({ message }) => message.success('Đã cập nhật lại thông tin ngân hàng thành công'))
+        message.success('Đã cập nhật lại thông tin ngân hàng thành công')
       } else {
         await httpClient.post('/refunds', {
           returnOrderId: returnOrder.id,
           ...bankDetails,
         })
-        import('antd').then(({ message }) => message.success('Đã gửi thông tin nhận tiền hoàn thành công'))
+        message.success('Đã gửi thông tin nhận tiền hoàn thành công')
       }
       onSuccess()
     } catch (error) {
-      import('antd').then(({ message }) => message.error(error.response?.data?.message || 'Có lỗi xảy ra'))
+      message.error(error.response?.data?.message || 'Có lỗi xảy ra')
     } finally {
       setLoading(false)
     }
@@ -858,11 +858,11 @@ export default function OrderDetailPage() {
                 onClick={async () => {
                   try {
                     await httpClient.del(`/returns/${returnRequest.id}`)
-                    import('antd').then(({ message }) => message.success('Đã hủy khiếu nại thành công'))
+                    message.success('Đã hủy khiếu nại thành công')
                     setConfirmDeleteReturn(false)
                     window.location.reload()
                   } catch (e) {
-                    import('antd').then(({ message }) => message.error(e.response?.data?.message || 'Không thể hủy khiếu nại'))
+                    message.error(e.response?.data?.message || 'Không thể hủy khiếu nại')
                   }
                 }} 
                 className="flex-1 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
