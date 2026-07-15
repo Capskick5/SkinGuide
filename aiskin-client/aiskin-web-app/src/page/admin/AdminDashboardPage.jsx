@@ -118,7 +118,7 @@ export default function AdminDashboardPage() {
       try {
         const [usersPage, productsPage, brands, categories, ordersPage, scanStats, financialData] = await Promise.allSettled([
           isAdmin ? adminApi.listUsers({ page: 0, size: 6, sort: 'createdAt,desc' }) : Promise.resolve({}),
-          productApi.searchAdvancedProducts({ size: 1 }),
+          productApi.searchAdvancedProducts({ size: 1 }, { auth: true }),
           productApi.listBrands(),
           productApi.listCategories(),
           httpClient.get('/orders?page=0&size=1000&status=ALL'),

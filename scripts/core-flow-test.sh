@@ -58,6 +58,20 @@ print(jwt.encode({
 }, base64.b64decode(os.environ["JWT_SECRET"]), algorithm="HS256"))
 ')"
 
+ADMIN_TOKEN="$($PYTHON -c '
+import base64, os, jwt
+from datetime import datetime, timedelta, timezone
+now = datetime.now(timezone.utc)
+print(jwt.encode({
+    "sub": "e2e-core-flow-admin",
+    "iss": "aiskin-user-service",
+    "roles": ["ADMIN"],
+    "permissions": [],
+    "iat": now,
+    "exp": now + timedelta(minutes=15),
+}, base64.b64decode(os.environ["JWT_SECRET"]), algorithm="HS256"))
+')"
+
 echo "[1/7] Checking service contracts..."
 "$ROOT_DIR/scripts/smoke-test.sh" >/dev/null
 echo "PASS: all services are reachable"
@@ -73,6 +87,23 @@ catalog_write_code="$(curl -sS -o /dev/null -w '%{http_code}' \
 [[ "$catalog_write_code" == "403" ]] \
   || fail "customer catalog write returned $catalog_write_code instead of 403"
 echo "PASS: catalog reads are public and writes require management permission"
+
+public_inactive_query="$(curl -fsS \
+  "$BASE_URL/api/products/search/advanced?isActive=false&page=1&size=100")"
+[[ "$(jq -r '[.data.content[] | .isActive == true] | all' <<<"$public_inactive_query")" == "true" ]] \
+  || fail "public catalog exposed an inactive product"
+
+admin_inactive_query="$(curl -fsS \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "$BASE_URL/api/products/search/advanced?isActive=false&page=1&size=1")"
+hidden_product_id="$(jq -r '.data.content[0].id // empty' <<<"$admin_inactive_query")"
+if [[ -n "$hidden_product_id" ]]; then
+  hidden_public_code="$(curl -sS -o /dev/null -w '%{http_code}' \
+    "$BASE_URL/api/products/$hidden_product_id")"
+  [[ "$hidden_public_code" == "404" ]] \
+    || fail "inactive product detail returned $hidden_public_code instead of 404"
+fi
+echo "PASS: inactive products are visible only to catalog management"
 
 inventory_read_code="$(curl -sS -o /dev/null -w '%{http_code}' \
   -H "Authorization: Bearer $TOKEN" \

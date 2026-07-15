@@ -6,17 +6,17 @@ import { request } from './httpClient'
  */
 export const productApi = {
   // ---------- Products ----------
-  async listProducts() {
-    return request('/products', { auth: false })
+  async listProducts({ auth = false } = {}) {
+    return request('/products', { auth })
   },
   async listActiveProducts() {
     return request('/products/active', { auth: false })
   },
-  async getProduct(id) {
-    return request(`/products/${id}`, { auth: false })
+  async getProduct(id, { auth = false } = {}) {
+    return request(`/products/${id}`, { auth })
   },
-  async getProductBySlug(slug) {
-    return request(`/products/slug/${encodeURIComponent(slug)}`, { auth: false })
+  async getProductBySlug(slug, { auth = false } = {}) {
+    return request(`/products/slug/${encodeURIComponent(slug)}`, { auth })
   },
   async getProductsByBrand(brandId) {
     return request(`/products/brand/${brandId}`, { auth: false })
@@ -45,7 +45,10 @@ export const productApi = {
   async searchProducts(keyword) {
     return request(`/products/search?keyword=${encodeURIComponent(keyword)}`, { auth: false })
   },
-  async searchAdvancedProducts({ query = '', searchField = 'all', categoryId = '', isActive = '', sortBy = '', page = 1, size = 12 }) {
+  async searchAdvancedProducts(
+    { query = '', searchField = 'all', categoryId = '', isActive = '', sortBy = '', page = 1, size = 12 },
+    { auth = false } = {},
+  ) {
     const params = new URLSearchParams()
     if (query) params.append('query', query)
     if (searchField) params.append('searchField', searchField)
@@ -54,7 +57,7 @@ export const productApi = {
     if (sortBy) params.append('sortBy', sortBy)
     params.append('page', page)
     params.append('size', size)
-    return request(`/products/search/advanced?${params.toString()}`, { auth: false })
+    return request(`/products/search/advanced?${params.toString()}`, { auth })
   },
   async listInventoryMovements({ productId = '', variantId = '', page = 0, size = 20 } = {}) {
     const params = new URLSearchParams({ page: String(page), size: String(size) })
