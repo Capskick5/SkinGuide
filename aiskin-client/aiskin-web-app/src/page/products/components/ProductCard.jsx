@@ -9,10 +9,8 @@ export default function ProductCard({
   brand,
   name,
   category,
-  match,
   price,
   priceValue,
-  rating,
   imageUrl,
   targetConcerns = [],
   variants = [],
@@ -24,6 +22,12 @@ export default function ProductCard({
     variant.isActive !== false
     && (variant.trackInventory === false || Number(variant.availableQuantity || 0) > 0)
   ))
+  const activeVariants = variants.filter((variant) => variant.isActive !== false)
+  const hasUntrackedInventory = activeVariants.some((variant) => variant.trackInventory === false)
+  const availableQuantity = activeVariants.reduce(
+    (total, variant) => total + Math.max(0, Number(variant.availableQuantity || 0)),
+    0,
+  )
 
   function handleQuickAdd() {
     if (!id || !sellableVariant) return
@@ -52,11 +56,9 @@ export default function ProductCard({
         ) : (
           <Icon name="science" className="text-5xl text-primary/50" />
         )}
-        {match ? (
-          <span className="gradient-bg absolute right-3 top-3 rounded-full px-3 py-1 text-caption font-medium text-white">
-            Phù hợp {match}%
-          </span>
-        ) : null}
+        <span className={`absolute right-3 top-3 rounded-md px-2.5 py-1 text-caption font-semibold ${sellableVariant ? 'bg-[#e5f5ed] text-[#256247]' : 'bg-[#fde8e8] text-[#a33a3a]'}`}>
+          {sellableVariant ? 'Còn hàng' : 'Hết hàng'}
+        </span>
       </div>
 
       <div className="flex grow flex-col p-5">
@@ -82,12 +84,11 @@ export default function ProductCard({
           </div>
         )}
 
-        <div className="mb-4 mt-auto flex items-center justify-between">
+        <div className="mb-4 mt-auto flex items-end justify-between gap-3">
           <span className="text-body-lg font-semibold text-on-surface">{price}</span>
-          {rating ? (
-            <span className="flex items-center gap-1 text-label-md text-on-surface-variant">
-              <Icon name="star" filled className="text-base text-warning" />
-              {rating}
+          {sellableVariant ? (
+            <span className="text-right text-caption text-on-surface-variant">
+              {hasUntrackedInventory ? 'Đang bán' : `Kho: ${availableQuantity}`}
             </span>
           ) : null}
         </div>
