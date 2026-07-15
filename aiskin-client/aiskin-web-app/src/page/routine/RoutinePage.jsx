@@ -24,6 +24,8 @@ const translateIssue = (issue) => {
 }
 
 const getIngredientDescription = (ing) => {
+  if (ing.description) return ing.description
+
   // Dịch riêng các hoạt chất phổ biến để giao diện không bị lặp lại
   const name = ing.name?.toLowerCase() || ''
   if (name.includes('salicylic acid') || name.includes('bha')) return 'Tẩy tế bào chết sâu trong lỗ chân lông, đẩy lùi mụn ẩn và kiềm dầu hiệu quả.'
@@ -45,7 +47,7 @@ const getIngredientDescription = (ing) => {
 
   // Nếu không có trong từ điển, tự động sinh từ matched_issues
   const mappedIssues = ing.matched_issues?.map(translateIssue).join(', ') || 'cải thiện làn da'
-  return `Hoạt chất y khoa được hệ thống AI đề xuất để giúp bạn ${mappedIssues}.`
+  return `Thành phần được hệ thống xếp hạng để hỗ trợ mục tiêu ${mappedIssues}.`
 }
 
 const mapAiRoutineToSteps = (aiRoutineArray) => {

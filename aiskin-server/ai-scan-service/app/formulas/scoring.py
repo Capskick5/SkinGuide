@@ -1,113 +1,102 @@
-import pandas as pd
-import ast
+import json
 import re
-import os
+from functools import lru_cache
+from pathlib import Path
 
-# Đường dẫn tới dataset
-DATASET_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "datasets", "ingredientsList.csv")
 
-def parse_tags(val):
-    if pd.isna(val):
-        return []
-    try:
-        items = ast.literal_eval(val)
-        return [x.strip() for x in items if x.strip()]
-    except (ValueError, SyntaxError):
-        return [val.strip()] if val.strip() else []
+RULES_PATH = Path(__file__).resolve().parents[1] / "knowledge" / "ingredient_rules.json"
+SKIN_TYPE_ALIASES = {
+    "dry": "Dry",
+    "normal": "Normal",
+    "oily": "Oily",
+    "combination": "Combination",
+    "sensitive": "Sensitive",
+}
+ISSUE_ALIASES = {
+    "acne": "Acne",
+    "blackheads": "Blackheads",
+    "dark_spots": "Dark_Spots",
+    "darkspots": "Dark_Spots",
+    "pigmentation": "Pigmentation",
+    "pores": "Pores",
+    "enlarged_pores": "Pores",
+    "redness": "Redness",
+    "wrinkles": "Wrinkles",
+}
 
-def get_ingredients_dataframe():
-    try:
-        df = pd.read_csv(DATASET_PATH)
-        df = df.dropna(subset=["name"]).reset_index(drop=True)
-        df["good_for_tags"] = df["who_is_it_good_for"].apply(parse_tags)
-        df["avoid_tags"] = df["who_should_avoid"].apply(parse_tags)
-        return df
-    except Exception as e:
-        print(f"Error loading dataset: {e}")
-        return pd.DataFrame()
+
+def _normalize_key(value) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower())
+    return normalized.strip("_")
+
+
+@lru_cache(maxsize=1)
+def load_ingredient_rules() -> dict:
+    with RULES_PATH.open("r", encoding="utf-8") as handle:
+        rules = json.load(handle)
+
+    required_sections = {"ingredients", "skinTypes", "issues", "sources"}
+    missing = required_sections.difference(rules)
+    if missing:
+        raise RuntimeError(f"Ingredient rules are missing sections: {sorted(missing)}")
+
+    known_ingredients = set(rules["ingredients"])
+    referenced = {
+        ingredient
+        for targets in list(rules["skinTypes"].values()) + list(rules["issues"].values())
+        for ingredient in targets
+    }
+    unknown = referenced.difference(known_ingredients)
+    if unknown:
+        raise RuntimeError(f"Ingredient rules reference unknown ingredients: {sorted(unknown)}")
+    return rules
+
+
+def _condition_name(condition) -> str:
+    if not isinstance(condition, dict):
+        return ""
+    raw_name = condition.get("name") or condition.get("issue")
+    return ISSUE_ALIASES.get(_normalize_key(raw_name), "")
+
 
 def score_ingredients(skin_type, conditions):
-    """
-    Tính điểm các thành phần dựa trên loại da và vấn đề da.
-    - skin_type: str (ví dụ: "Oily", "Dry")
-    - conditions: list dict (ví dụ: [{"name": "acne", "severity": 70}])
-    Trả về danh sách các thành phần (tên và thông tin) được sắp xếp theo điểm số.
-    """
-    df = get_ingredients_dataframe()
-    if df.empty:
-        return []
+    """Rank cosmetic ingredients from transparent skin-type and visible-issue rules."""
+    rules = load_ingredient_rules()
+    scores = {}
+    matched_rules = {}
 
-    # Map các loại da / vấn đề về định dạng tag trong dataset
-    target_tags = []
-    
-    # Map skin_type
-    skin_type_mapping = {
-        "oily": "Oily",
-        "dry": "Dry and dehydrated skin",
-        "combination": "Combination",
-        "normal": "Normal",
-        "sensitive": "Sensitive"
-    }
-    
-    mapped_skin_type = skin_type_mapping.get(skin_type.lower(), "")
-    if mapped_skin_type:
-        target_tags.append(mapped_skin_type)
+    normalized_skin_type = SKIN_TYPE_ALIASES.get(_normalize_key(skin_type))
+    if normalized_skin_type:
+        for ingredient in rules["skinTypes"].get(normalized_skin_type, []):
+            scores[ingredient] = scores.get(ingredient, 0) + 2
+            matched_rules.setdefault(ingredient, []).append(normalized_skin_type)
 
-    # Map conditions
-    condition_mapping = {
-        "acne": "Acne",
-        "blackheads": "Blackheads",
-        "dark_spots": "Pigmentation",
-        "pigmentation": "Pigmentation",
-        "pores": "Enlarged Pores",
-        "wrinkles": "Wrinkles",
-        "redness": "Redness"
-    }
-    
-    for cond in conditions:
-        # Hỗ trợ cả key "name" (manual) và "issue" (từ ultimate_skin_inference.py)
-        cond_name = cond.get("name", cond.get("issue", "")).lower()
-        mapped_cond = condition_mapping.get(cond_name, "")
-        if mapped_cond:
-            # Thêm nhiều lần dựa trên severity để tăng trọng số (tùy chọn)
-            # Ở đây ta chỉ lấy tag
-            target_tags.append(mapped_cond)
-            
-    scored_ingredients = []
-    
-    for idx, row in df.iterrows():
-        good_tags = row["good_for_tags"]
-        avoid_tags = row["avoid_tags"]
-        
-        # Nếu loại da hoặc vấn đề nằm trong avoid_tags -> bỏ qua hoàn toàn
-        # Nhưng thực tế trong dataset, avoid_tags chủ yếu là "Related Allergy" hoặc "Pregnancy"
-        # Đôi khi có "Oily" hoặc "Dry Dehydrated".
-        should_avoid = False
-        for avoid in avoid_tags:
-            if avoid in target_tags:
-                should_avoid = True
-                break
-                
-        if should_avoid:
+    for condition in conditions or []:
+        issue_name = _condition_name(condition)
+        if not issue_name:
             continue
-            
-        # Tính điểm dựa trên số lượng tag match
-        match_score = 0
-        matched_issues = []
-        for tag in target_tags:
-            if tag in good_tags:
-                match_score += 1
-                matched_issues.append(tag)
-                
-        if match_score > 0:
-            scored_ingredients.append({
-                "name": row["name"],
-                "description": row["short_description"] if pd.notna(row["short_description"]) else "",
-                "match_score": match_score,
-                "matched_issues": matched_issues,
-                "url": row["url"] if pd.notna(row["url"]) else ""
-            })
-            
-    # Sort theo điểm giảm dần
-    scored_ingredients = sorted(scored_ingredients, key=lambda x: x["match_score"], reverse=True)
-    return scored_ingredients
+        for ingredient in rules["issues"].get(issue_name, []):
+            scores[ingredient] = scores.get(ingredient, 0) + 3
+            matches = matched_rules.setdefault(ingredient, [])
+            if issue_name not in matches:
+                matches.append(issue_name)
+
+    ingredient_order = {name: index for index, name in enumerate(rules["ingredients"])}
+    ranked_names = sorted(
+        scores,
+        key=lambda name: (-scores[name], ingredient_order[name]),
+    )
+
+    ranked = []
+    for name in ranked_names:
+        details = rules["ingredients"][name]
+        ranked.append({
+            "name": name,
+            "description": details["description"],
+            "usage": details.get("usage", "Dùng theo hướng dẫn trên nhãn sản phẩm."),
+            "caution": details.get("caution", "Ngưng dùng nếu da kích ứng kéo dài."),
+            "match_score": scores[name],
+            "matched_issues": matched_rules[name],
+            "evidence": details.get("evidence", []),
+        })
+    return ranked
