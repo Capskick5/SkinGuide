@@ -3,9 +3,9 @@ package mss.userservice.service;
 import mss.userservice.config.OtpProperties;
 import mss.userservice.dto.*;
 import mss.userservice.exception.ApiException;
-
 import mss.userservice.model.User;
 import mss.userservice.repository.UserRepository;
+import mss.userservice.security.AuthRateLimiter;
 import mss.userservice.security.JwtService;
 import mss.userservice.security.OtpStore;
 import mss.userservice.security.RefreshTokenStore;
@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -26,6 +27,9 @@ import java.util.UUID;
 public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+    private static final Duration AUTH_ATTEMPT_WINDOW = Duration.ofMinutes(15);
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final int MAX_OTP_REQUESTS = 3;
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -35,6 +39,7 @@ public class AuthService {
     private final EmailService emailService;
     private final OtpProperties otpProperties;
     private final GoogleTokenVerifier googleTokenVerifier;
+    private final AuthRateLimiter authRateLimiter;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
@@ -43,7 +48,8 @@ public class AuthService {
                        OtpStore otpStore,
                        EmailService emailService,
                        OtpProperties otpProperties,
-                       GoogleTokenVerifier googleTokenVerifier) {
+                       GoogleTokenVerifier googleTokenVerifier,
+                       AuthRateLimiter authRateLimiter) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -52,6 +58,7 @@ public class AuthService {
         this.emailService = emailService;
         this.otpProperties = otpProperties;
         this.googleTokenVerifier = googleTokenVerifier;
+        this.authRateLimiter = authRateLimiter;
     }
 
     /** Create a new account, send a verification OTP, and return tokens. */
@@ -81,16 +88,19 @@ public class AuthService {
     /** Validate credentials and return tokens. */
     public AuthResponse login(LoginRequest request) {
         String email = normalizeEmail(request.email());
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> ApiException.unauthorized("Email hoặc mật khẩu không đúng"));
+        authRateLimiter.assertAllowed("login", email, MAX_FAILED_ATTEMPTS, AUTH_ATTEMPT_WINDOW);
+        User user = userRepository.findByEmail(email).orElse(null);
 
-        if (!user.isActive()) {
-            throw ApiException.unauthorized("Tài khoản đã bị vô hiệu hóa");
-        }
-        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+        if (user == null || !passwordEncoder.matches(request.password(), user.getPassword())) {
+            authRateLimiter.recordFailure("login", email, AUTH_ATTEMPT_WINDOW);
             throw ApiException.unauthorized("Email hoặc mật khẩu không đúng");
         }
+        if (!user.isActive()) {
+            authRateLimiter.recordFailure("login", email, AUTH_ATTEMPT_WINDOW);
+            throw ApiException.unauthorized("Tài khoản đã bị vô hiệu hóa");
+        }
 
+        authRateLimiter.clear("login", email);
         return issueTokens(user);
     }
 
@@ -119,6 +129,7 @@ public class AuthService {
     /** (Re)send an email-verification OTP. Always succeeds quietly if user exists. */
     public OtpResponse requestEmailVerification(String rawEmail) {
         String email = normalizeEmail(rawEmail);
+        authRateLimiter.consume("send-verification-otp", email, MAX_OTP_REQUESTS, AUTH_ATTEMPT_WINDOW);
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null || user.isEmailVerified()) {
             // Don't reveal account state.
@@ -130,9 +141,12 @@ public class AuthService {
 
     public void verifyEmail(VerifyEmailRequest request) {
         String email = normalizeEmail(request.email());
+        authRateLimiter.assertAllowed("verify-email-otp", email, MAX_FAILED_ATTEMPTS, AUTH_ATTEMPT_WINDOW);
         if (!otpStore.verify(OtpStore.Purpose.EMAIL_VERIFICATION, email, request.otp())) {
+            authRateLimiter.recordFailure("verify-email-otp", email, AUTH_ATTEMPT_WINDOW);
             throw ApiException.badRequest("Mã OTP không đúng hoặc đã hết hạn");
         }
+        authRateLimiter.clear("verify-email-otp", email);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> ApiException.notFound("Người dùng không tồn tại"));
         user.setEmailVerified(true);
@@ -143,6 +157,7 @@ public class AuthService {
 
     public OtpResponse forgotPassword(String rawEmail) {
         String email = normalizeEmail(rawEmail);
+        authRateLimiter.consume("send-password-reset-otp", email, MAX_OTP_REQUESTS, AUTH_ATTEMPT_WINDOW);
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
             // Don't reveal whether the email exists.
@@ -154,9 +169,12 @@ public class AuthService {
 
     public void resetPassword(ResetPasswordRequest request) {
         String email = normalizeEmail(request.email());
+        authRateLimiter.assertAllowed("reset-password-otp", email, MAX_FAILED_ATTEMPTS, AUTH_ATTEMPT_WINDOW);
         if (!otpStore.verify(OtpStore.Purpose.PASSWORD_RESET, email, request.otp())) {
+            authRateLimiter.recordFailure("reset-password-otp", email, AUTH_ATTEMPT_WINDOW);
             throw ApiException.badRequest("Mã OTP không đúng hoặc đã hết hạn");
         }
+        authRateLimiter.clear("reset-password-otp", email);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> ApiException.notFound("Người dùng không tồn tại"));
         user.setPassword(passwordEncoder.encode(request.newPassword()));
