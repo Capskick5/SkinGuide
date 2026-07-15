@@ -1,10 +1,5 @@
 import tokenStorage from './tokenStorage'
-
-const AI_SCAN_BASE_URL =
-  import.meta.env.VITE_AI_SCAN_BASE_URL?.replace(/\/$/, '') || 'http://localhost:5000'
-
-const RECOMMENDATION_BASE_URL =
-  import.meta.env.VITE_RECOMMENDATION_BASE_URL?.replace(/\/$/, '') || 'http://localhost:5001'
+import { AI_SCAN_API_URL, RECOMMENDATION_API_URL, resolveAiScanAssetUrl } from '@/config/serviceUrls'
 
 function authHeaders(extraHeaders = {}) {
   const token = tokenStorage.getAccessToken()
@@ -44,12 +39,17 @@ async function requestJson(url, options, fallbackMessage) {
   return res.json()
 }
 
+function resolveScanImage(record) {
+  if (!record || typeof record !== 'object') return record
+  return { ...record, imageUrl: resolveAiScanAssetUrl(record.imageUrl) }
+}
+
 export async function validateSkin(file) {
   const formData = new FormData()
   formData.append('image', file)
 
   return requestJson(
-    `${AI_SCAN_BASE_URL}/api/scans/validate`,
+    `${AI_SCAN_API_URL}/validate`,
     {
       method: 'POST',
       headers: authHeaders(),
@@ -63,8 +63,8 @@ export async function analyzeSkin(file) {
   const formData = new FormData()
   formData.append('image', file)
 
-  return requestJson(
-    `${AI_SCAN_BASE_URL}/api/scans/analyze`,
+  const response = await requestJson(
+    `${AI_SCAN_API_URL}/analyze`,
     {
       method: 'POST',
       headers: authHeaders(),
@@ -72,11 +72,13 @@ export async function analyzeSkin(file) {
     },
     'Phân tích ảnh thất bại',
   )
+  if (response.scan_result) response.scan_result = resolveScanImage(response.scan_result)
+  return response
 }
 
 export async function deleteScanHistory(scanId) {
   return requestJson(
-    `${AI_SCAN_BASE_URL}/api/scans/history/${scanId}`,
+    `${AI_SCAN_API_URL}/history/${scanId}`,
     {
       method: 'DELETE',
       headers: authHeaders(),
@@ -86,19 +88,34 @@ export async function deleteScanHistory(scanId) {
 }
 
 export async function getScanHistory() {
-  return requestJson(
-    `${AI_SCAN_BASE_URL}/api/scans/history`,
+  const response = await requestJson(
+    `${AI_SCAN_API_URL}/history`,
     {
       method: 'GET',
       headers: authHeaders(),
     },
     'Không thể tải lịch sử quét',
   )
+  response.data = (response.data || []).map(resolveScanImage)
+  return response
+}
+
+export async function getScanHistoryDetail(scanId) {
+  const response = await requestJson(
+    `${AI_SCAN_API_URL}/history/${scanId}`,
+    {
+      method: 'GET',
+      headers: authHeaders(),
+    },
+    'Không thể tải chi tiết bản quét',
+  )
+  response.data = resolveScanImage(response.data)
+  return response
 }
 
 export async function generateRoutine(scanId) {
   return requestJson(
-    `${AI_SCAN_BASE_URL}/api/scans/${scanId}/routine`,
+    `${AI_SCAN_API_URL}/${scanId}/routine`,
     {
       method: 'POST',
       headers: authHeaders(),
@@ -108,7 +125,7 @@ export async function generateRoutine(scanId) {
 }
 
 export async function getScanRoutine(scanId) {
-  const res = await fetch(`${AI_SCAN_BASE_URL}/api/scans/${scanId}/routine`, {
+  const res = await fetch(`${AI_SCAN_API_URL}/${scanId}/routine`, {
     method: 'GET',
     headers: authHeaders(),
   })
@@ -123,7 +140,7 @@ export async function getScanRoutine(scanId) {
 
 export async function generateRecommendations(routineId) {
   return requestJson(
-    `${RECOMMENDATION_BASE_URL}/api/v1/recommend/routine/${routineId}`,
+    `${RECOMMENDATION_API_URL}/routine/${routineId}`,
     {
       method: 'POST',
       headers: authHeaders(),
@@ -134,7 +151,7 @@ export async function generateRecommendations(routineId) {
 
 export async function getRoutineRecommendations(routineId) {
   return requestJson(
-    `${RECOMMENDATION_BASE_URL}/api/v1/recommend/routine/${routineId}`,
+    `${RECOMMENDATION_API_URL}/routine/${routineId}`,
     {
       method: 'GET',
       headers: authHeaders(),

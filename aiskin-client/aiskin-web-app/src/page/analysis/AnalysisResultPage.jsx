@@ -168,7 +168,7 @@ export default function AnalysisResultPage({
           )) : (
             <div className="p-4 text-center text-on-surface-variant">
               {issueModelAvailable
-                ? 'Không phát hiện vấn đề nghiêm trọng nào ở vùng này.'
+                ? 'Không có nhãn vấn đề da nào vượt ngưỡng phát hiện ở vùng này.'
                 : 'Chưa có kết quả nhận diện vấn đề da.'}
             </div>
           )}

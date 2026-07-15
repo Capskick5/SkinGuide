@@ -4,39 +4,39 @@ import Logo from '@/components/common/Logo'
 import { PATHS } from '@/route/paths'
 
 const METRICS = [
-  { value: '94%', label: 'độ hài lòng' },
-  { value: '3s', label: 'trả kết quả' },
-  { value: '24/7', label: 'tư vấn AI' },
+  { value: '3', label: 'loại da' },
+  { value: '69,92%', label: 'test accuracy' },
+  { value: '500', label: 'sản phẩm' },
 ]
 
 const FEATURES = [
   {
     icon: 'document_scanner',
     title: 'Quét da thông minh',
-    desc: 'Nhận diện tình trạng da từ ảnh khuôn mặt và trả điểm tổng quan rõ ràng.',
+    desc: 'Kiểm định ảnh khuôn mặt và phân loại Dry, Normal hoặc Oily kèm độ tin cậy.',
   },
   {
     icon: 'calendar_month',
     title: 'Lộ trình cá nhân',
-    desc: 'Gợi ý routine sáng và tối dựa trên loại da, mục tiêu và mức độ ưu tiên.',
+    desc: 'Tạo routine sáng và tối theo loại da và chỉ dùng dấu hiệu da khi model có bằng chứng.',
   },
   {
     icon: 'shopping_bag',
     title: 'Sản phẩm phù hợp',
-    desc: 'Lọc sản phẩm theo hồ sơ da để giảm thử sai và chọn mua tự tin hơn.',
+    desc: 'Đối chiếu nhóm sản phẩm, thành phần, biến thể và tồn kho đang bán.',
   },
 ]
 
 const STEPS = [
   { icon: 'add_a_photo', title: 'Tải ảnh', desc: 'Ảnh rõ mặt, ánh sáng tự nhiên.' },
-  { icon: 'neurology', title: 'AI phân tích', desc: 'Đọc các dấu hiệu nổi bật trên da.' },
-  { icon: 'spa', title: 'Nhận routine', desc: 'Theo dõi cải thiện qua từng lần quét.' },
+  { icon: 'neurology', title: 'Model A phân loại', desc: 'Trả loại da và confidence đã hiệu chỉnh.' },
+  { icon: 'spa', title: 'Nhận routine', desc: 'Xem các bước, thành phần mục tiêu và sản phẩm còn hàng.' },
 ]
 
 const INSIGHTS = [
-  { label: 'Độ ẩm', value: '82', tone: 'bg-secondary' },
-  { label: 'Mụn viêm', value: 'Thấp', tone: 'bg-primary' },
-  { label: 'Đều màu', value: '76', tone: 'bg-tertiary' },
+  { label: 'Loại da', value: 'Normal', tone: 'bg-secondary' },
+  { label: 'Độ tin cậy', value: '84%', tone: 'bg-primary' },
+  { label: 'Phạm vi', value: 'Model A', tone: 'bg-tertiary' },
 ]
 
 export default function LandingPage() {
@@ -90,7 +90,7 @@ export default function LandingPage() {
               <span className="block text-primary">hiểu làn da của bạn.</span>
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-8 text-on-surface-variant">
-              Quét da, đọc kết quả và xây routine chăm sóc cá nhân hóa trong một trải nghiệm nhẹ, đẹp và dễ tin cậy.
+              Kiểm định ảnh, phân loại loại da, xây routine nền tảng và chọn sản phẩm còn hàng trong cùng một luồng.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <button
@@ -196,14 +196,14 @@ export default function LandingPage() {
                 Kết quả phân tích dễ đọc, đẹp mắt và có hành động tiếp theo.
               </h2>
               <p className="mt-5 text-base leading-7 text-on-surface-variant">
-                Các chỉ số được gom theo mức ưu tiên để người dùng biết nên tập trung vào điều gì trước.
+                Giao diện hiển thị đúng phạm vi model, độ tin cậy và bước tiếp theo thay vì suy diễn chẩn đoán.
               </p>
             </div>
             <div className="rounded-lg border border-outline-variant bg-white p-5 shadow-[0_24px_70px_rgba(23,32,38,0.12)]">
               <div className="flex items-center justify-between border-b border-outline-variant pb-4">
                 <div>
-                  <p className="text-sm font-bold text-on-surface-variant">Điểm da hôm nay</p>
-                  <p className="mt-1 text-5xl font-black">82</p>
+                  <p className="text-sm font-bold text-on-surface-variant">Ví dụ kết quả Model A</p>
+                  <p className="mt-1 text-5xl font-black">Normal</p>
                 </div>
                 <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-primary-light text-primary">
                   <Icon name="face_retouching_natural" filled className="text-3xl" />

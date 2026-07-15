@@ -168,6 +168,28 @@ class ModelCheckpointContractTest(unittest.TestCase):
 
 
 class RelatedDataCleanupTest(unittest.TestCase):
+    def test_scan_detail_is_filtered_by_owner(self):
+        original_db = main_module.db
+        fake_db = MagicMock()
+        main_module.db = fake_db
+        fake_db.ai_scan_results.find_one.return_value = {
+            "_id": "scan-1",
+            "userId": "user-1",
+            "skinType": {"predicted": "Normal"},
+        }
+        fake_db.skincare_routines.find_one.return_value = None
+        try:
+            with patch("app.main._signed_image_url", return_value="http://testserver/image"):
+                response = main_module.get_scan_history_detail("scan-1", "user-1")
+        finally:
+            main_module.db = original_db
+
+        self.assertEqual(response["data"]["_id"], "scan-1")
+        self.assertFalse(response["data"]["hasRoutine"])
+        fake_db.ai_scan_results.find_one.assert_called_once_with(
+            {"_id": "scan-1", "userId": "user-1"}
+        )
+
     def test_deleting_scan_also_deletes_routine_recommendations(self):
         original_db = main_module.db
         fake_db = MagicMock()

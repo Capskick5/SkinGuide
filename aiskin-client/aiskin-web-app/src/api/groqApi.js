@@ -1,12 +1,10 @@
 import tokenStorage from './tokenStorage'
-
-const RECOMMENDATION_BASE_URL =
-  import.meta.env.VITE_RECOMMENDATION_BASE_URL?.replace(/\/$/, '') || 'http://localhost:5001'
+import { RECOMMENDATION_API_URL } from '@/config/serviceUrls'
 
 // ─── Streaming — yields text chunks ──────────────────────────────────────────
 export async function* streamToGroq({ history, userMessage }) {
   const token = tokenStorage.getAccessToken()
-  const res = await fetch(`${RECOMMENDATION_BASE_URL}/api/v1/recommend/chat`, {
+  const res = await fetch(`${RECOMMENDATION_API_URL}/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -63,19 +63,8 @@ export default function HistoryPage() {
   }
 
   const handleViewAnalysis = (e, record) => {
-    e.stopPropagation() // Ngăn click nhầm vào thẻ cha (chuyển sang lộ trình)
-    
-    // Tạo cấu trúc giả lập giống với data mà API Analyze trả về
-    const mockResult = {
-      scan_result: record
-    }
-    
-    navigate(PATHS.ANALYSIS, {
-      state: {
-        result: mockResult,
-        originalImage: record.imageUrl
-      }
-    })
+    e.stopPropagation()
+    navigate(PATHS.HISTORY_DETAIL.replace(':id', record._id))
   }
 
   // Trích xuất vấn đề
@@ -128,8 +117,12 @@ export default function HistoryPage() {
                   className="bg-surface-container-lowest border border-border-pink rounded-xl p-4 flex items-center gap-4 hover:border-primary transition-colors cursor-pointer"
                   onClick={() => handleViewRoutine(h)}
                 >
-                  <div className="w-14 h-14 rounded-xl bg-primary-light overflow-hidden shrink-0 border border-border-pink">
-                    <img src={h.imageUrl || 'https://via.placeholder.com/150'} alt="Scan thumb" className="w-full h-full object-cover" />
+                  <div className="w-14 h-14 rounded-xl bg-primary-light overflow-hidden shrink-0 border border-border-pink flex items-center justify-center">
+                    {h.imageUrl ? (
+                      <img src={h.imageUrl} alt="Ảnh quét da" className="w-full h-full object-cover" />
+                    ) : (
+                      <Icon name="face" className="text-2xl text-primary/50" />
+                    )}
                   </div>
                   <div className="grow">
                     <p className="text-label-md text-on-surface">{formatDate(h.analyzedAt || h.createdAt || h.scanDate)}</p>

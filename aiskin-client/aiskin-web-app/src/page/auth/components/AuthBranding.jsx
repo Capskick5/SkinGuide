@@ -2,9 +2,9 @@ import Icon from '@/components/common/Icon'
 import logo from '@/assets/logo.png'
 
 const FEATURES = [
-  { icon: 'neurology', title: 'Phân tích AI', desc: 'Nhận diện tình trạng da theo thời gian thực.' },
-  { icon: 'science', title: 'Độ chính xác lâm sàng', desc: 'Chuẩn hóa theo dữ liệu da liễu.' },
-  { icon: 'spa', title: 'Lộ trình cá nhân hóa', desc: 'Gợi ý sản phẩm phù hợp riêng bạn.' },
+  { icon: 'neurology', title: 'Model A loại da', desc: 'Phân loại Dry, Normal hoặc Oily kèm độ tin cậy.' },
+  { icon: 'verified_user', title: 'Kiểm định ảnh đầu vào', desc: 'Chỉ nhận một khuôn mặt rõ, đủ sáng và đúng định dạng.' },
+  { icon: 'spa', title: 'Routine và sản phẩm', desc: 'Đối chiếu thành phần với sản phẩm thật đang còn hàng.' },
 ]
 
 /**
@@ -36,14 +36,14 @@ export default function AuthBranding() {
       <div className="relative z-10 max-w-md">
         <span className="inline-flex items-center gap-1.5 px-3 py-1 mb-5 rounded-full bg-white/60 backdrop-blur-sm border border-white/70 text-caption text-tertiary">
           <Icon name="auto_awesome" filled className="text-[15px]" />
-          Công nghệ phân tích da thế hệ mới
+          Từ ảnh mặt đến routine và sản phẩm
         </span>
 
         <h2 className="text-headline-lg xl:text-display-hero leading-tight mb-4 text-on-surface">
-          Khai phá <span className="gradient-text">tiềm năng</span> làn da của bạn.
+          Hiểu rõ <span className="gradient-text">loại da</span> trước khi chọn sản phẩm.
         </h2>
         <p className="text-body-md text-on-surface-variant mb-8">
-          Phân tích AI tiên tiến kết hợp độ chính xác lâm sàng để tạo nên lộ trình chăm sóc da riêng cho bạn.
+          AiSkin hỗ trợ phân loại loại da, xây lộ trình nền tảng và tìm sản phẩm theo dữ liệu thành phần. Kết quả không thay thế chẩn đoán y khoa.
         </p>
 
         <ul className="space-y-3">
@@ -63,7 +63,7 @@ export default function AuthBranding() {
 
       {/* Footer */}
       <div className="relative z-10 flex items-center justify-between text-caption text-on-surface-variant">
-        <span>© 2024 AiSkin</span>
+        <span>© 2026 AiSkin</span>
         <span className="flex items-center gap-1.5">
           <Icon name="verified_user" filled className="text-[15px] text-success" />
           Bảo mật & riêng tư

@@ -26,28 +26,16 @@ const translateIssue = (issue) => {
 const getIngredientDescription = (ing) => {
   if (ing.description) return ing.description
 
-  // Dịch riêng các hoạt chất phổ biến để giao diện không bị lặp lại
   const name = ing.name?.toLowerCase() || ''
-  if (name.includes('salicylic acid') || name.includes('bha')) return 'Tẩy tế bào chết sâu trong lỗ chân lông, đẩy lùi mụn ẩn và kiềm dầu hiệu quả.'
-  if (name.includes('niacinamide')) return 'Làm sáng da, mờ thâm mụn, thu nhỏ lỗ chân lông và củng cố hàng rào bảo vệ da.'
-  if (name.includes('vitamin c') || name.includes('ascorbic')) return 'Chống oxy hóa mạnh mẽ, làm sáng da, mờ thâm sạm và kích thích sinh collagen.'
-  if (name.includes('retinol') || name.includes('retinoid')) return 'Kích thích tái tạo tế bào, làm phẳng nếp nhăn, chống lão hóa và hỗ trợ trị mụn.'
-  if (name.includes('hyaluronic acid')) return 'Cấp nước đa tầng, giữ ẩm sâu giúp bề mặt da căng bóng và làm mờ nếp nhăn li ti.'
-  if (name.includes('centella') || name.includes('cica') || name.includes('rau má')) return 'Làm dịu da tức thì, kháng viêm và đẩy nhanh quá trình phục hồi vùng da tổn thương.'
-  if (name.includes('glycolic acid')) return 'AHA mạnh mẽ giúp bạt sừng bề mặt, làm sáng da, mờ thâm nám và chống lão hóa.'
-  if (name.includes('lactic acid')) return 'AHA dịu nhẹ giúp tẩy tế bào chết bề mặt, vừa làm sáng vừa giữ ẩm cho da.'
-  if (name.includes('panthenol') || name.includes('vitamin b5')) return 'Làm dịu da kích ứng, kháng viêm và phục hồi màng bảo vệ da cực kỳ hiệu quả.'
-  if (name.includes('ceramide')) return 'Bổ sung màng bảo vệ da, khóa ẩm và ngăn chặn vi khuẩn, tác nhân gây hại xâm nhập.'
-  if (name.includes('green tea')) return 'Chống oxy hóa, kháng khuẩn và làm dịu vùng da đang bị mụn viêm, mẩn đỏ.'
-  if (name.includes('aloe vera')) return 'Cấp ẩm mỏng nhẹ, làm dịu vùng da cháy nắng hoặc đang kích ứng, phù hợp mọi loại da.'
-  if (name.includes('azelaic acid')) return 'Kháng viêm mạnh, cực kỳ hiệu quả trong việc trị mụn viêm và làm mờ thâm sạm.'
-  if (name.includes('peptide')) return 'Chuỗi axit amin giúp củng cố kết cấu, tăng độ đàn hồi và làm săn chắc da.'
-  if (name.includes('squalane')) return 'Dầu dưỡng mỏng nhẹ, tương thích cao với bã nhờn tự nhiên, khóa ẩm mà không gây bít tắc.'
-  if (name.includes('benzoyl peroxide')) return 'Tiêu diệt vi khuẩn gây mụn, giảm sưng viêm nhanh chóng cho mụn bọc, mụn mủ.'
+  if (name.includes('hyaluronic acid') || name.includes('glycerin')) return 'Nhóm chất hút ẩm thường được dùng để hỗ trợ duy trì độ ẩm bề mặt da.'
+  if (name.includes('ceramide') || name.includes('squalane')) return 'Nhóm thành phần thường có trong sản phẩm hỗ trợ hàng rào bảo vệ và giảm mất ẩm.'
+  if (name.includes('niacinamide')) return 'Thành phần đa chức năng thường được dùng trong sản phẩm hỗ trợ hàng rào da và làm đều màu.'
+  if (name.includes('panthenol') || name.includes('centella')) return 'Thành phần thường xuất hiện trong sản phẩm hướng tới làm dịu và hỗ trợ phục hồi da.'
+  if (name.includes('salicylic acid') || name.includes('glycolic acid') || name.includes('lactic acid')) return 'Hoạt chất tẩy tế bào chết; cần bắt đầu với tần suất thấp và theo dõi phản ứng của da.'
+  if (name.includes('retinol') || name.includes('retinoid')) return 'Nhóm retinoid cần được dùng thận trọng, tăng dần tần suất và chống nắng đầy đủ.'
 
-  // Nếu không có trong từ điển, tự động sinh từ matched_issues
   const mappedIssues = ing.matched_issues?.map(translateIssue).join(', ') || 'cải thiện làn da'
-  return `Thành phần được hệ thống xếp hạng để hỗ trợ mục tiêu ${mappedIssues}.`
+  return `Thành phần được hệ thống quy tắc xếp hạng cho mục tiêu ${mappedIssues}; hiệu quả thực tế còn phụ thuộc công thức và cách sử dụng.`
 }
 
 const mapAiRoutineToSteps = (aiRoutineArray) => {
@@ -314,7 +302,7 @@ export default function RoutinePage() {
         </div>
         <h2 className="text-headline-md text-on-surface mb-4">Bạn chưa có Lộ trình chăm sóc da</h2>
         <p className="text-body-md text-on-surface-variant max-w-md mx-auto mb-8">
-          Hệ thống cần phân tích da của bạn để tạo ra một lộ trình chuyên sâu phù hợp nhất. Vui lòng thực hiện quét da AI để bắt đầu!
+          Hệ thống cần một kết quả phân loại loại da để tạo lộ trình nền tảng. Vui lòng quét da để bắt đầu.
         </p>
         <button
           onClick={() => navigate(PATHS.SCAN)}
@@ -340,7 +328,7 @@ export default function RoutinePage() {
           <div>
             <h1 className="text-headline-lg text-on-surface mb-2">Lộ trình chăm sóc da AI</h1>
             <p className="text-body-md text-on-surface-variant">
-              Cá nhân hóa cho <span className="font-semibold text-primary">{skinType}</span> · Lộ trình chuyên sâu 4–6 tuần
+              Cá nhân hóa cho <span className="font-semibold text-primary">{skinType}</span> · Dựa trên dữ liệu quét hiện có
             </p>
           </div>
         </div>
@@ -359,7 +347,7 @@ export default function RoutinePage() {
         <div>
           <h1 className="text-headline-lg text-on-surface mb-2">Lộ trình chăm sóc da AI</h1>
           <p className="text-body-md text-on-surface-variant">
-            Cá nhân hóa cho <span className="font-semibold text-primary">{skinType}</span> · Lộ trình chuyên sâu 4–6 tuần
+            Cá nhân hóa cho <span className="font-semibold text-primary">{skinType}</span> · Dựa trên dữ liệu quét hiện có
           </p>
         </div>
 
@@ -428,7 +416,7 @@ export default function RoutinePage() {
             <Icon name="auto_awesome" className="text-4xl" />
           </div>
           <p className="text-body-md text-on-surface-variant max-w-sm mb-6">
-            Bản quét này chưa có lộ trình chăm sóc da. Nhấn nút bên dưới để AI tổng hợp dữ liệu và tạo lộ trình chuyên sâu cho bạn.
+            Bản quét này chưa có lộ trình. Hệ thống sẽ dùng loại da và các dấu hiệu có bằng chứng để tạo các bước chăm sóc phù hợp.
           </p>
           <button
             onClick={() => generateRoutineForScan(selectedScanId)}
@@ -515,7 +503,7 @@ export default function RoutinePage() {
               </div>
               <h3 className="text-title-md text-on-surface mb-2 font-bold">Chưa có Gợi ý Mỹ phẩm</h3>
               <p className="text-body-md text-on-surface-variant mb-6 max-w-lg mx-auto">
-                Hãy để AI phân tích sâu hơn kho dữ liệu mỹ phẩm và tìm ra các sản phẩm xịn xò, phù hợp nhất với loại da của bạn trong Lộ trình này.
+                Hệ thống sẽ đối chiếu từng bước, thành phần mục tiêu, nhãn loại da và tồn kho để tìm sản phẩm đang bán phù hợp nhất theo dữ liệu hiện có.
               </p>
               <button
                 onClick={handleGenerateRecommendations}
@@ -648,14 +636,20 @@ export default function RoutinePage() {
             </button>
             
             <div className="h-48 md:h-64 bg-gray-50 flex-shrink-0 relative border-b border-gray-100">
-              <img 
-                src={quickViewProduct.imageUrl || `https://images.unsplash.com/photo-1620916566398-39f1143ab7be?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80`} 
-                alt="product" 
-                className="w-full h-full object-contain mix-blend-multiply py-4"
-              />
+              {quickViewProduct.imageUrl ? (
+                <img
+                  src={quickViewProduct.imageUrl}
+                  alt={quickViewProduct.name}
+                  className="w-full h-full object-contain mix-blend-multiply py-4"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-gray-300">
+                  <Icon name="image_not_supported" className="text-5xl" />
+                </div>
+              )}
               {quickViewProduct.match_score && (
                 <div className="absolute bottom-3 left-3 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md flex items-center gap-1">
-                  <Icon name="verified" className="text-[14px]" /> Phù hợp { (quickViewProduct.match_score * 100).toFixed(0) }%
+                  <Icon name="science" className="text-[14px]" /> Khớp thành phần { (quickViewProduct.match_score * 100).toFixed(0) }%
                 </div>
               )}
             </div>
