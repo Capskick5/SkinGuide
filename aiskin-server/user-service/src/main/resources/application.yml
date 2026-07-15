@@ -31,7 +31,8 @@ eureka:
     service-url:
       defaultZone: ${EUREKA_URI}
   instance:
-    prefer-ip-address: true
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:127.0.0.1}
+    prefer-ip-address: false
 
 # JWT / Auth configuration
 app:

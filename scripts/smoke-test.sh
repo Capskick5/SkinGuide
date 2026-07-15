@@ -10,7 +10,8 @@ check() {
   local method="${4:-GET}"
   local code
   for attempt in {1..5}; do
-    code="$(curl -sS -X "$method" -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)"
+    code="$(curl -sS --connect-timeout 2 --max-time 8 -X "$method" \
+      -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)"
     [[ "$code" == "$expected" ]] && break
     sleep 2
   done
