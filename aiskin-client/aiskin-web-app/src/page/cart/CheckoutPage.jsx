@@ -353,7 +353,7 @@ function AddressStep({ formData, savedAddress, isEditing, savingAddress, onChang
   )
 }
 
-function PaymentMethodStep({ selectedMethod, onSelect, onBack, onNext }) {
+function PaymentMethodStep({ selectedMethod, availability, onSelect, onBack, onNext }) {
   const methods = [
     {
       id: 'COD',
@@ -362,6 +362,14 @@ function PaymentMethodStep({ selectedMethod, onSelect, onBack, onNext }) {
       icon: 'local_shipping',
       badge: 'Truyền thống',
       accent: 'border-primary bg-primary/5 text-primary',
+    },
+    {
+      id: 'MOMO',
+      label: 'Ví điện tử MoMo',
+      desc: 'Thanh toán qua cổng MoMo',
+      icon: 'account_balance_wallet',
+      badge: 'Trực tuyến',
+      accent: 'border-pink-600 bg-pink-50 text-pink-700',
     },
     {
       id: 'VNPAY',
@@ -386,13 +394,15 @@ function PaymentMethodStep({ selectedMethod, onSelect, onBack, onNext }) {
       <div className="space-y-3">
         {methods.map((method) => {
           const active = selectedMethod === method.id
+          const available = availability?.[method.id] !== false
           return (
             <button
               key={method.id}
               type="button"
-              onClick={() => onSelect(method.id)}
+              onClick={() => available && onSelect(method.id)}
+              disabled={!available}
               className={[
-                'flex w-full items-center gap-4 rounded-lg border-2 p-4 text-left transition-all',
+                'flex w-full items-center gap-4 rounded-lg border-2 p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50',
                 active ? method.accent : 'border-border-pink bg-white hover:border-primary/40',
               ].join(' ')}
             >
@@ -402,7 +412,9 @@ function PaymentMethodStep({ selectedMethod, onSelect, onBack, onNext }) {
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2 font-bold text-on-surface">
                   {method.label}
-                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant">{method.badge}</span>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant">
+                    {available ? method.badge : 'Chưa cấu hình'}
+                  </span>
                 </span>
                 <span className="mt-1 block text-sm text-on-surface-variant">{method.desc}</span>
               </span>
@@ -417,7 +429,7 @@ function PaymentMethodStep({ selectedMethod, onSelect, onBack, onNext }) {
           <Icon name="arrow_back" className="text-xl" />
           Quay lại
         </button>
-        <button type="button" onClick={onNext} disabled={!selectedMethod} className="flex h-12 items-center justify-center gap-2 rounded-lg bg-primary font-bold text-white transition hover:bg-tertiary disabled:cursor-not-allowed disabled:opacity-50">
+        <button type="button" onClick={onNext} disabled={!selectedMethod || availability?.[selectedMethod] === false} className="flex h-12 items-center justify-center gap-2 rounded-lg bg-primary font-bold text-white transition hover:bg-tertiary disabled:cursor-not-allowed disabled:opacity-50">
           Xác nhận
           <Icon name="arrow_forward" className="text-xl" />
         </button>
@@ -542,7 +554,8 @@ export default function CheckoutPage() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [savingAddress, setSavingAddress] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState('MOMO')
+  const [paymentMethod, setPaymentMethod] = useState('COD')
+  const [paymentAvailability, setPaymentAvailability] = useState({ COD: true, MOMO: false, VNPAY: false })
   const [savedAddress, setSavedAddress] = useState(initialSavedAddress)
   const [isEditingAddress, setIsEditingAddress] = useState(!initialSavedAddress)
   const [formData, setFormData] = useState({
@@ -559,6 +572,18 @@ export default function CheckoutPage() {
     shippingFee: 0,
     ...initialSavedAddress,
   })
+
+  useEffect(() => {
+    let cancelled = false
+    httpClient.get('/orders/payment/methods')
+      .then((availability) => {
+        if (!cancelled && availability) setPaymentAvailability(availability)
+      })
+      .catch((error) => console.error('Không tải được phương thức thanh toán', error))
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleChange = useCallback((event) => {
     setFormData((current) => ({ ...current, [event.target.name]: event.target.value }))
@@ -621,9 +646,9 @@ export default function CheckoutPage() {
         headers: { 'Idempotency-Key': idempotencyKeyRef.current },
       })
 
-      if (paymentMethod === 'VNPAY') {
+      if (paymentMethod === 'VNPAY' || paymentMethod === 'MOMO') {
         if (!result?.paymentUrl) {
-          throw new Error('VNPAY chưa trả về đường dẫn thanh toán. Kiểm tra config trong .env và log order-service.')
+          throw new Error('Cổng thanh toán chưa trả về đường dẫn. Vui lòng thử lại hoặc chọn COD.')
         }
         window.location.href = result.paymentUrl
         return
@@ -684,7 +709,15 @@ export default function CheckoutPage() {
                 onNext={handleAddressNext}
               />
             ) : null}
-            {step === 2 ? <PaymentMethodStep selectedMethod={paymentMethod} onSelect={setPaymentMethod} onBack={() => setStep(1)} onNext={() => setStep(3)} /> : null}
+            {step === 2 ? (
+              <PaymentMethodStep
+                selectedMethod={paymentMethod}
+                availability={paymentAvailability}
+                onSelect={setPaymentMethod}
+                onBack={() => setStep(1)}
+                onNext={() => setStep(3)}
+              />
+            ) : null}
             {step === 3 ? <ConfirmStep formData={formData} items={items} paymentMethod={paymentMethod} onBack={() => setStep(2)} onConfirm={handlePlaceOrder} loading={loading} /> : null}
           </section>
         </main>

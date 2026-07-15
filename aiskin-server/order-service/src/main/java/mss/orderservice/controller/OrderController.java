@@ -5,16 +5,22 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import mss.orderservice.dto.OrderRequest;
 import mss.orderservice.dto.OrderResponse;
+import mss.orderservice.dto.PaymentProcessingResult;
+import mss.orderservice.model.Order;
 import mss.orderservice.service.DashboardService;
 import mss.orderservice.service.OrderService;
+import mss.orderservice.service.PaymentConfigurationValidator;
 import mss.orderservice.service.PaymentWebhookVerifier;
 import mss.orderservice.security.OrderAuthorizationService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
@@ -27,6 +33,7 @@ public class OrderController {
     private final DashboardService dashboardService;
     private final OrderAuthorizationService authorizationService;
     private final PaymentWebhookVerifier paymentWebhookVerifier;
+    private final PaymentConfigurationValidator paymentConfigurationValidator;
 
     @PostMapping
     @Operation(summary = "Create a new order", description = "Creates an order and returns payment URL if applicable")
@@ -61,22 +68,25 @@ public class OrderController {
     @PostMapping("/payment/momo-ipn")
     @Operation(summary = "MoMo IPN Callback", description = "Server-to-server callback for Momo payment status")
     public ResponseEntity<?> momoIpn(@RequestBody Map<String, Object> requestBody) {
-        String orderId = (String) requestBody.get("orderId");
-        Integer resultCode = parseResultCode(requestBody.get("resultCode"));
-
-        if (orderId == null || resultCode == null) {
-            return ResponseEntity.badRequest().body("orderId and resultCode are required");
-        }
-        if (!paymentWebhookVerifier.verifyMomo(requestBody)) {
-            return ResponseEntity.status(401).body("Invalid MoMo signature");
-        }
-        Long amount = parseLong(requestBody.get("amount"));
-        if (amount == null) {
-            return ResponseEntity.badRequest().body("amount is required");
-        }
-        orderService.processMomoIpn(orderId, resultCode, amount);
-        
+        processMomoNotification(requestBody);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/payment/methods")
+    @Operation(summary = "Get payment method availability")
+    public ResponseEntity<?> getPaymentMethods() {
+        return ResponseEntity.ok(Map.of(
+                "COD", true,
+                "MOMO", paymentConfigurationValidator.isMomoConfigured(),
+                "VNPAY", paymentConfigurationValidator.isVnpayConfigured()));
+    }
+
+    @PostMapping("/payment/momo-return")
+    @Operation(summary = "Verify MoMo browser return", description = "Verifies signed redirect data before showing payment result")
+    public ResponseEntity<?> momoReturn(@RequestBody Map<String, Object> requestBody) {
+        String orderCode = stringValue(requestBody.get("orderId"));
+        PaymentProcessingResult result = processMomoNotification(requestBody);
+        return ResponseEntity.ok(paymentReturnBody(orderCode, result));
     }
     
     @GetMapping("/payment/vnpay-ipn")
@@ -84,15 +94,90 @@ public class OrderController {
     public ResponseEntity<?> vnpayIpn(@RequestParam Map<String, String> requestParams) {
         String orderId = requestParams.get("vnp_TxnRef");
         String responseCode = requestParams.get("vnp_ResponseCode");
-        if (orderId == null || responseCode == null || !paymentWebhookVerifier.verifyVnpay(requestParams)) {
-            return ResponseEntity.status(401).body("{\"RspCode\":\"97\",\"Message\":\"Invalid signature\"}");
+        String transactionStatus = requestParams.get("vnp_TransactionStatus");
+        if (orderId == null
+                || responseCode == null
+                || transactionStatus == null
+                || !paymentWebhookVerifier.verifyVnpay(requestParams)) {
+            return ResponseEntity.ok(vnpayResponse("97", "Invalid signature", null));
         }
         Long amount = parseLong(requestParams.get("vnp_Amount"));
         if (amount == null) {
-            return ResponseEntity.badRequest().body("{\"RspCode\":\"01\",\"Message\":\"Invalid amount\"}");
+            return ResponseEntity.ok(vnpayResponse("04", "Invalid amount", null));
         }
-        orderService.processVnpayIpn(orderId, responseCode, amount);
-        return ResponseEntity.ok("{\"RspCode\":\"00\",\"Message\":\"Confirm Success\"}");
+        try {
+            PaymentProcessingResult result = orderService.processVnpayIpn(
+                    orderId,
+                    responseCode,
+                    transactionStatus,
+                    amount,
+                    requestParams.get("vnp_TransactionNo"));
+            String rspCode = result.alreadyProcessed() ? "02" : "00";
+            String message = result.alreadyProcessed() ? "Order already confirmed" : "Confirm Success";
+            return ResponseEntity.ok(vnpayResponse(rspCode, message, result));
+        } catch (ResponseStatusException exception) {
+            if (exception.getStatusCode().value() == 404) {
+                return ResponseEntity.ok(vnpayResponse("01", "Order not found", null));
+            }
+            if (exception.getStatusCode().value() == 400
+                    && exception.getReason() != null
+                    && exception.getReason().contains("Số tiền")) {
+                return ResponseEntity.ok(vnpayResponse("04", "Invalid amount", null));
+            }
+            if (exception.getStatusCode().value() == 409) {
+                return ResponseEntity.ok(vnpayResponse("02", "Order cannot be updated", null));
+            }
+            return ResponseEntity.ok(vnpayResponse("99", "Unknown error", null));
+        }
+    }
+
+    private PaymentProcessingResult processMomoNotification(Map<String, Object> requestBody) {
+        String orderId = stringValue(requestBody.get("orderId"));
+        Integer resultCode = parseResultCode(requestBody.get("resultCode"));
+        Long amount = parseLong(requestBody.get("amount"));
+        if (orderId == null || resultCode == null || amount == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "orderId, resultCode và amount là bắt buộc");
+        }
+        if (!paymentWebhookVerifier.verifyMomo(requestBody)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Chữ ký MoMo không hợp lệ");
+        }
+        return orderService.processMomoIpn(
+                orderId,
+                resultCode,
+                amount,
+                stringValue(requestBody.get("transId")));
+    }
+
+    private Map<String, Object> paymentReturnBody(String orderCode, PaymentProcessingResult result) {
+        return Map.of(
+                "orderCode", orderCode,
+                "paymentStatus", result.paymentStatus().name(),
+                "confirmed", result.paymentStatus() == Order.PaymentStatus.PAID
+                        || result.paymentStatus() == Order.PaymentStatus.REFUNDED);
+    }
+
+    private Map<String, Object> vnpayResponse(
+            String rspCode,
+            String message,
+            PaymentProcessingResult result) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("RspCode", rspCode);
+        response.put("Message", message);
+        if (result != null) {
+            response.put("paymentStatus", result.paymentStatus().name());
+        }
+        return response;
+    }
+
+    private String stringValue(Object value) {
+        if (value == null || value.toString().isBlank()) {
+            return null;
+        }
+        return value.toString();
     }
 
     private Integer parseResultCode(Object value) {

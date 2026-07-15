@@ -9,6 +9,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,6 +31,7 @@ public class Order {
     @Id
     private String id;
     
+    @Indexed(unique = true)
     private String orderCode; // E.g., ORD-123456
     private String idempotencyKey;
     
@@ -54,6 +56,8 @@ public class Order {
     private OrderStatus status;
     private PaymentMethod paymentMethod; // COD, MOMO, VNPAY
     private PaymentStatus paymentStatus; // UNPAID, PAID, FAILED, REFUNDED
+    private String paymentTransactionId;
+    private LocalDateTime paidAt;
     
     private String cancelReason;
 

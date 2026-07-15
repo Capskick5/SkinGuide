@@ -6,27 +6,33 @@ import mss.orderservice.config.VnpayConfig;
 import mss.orderservice.utils.VnpayUtils;
 import org.springframework.stereotype.Service;
 
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Map;
-import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 @Service
 public class PaymentWebhookVerifier {
 
     private final MomoConfig momoConfig;
     private final VnpayConfig vnpayConfig;
+    private final PaymentConfigurationValidator configurationValidator;
 
-    public PaymentWebhookVerifier(MomoConfig momoConfig, VnpayConfig vnpayConfig) {
+    public PaymentWebhookVerifier(
+            MomoConfig momoConfig,
+            VnpayConfig vnpayConfig,
+            PaymentConfigurationValidator configurationValidator) {
         this.momoConfig = momoConfig;
         this.vnpayConfig = vnpayConfig;
+        this.configurationValidator = configurationValidator;
     }
 
     public boolean verifyMomo(Map<String, Object> payload) {
+        if (!configurationValidator.isMomoConfigured()) {
+            return false;
+        }
         String supplied = value(payload.get("signature"));
-        if (supplied.isBlank()) {
+        String partnerCode = value(payload.get("partnerCode"));
+        if (supplied.isBlank() || !constantTimeEquals(momoConfig.getPartnerCode(), partnerCode)) {
             return false;
         }
         String raw = "accessKey=" + momoConfig.getAccessKey()
@@ -47,23 +53,24 @@ public class PaymentWebhookVerifier {
     }
 
     public boolean verifyVnpay(Map<String, String> payload) {
+        if (!configurationValidator.isVnpayConfigured()) {
+            return false;
+        }
         String supplied = payload.getOrDefault("vnp_SecureHash", "");
         if (supplied.isBlank()) {
             return false;
         }
-        Map<String, String> signedFields = new TreeMap<>(payload);
+        String terminalCode = payload.get("vnp_TmnCode");
+        if (terminalCode != null && !constantTimeEquals(vnpayConfig.getTmnCode(), terminalCode)) {
+            return false;
+        }
+        Map<String, String> signedFields = new java.util.HashMap<>(payload);
         signedFields.remove("vnp_SecureHash");
         signedFields.remove("vnp_SecureHashType");
-        String canonical = signedFields.entrySet().stream()
-                .filter(entry -> entry.getValue() != null && !entry.getValue().isEmpty())
-                .map(entry -> encode(entry.getKey()) + "=" + encode(entry.getValue()))
-                .collect(Collectors.joining("&"));
-        String expected = VnpayUtils.hmacSHA512(vnpayConfig.getHashSecret().trim(), canonical);
+        String expected = VnpayUtils.hmacSHA512(
+                vnpayConfig.getHashSecret().trim(),
+                VnpayUtils.canonicalize(signedFields));
         return constantTimeEquals(expected.toLowerCase(), supplied.toLowerCase());
-    }
-
-    private String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.US_ASCII);
     }
 
     private String value(Object value) {

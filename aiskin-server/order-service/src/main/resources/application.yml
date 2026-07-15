@@ -20,6 +20,9 @@ app:
   jwt:
     secret: ${JWT_SECRET}
     issuer: aiskin-user-service
+  http:
+    connect-timeout: ${HTTP_CONNECT_TIMEOUT:5s}
+    read-timeout: ${HTTP_READ_TIMEOUT:15s}
 
 eureka:
   client:
@@ -40,12 +43,12 @@ springdoc:
     path: /v3/api-docs
 
 momo:
-  endpoint: https://test-payment.momo.vn/v2/gateway/api/create
-  partnerCode: ${MOMO_PARTNER_CODE}
-  accessKey: ${MOMO_ACCESS_KEY}
-  secretKey: ${MOMO_SECRET_KEY}
-  returnUrl: http://localhost:5173/payment/momo-return
-  notifyUrl: ${MOMO_NOTIFY_URL}
+  endpoint: ${MOMO_ENDPOINT:https://test-payment.momo.vn/v2/gateway/api/create}
+  partnerCode: ${MOMO_PARTNER_CODE:}
+  accessKey: ${MOMO_ACCESS_KEY:}
+  secretKey: ${MOMO_SECRET_KEY:}
+  returnUrl: ${MOMO_RETURN_URL:http://localhost:5174/payment/momo-return}
+  notifyUrl: ${MOMO_NOTIFY_URL:}
 
 ghn:
   api-url: ${GHN_API_URL:https://dev-online-gateway.ghn.vn/shiip/public-api/v2}
@@ -54,10 +57,10 @@ ghn:
   webhook-secret: ${GHN_WEBHOOK_SECRET:${INTERNAL_SERVICE_TOKEN:${JWT_SECRET}}}
 
 vnpay:
-  tmnCode: ${VNPAY_TMN_CODE:QY5D4FFD}
-  hashSecret: ${VNPAY_HASH_SECRET:619Y7IGXCOH01PV7MKQNT00T8KGJ0O3D}
+  tmnCode: ${VNPAY_TMN_CODE:}
+  hashSecret: ${VNPAY_HASH_SECRET:}
   url: ${VNPAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
-  returnUrl: ${VNPAY_RETURN_URL:http://localhost:5173/payment/vnpay-return}
+  returnUrl: ${VNPAY_RETURN_URL:http://localhost:5174/payment/vnpay-return}
   apiUrl: ${VNPAY_API_URL:https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
 
 product-service:

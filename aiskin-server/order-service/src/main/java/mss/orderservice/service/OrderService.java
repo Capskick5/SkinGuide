@@ -8,6 +8,7 @@ import mss.orderservice.dto.MomoPaymentRequest;
 import mss.orderservice.dto.MomoPaymentResponse;
 import mss.orderservice.dto.OrderRequest;
 import mss.orderservice.dto.OrderResponse;
+import mss.orderservice.dto.PaymentProcessingResult;
 import mss.orderservice.dto.ProductInventoryApiResponse;
 import mss.orderservice.dto.ProductInventoryItemRequest;
 import mss.orderservice.dto.ProductInventoryItemResponse;
@@ -31,6 +32,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -42,10 +46,14 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class OrderService {
 
+    private static final ZoneId VIETNAM_TIME_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final DateTimeFormatter VNPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
     private final OrderRepository orderRepository;
     private final MomoConfig momoConfig;
     private final VnpayConfig vnpayConfig;
     private final GhnService ghnService;
+    private final PaymentConfigurationValidator paymentConfigurationValidator;
     private final RestTemplate restTemplate;
     private final String productServiceBaseUrl;
     private final String internalServiceToken;
@@ -54,6 +62,7 @@ public class OrderService {
                         MomoConfig momoConfig,
                         VnpayConfig vnpayConfig,
                         GhnService ghnService,
+                        PaymentConfigurationValidator paymentConfigurationValidator,
                         RestTemplate restTemplate,
                         @Value("${product-service.base-url}") String productServiceBaseUrl,
                         @Value("${product-service.internal-token}") String internalServiceToken) {
@@ -61,6 +70,7 @@ public class OrderService {
         this.momoConfig = momoConfig;
         this.vnpayConfig = vnpayConfig;
         this.ghnService = ghnService;
+        this.paymentConfigurationValidator = paymentConfigurationValidator;
         this.restTemplate = restTemplate;
         this.productServiceBaseUrl = productServiceBaseUrl;
         this.internalServiceToken = internalServiceToken;
@@ -70,6 +80,7 @@ public class OrderService {
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng phải có ít nhất một sản phẩm");
         }
+        requirePaymentMethodConfigured(request.getPaymentMethod());
 
         Order existingOrder = orderRepository
                 .findByCustomerIdAndIdempotencyKey(request.getCustomerId(), idempotencyKey)
@@ -135,6 +146,14 @@ public class OrderService {
                 .status(order.getStatus().name())
                 .paymentUrl(paymentUrl)
                 .build();
+    }
+
+    private void requirePaymentMethodConfigured(Order.PaymentMethod paymentMethod) {
+        if (paymentMethod == Order.PaymentMethod.MOMO) {
+            paymentConfigurationValidator.requireMomoConfigured();
+        } else if (paymentMethod == Order.PaymentMethod.VNPAY) {
+            paymentConfigurationValidator.requireVnpayConfigured();
+        }
     }
 
     private BigDecimal resolveShippingFee(OrderRequest request) {
@@ -272,9 +291,10 @@ public class OrderService {
     }
 
     private String generateMomoPaymentUrl(Order order) {
+        paymentConfigurationValidator.requireMomoConfigured();
         String requestId = String.valueOf(System.currentTimeMillis());
         String orderId = order.getOrderCode();
-        long amount = order.getTotalAmount().longValue();
+        long amount = order.getTotalAmount().longValueExact();
         String orderInfo = "Thanh toan don hang " + orderId;
         String redirectUrl = momoConfig.getReturnUrl();
         String ipnUrl = momoConfig.getNotifyUrl();
@@ -320,103 +340,68 @@ public class OrderService {
                     MomoPaymentResponse.class
             );
 
-            if (response != null && response.getPayUrl() != null) {
+            if (response != null
+                    && Integer.valueOf(0).equals(response.getResultCode())
+                    && response.getPayUrl() != null
+                    && !response.getPayUrl().isBlank()) {
                 return response.getPayUrl();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+            log.warn("MoMo rejected payment initialization for order {} with resultCode {}",
+                    orderId,
+                    response == null ? null : response.getResultCode());
+        } catch (Exception exception) {
+            log.error("MoMo payment initialization failed for order {}", orderId, exception);
         }
-
-        return "";
+        throw new ResponseStatusException(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Không thể khởi tạo thanh toán MoMo lúc này");
     }
 
     private String generateVnpayPaymentUrl(Order order) {
-        String vnp_Version = "2.1.0";
-        String vnp_Command = "pay";
-        String orderType = "other";
-        long amount = order.getTotalAmount().longValue() * 100;
+        paymentConfigurationValidator.requireVnpayConfigured();
+        long amount = order.getTotalAmount().movePointRight(2).longValueExact();
+        LocalDateTime createdAt = LocalDateTime.now(VIETNAM_TIME_ZONE);
 
-        String vnp_TxnRef = order.getOrderCode();
-        
-        String vnp_IpAddr = "113.168.1.1"; // Default public IP
+        Map<String, String> parameters = new HashMap<>();
+        parameters.put("vnp_Version", "2.1.0");
+        parameters.put("vnp_Command", "pay");
+        parameters.put("vnp_TmnCode", vnpayConfig.getTmnCode().trim());
+        parameters.put("vnp_Amount", String.valueOf(amount));
+        parameters.put("vnp_CurrCode", "VND");
+        parameters.put("vnp_TxnRef", order.getOrderCode());
+        parameters.put("vnp_OrderInfo", "ThanhToanDonHang_" + order.getOrderCode());
+        parameters.put("vnp_OrderType", "210000");
+        parameters.put("vnp_Locale", "vn");
+        parameters.put("vnp_ReturnUrl", vnpayConfig.getReturnUrl().trim());
+        parameters.put("vnp_IpAddr", resolveVnpayClientIp());
+        parameters.put("vnp_CreateDate", createdAt.format(VNPAY_DATE_FORMAT));
+        parameters.put("vnp_ExpireDate", createdAt.plusMinutes(15).format(VNPAY_DATE_FORMAT));
+
+        String query = VnpayUtils.canonicalize(parameters);
+        String secureHash = VnpayUtils.hmacSHA512(vnpayConfig.getHashSecret().trim(), query);
+        String separator = vnpayConfig.getUrl().contains("?") ? "&" : "?";
+        return vnpayConfig.getUrl().trim() + separator + query + "&vnp_SecureHash=" + secureHash;
+    }
+
+    private String resolveVnpayClientIp() {
+        String clientIp = "113.168.1.1";
         try {
-            org.springframework.web.context.request.ServletRequestAttributes attrs = 
-                (org.springframework.web.context.request.ServletRequestAttributes) org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
-            if (attrs != null) {
-                jakarta.servlet.http.HttpServletRequest req = attrs.getRequest();
-                vnp_IpAddr = req.getHeader("X-FORWARDED-FOR");
-                if (vnp_IpAddr == null || vnp_IpAddr.isEmpty()) {
-                    vnp_IpAddr = req.getRemoteAddr();
-                }
-                if (vnp_IpAddr != null && vnp_IpAddr.contains(",")) {
-                    vnp_IpAddr = vnp_IpAddr.split(",")[0].trim();
-                }
-                if ("0:0:0:0:0:0:0:1".equals(vnp_IpAddr) || "127.0.0.1".equals(vnp_IpAddr)) {
-                    vnp_IpAddr = "113.168.1.1"; // Mock public IP to satisfy VNPay firewall if local
+            org.springframework.web.context.request.ServletRequestAttributes attributes =
+                    (org.springframework.web.context.request.ServletRequestAttributes)
+                            org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                String remoteAddress = attributes.getRequest().getRemoteAddr();
+                if (remoteAddress != null && !remoteAddress.isBlank()) {
+                    clientIp = remoteAddress;
                 }
             }
-        } catch (Exception ignored) {}
-
-        String secretKey = vnpayConfig.getHashSecret().replace("\"", "").replace("'", "").trim();
-        String tmnCode = vnpayConfig.getTmnCode().replace("\"", "").replace("'", "").trim();
-        String returnUrl = vnpayConfig.getReturnUrl().replace("\"", "").replace("'", "").trim();
-        String baseUrl = vnpayConfig.getUrl().replace("\"", "").replace("'", "").trim();
-
-        java.util.Map<String, String> vnp_Params = new java.util.HashMap<>();
-        vnp_Params.put("vnp_Version", vnp_Version);
-        vnp_Params.put("vnp_Command", vnp_Command);
-        vnp_Params.put("vnp_TmnCode", tmnCode);
-        vnp_Params.put("vnp_Amount", String.valueOf(amount));
-        vnp_Params.put("vnp_CurrCode", "VND");
-        vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
-        vnp_Params.put("vnp_OrderInfo", "ThanhToanDonHang_" + vnp_TxnRef);
-        vnp_Params.put("vnp_OrderType", orderType);
-        vnp_Params.put("vnp_Locale", "vn");
-        vnp_Params.put("vnp_ReturnUrl", returnUrl);
-        vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
-
-        java.util.Calendar cld = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
-        java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("yyyyMMddHHmmss");
-        String vnp_CreateDate = formatter.format(cld.getTime());
-        vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
-        
-        cld.add(java.util.Calendar.MINUTE, 15);
-        String vnp_ExpireDate = formatter.format(cld.getTime());
-        vnp_Params.put("vnp_ExpireDate", vnp_ExpireDate);
-
-        java.util.List<String> fieldNames = new java.util.ArrayList<>(vnp_Params.keySet());
-        java.util.Collections.sort(fieldNames);
-        StringBuilder hashData = new StringBuilder();
-        StringBuilder query = new StringBuilder();
-        java.util.Iterator<String> itr = fieldNames.iterator();
-        while (itr.hasNext()) {
-            String fieldName = (String) itr.next();
-            String fieldValue = (String) vnp_Params.get(fieldName);
-            if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                try {
-                    String encodedValue = java.net.URLEncoder.encode(fieldValue, java.nio.charset.StandardCharsets.US_ASCII.toString());
-                    hashData.append(fieldName);
-                    hashData.append('=');
-                    hashData.append(encodedValue);
-                    query.append(java.net.URLEncoder.encode(fieldName, java.nio.charset.StandardCharsets.US_ASCII.toString()));
-                    query.append('=');
-                    query.append(encodedValue);
-                } catch (java.io.UnsupportedEncodingException e) {
-                    e.printStackTrace();
-                }
-                if (itr.hasNext()) {
-                    query.append('&');
-                    hashData.append('&');
-                }
-            }
+        } catch (RuntimeException exception) {
+            log.debug("Cannot resolve client IP for VNPay", exception);
         }
-        String queryUrl = query.toString();
-        String vnp_SecureHash = VnpayUtils.hmacSHA512(secretKey, hashData.toString());
-        queryUrl += "&vnp_SecureHash=" + vnp_SecureHash;
-        String paymentUrl = baseUrl + "?" + queryUrl;
-        
-        System.out.println(">>> VNPAY PAYMENT URL GENERATED: " + paymentUrl);
-        return paymentUrl;
+        if ("0:0:0:0:0:0:0:1".equals(clientIp) || "127.0.0.1".equals(clientIp)) {
+            return "113.168.1.1";
+        }
+        return clientIp;
     }
     
     public OrderResponse cancelOrder(String orderId, String cancelReason) {
@@ -447,15 +432,22 @@ public class OrderService {
                 .build();
     }
 
-    public void processMomoIpn(String orderId, Integer resultCode, long amount) {
+    public PaymentProcessingResult processMomoIpn(
+            String orderId,
+            int resultCode,
+            long amount,
+            String transactionId) {
         Order order = findPaymentOrder(orderId, Order.PaymentMethod.MOMO);
         validatePaymentAmount(order, BigDecimal.valueOf(amount));
-        if (order.getPaymentStatus() == Order.PaymentStatus.PAID) {
-            return;
+        if (order.getPaymentStatus() != Order.PaymentStatus.UNPAID) {
+            return existingPaymentResult(order);
         }
         if (resultCode == 0) {
             rejectLatePayment(order);
+            String verifiedTransactionId = requireTransactionId(transactionId);
             order.setPaymentStatus(Order.PaymentStatus.PAID);
+            order.setPaymentTransactionId(verifiedTransactionId);
+            order.setPaidAt(LocalDateTime.now());
             order.addStatusHistory(Order.OrderStatus.PROCESSING, "Thanh toán thành công qua MoMo");
         } else {
             order.setPaymentStatus(Order.PaymentStatus.FAILED);
@@ -463,27 +455,47 @@ public class OrderService {
             releaseInventoryIfNeeded(order);
         }
         orderRepository.save(order);
+        return new PaymentProcessingResult(order.getPaymentStatus(), false);
     }
 
-    public void processVnpayIpn(String orderId, String responseCode, long amountTimes100) {
+    public PaymentProcessingResult processVnpayIpn(
+            String orderId,
+            String responseCode,
+            String transactionStatus,
+            long amountTimes100,
+            String transactionId) {
         Order order = findPaymentOrder(orderId, Order.PaymentMethod.VNPAY);
         validatePaymentAmount(order, BigDecimal.valueOf(amountTimes100, 2));
-        
-        if ("00".equals(responseCode)) {
-            if (order.getPaymentStatus() != Order.PaymentStatus.PAID) {
-                rejectLatePayment(order);
-                order.setPaymentStatus(Order.PaymentStatus.PAID);
-                order.addStatusHistory(Order.OrderStatus.PROCESSING, "Thanh toán thành công qua VNPay");
-                order.setUpdatedAt(LocalDateTime.now());
-                orderRepository.save(order);
-            }
-        } else if (order.getPaymentStatus() != Order.PaymentStatus.PAID) {
+        if (order.getPaymentStatus() != Order.PaymentStatus.UNPAID) {
+            return existingPaymentResult(order);
+        }
+
+        if ("00".equals(responseCode) && "00".equals(transactionStatus)) {
+            rejectLatePayment(order);
+            String verifiedTransactionId = requireTransactionId(transactionId);
+            order.setPaymentStatus(Order.PaymentStatus.PAID);
+            order.setPaymentTransactionId(verifiedTransactionId);
+            order.setPaidAt(LocalDateTime.now());
+            order.addStatusHistory(Order.OrderStatus.PROCESSING, "Thanh toán thành công qua VNPay");
+        } else {
             order.setPaymentStatus(Order.PaymentStatus.FAILED);
             order.addStatusHistory(Order.OrderStatus.CANCELLED, "Thanh toán VNPay thất bại");
             releaseInventoryIfNeeded(order);
-            order.setUpdatedAt(LocalDateTime.now());
-            orderRepository.save(order);
         }
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+        return new PaymentProcessingResult(order.getPaymentStatus(), false);
+    }
+
+    private PaymentProcessingResult existingPaymentResult(Order order) {
+        return new PaymentProcessingResult(order.getPaymentStatus(), true);
+    }
+
+    private String requireTransactionId(String transactionId) {
+        if (transactionId == null || transactionId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Thiếu mã giao dịch thanh toán");
+        }
+        return transactionId.trim();
     }
 
     private Order findPaymentOrder(String orderCode, Order.PaymentMethod expectedMethod) {
@@ -502,7 +514,8 @@ public class OrderService {
     }
 
     private void rejectLatePayment(Order order) {
-        if (order.getStatus() == Order.OrderStatus.CANCELLED || !Boolean.TRUE.equals(order.getInventoryReserved())) {
+        if (order.getStatus() == Order.OrderStatus.CANCELLED
+                || !Boolean.TRUE.equals(order.getInventoryReserved())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng đã hết hạn hoặc đã hủy");
         }
     }
