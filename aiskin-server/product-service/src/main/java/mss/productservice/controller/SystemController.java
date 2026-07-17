@@ -24,7 +24,7 @@ public class SystemController {
     }
 
     @GetMapping("/endpoints")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission('/api/products/system/endpoints', 'GET')")
     public List<Map<String, String>> getEndpoints() {
         List<Map<String, String>> endpoints = new ArrayList<>();
         handlerMapping.getHandlerMethods().forEach((info, method) -> {

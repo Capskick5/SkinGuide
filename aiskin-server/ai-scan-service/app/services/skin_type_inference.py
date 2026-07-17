@@ -9,7 +9,7 @@ from PIL import Image
 from torchvision import models, transforms
 
 
-EXPECTED_MODEL = "mobilenet_v2"
+ALLOWED_MODELS = ["mobilenet_v2", "resnet50"]
 EXPECTED_CLASS_NAMES = ["Dry", "Normal", "Oily"]
 EXPECTED_IMAGE_SIZE = 224
 EXPECTED_MEAN = [0.485, 0.456, 0.406]
@@ -33,7 +33,14 @@ class SkinTypeDetector:
         """
         if model_path is None:
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            model_path = os.path.join(base_dir, "models", "skin_type_mobilenetv2_best.pt")
+            resnet_path = os.path.join(base_dir, "models", "skin_type_resnet50_best.pt")
+            mobilenet_path = os.path.join(base_dir, "models", "skin_type_mobilenetv2_best.pt")
+            if os.path.exists(resnet_path):
+                model_path = resnet_path
+            elif os.path.exists(mobilenet_path):
+                model_path = mobilenet_path
+            else:
+                raise FileNotFoundError("Không tìm thấy bất kỳ file trọng số nào (cần resnet50 hoặc mobilenet_v2) trong thư mục models.")
 
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"Không tìm thấy file trọng số loại da tại {model_path}.")
@@ -44,7 +51,7 @@ class SkinTypeDetector:
             self.device = "mps"
         else:
             self.device = "cpu"
-        print("Đang khởi tạo AI phân loại loại da (MobileNetV2)...")
+        print(f"Đang khởi tạo AI phân loại loại da...")
         print(f"Đang nạp bộ nhớ từ: {model_path}...")
         checkpoint = torch.load(model_path, map_location=self.device)
         if not isinstance(checkpoint, dict) or "model_state_dict" not in checkpoint:
@@ -53,8 +60,8 @@ class SkinTypeDetector:
         model_name = checkpoint.get("model")
         class_names = checkpoint.get("class_names")
         preprocessing = checkpoint.get("preprocessing") or {}
-        if model_name != EXPECTED_MODEL:
-            raise ValueError(f"Checkpoint Model A sai kiến trúc: {model_name!r}.")
+        if model_name not in ALLOWED_MODELS:
+            raise ValueError(f"Checkpoint Model A sai kiến trúc: {model_name!r}. Chỉ hỗ trợ: {ALLOWED_MODELS}.")
         if class_names != EXPECTED_CLASS_NAMES:
             raise ValueError(f"Checkpoint Model A sai thứ tự nhãn: {class_names!r}.")
         if preprocessing.get("image_size") != EXPECTED_IMAGE_SIZE:
@@ -83,12 +90,17 @@ class SkinTypeDetector:
             f"{Path(model_path).name}:sha256-{checkpoint_sha256[:12]}:"
             f"epoch-{checkpoint.get('epoch', 'unknown')}"
         )
-        self.model = models.mobilenet_v2(weights=None)
-        self.model.classifier[1] = nn.Linear(self.model.classifier[1].in_features, len(self.class_names))
+        if model_name == "resnet50":
+            self.model = models.resnet50(weights=None)
+            self.model.fc = nn.Linear(self.model.fc.in_features, len(self.class_names))
+        else:
+            self.model = models.mobilenet_v2(weights=None)
+            self.model.classifier[1] = nn.Linear(self.model.classifier[1].in_features, len(self.class_names))
+
         self.model = self.model.to(self.device)
         state_dict = checkpoint["model_state_dict"]
         self.model.load_state_dict(state_dict)
-        print("Nạp bộ nhớ loại da MobileNetV2 thành công!")
+        print(f"Nạp bộ nhớ loại da {model_name} thành công!")
 
         self.model.eval()
 

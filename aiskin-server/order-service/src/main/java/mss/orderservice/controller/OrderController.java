@@ -238,7 +238,7 @@ public class OrderController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission('/api/orders', 'GET')")
     @Operation(summary = "Get all orders", description = "Admin endpoint to fetch all orders in the system with pagination and optional status filter")
     public ResponseEntity<?> getAllOrders(
             @RequestParam(defaultValue = "0") int page,
@@ -248,7 +248,7 @@ public class OrderController {
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission('/api/orders/{id}/status', 'PUT')")
     @Operation(summary = "Update order status", description = "Admin endpoint to update the status of an order")
     public ResponseEntity<?> updateOrderStatus(
             @PathVariable String id,
@@ -279,7 +279,7 @@ public class OrderController {
     }
 
     @PostMapping("/sync-ghn")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission('/api/orders/sync-ghn', 'POST')")
     @Operation(summary = "Đồng bộ GHN thủ công", description = "Đồng bộ trạng thái toàn bộ đơn hàng từ GHN")
     public ResponseEntity<?> syncGhnOrderStatusManual() {
         orderService.syncGhnOrderStatus();
@@ -287,7 +287,7 @@ public class OrderController {
     }
 
     @GetMapping("/admin/dashboard")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission('/api/orders/admin/dashboard', 'GET')")
     @Operation(summary = "Dashboard tài chính", description = "Thống kê doanh thu, chi phí hoàn tiền, chi phí vận chuyển trả hàng")
     public ResponseEntity<?> getFinancialDashboard() {
         return ResponseEntity.ok(dashboardService.getFinancialSummary());

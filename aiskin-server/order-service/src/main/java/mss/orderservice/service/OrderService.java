@@ -724,7 +724,8 @@ public class OrderService {
                     ghnData.put("items", ghnItems);
                     
                     try {
-                        String trackingCode = ghnService.createOrder(ghnData);
+                        Map<String, Object> ghnResponse = ghnService.createOrder(ghnData);
+                        String trackingCode = ghnResponse != null ? (String) ghnResponse.get("order_code") : null;
                         order.setTrackingCode(trackingCode);
                     } catch (Exception e) {
                         log.error("Không thể tạo vận đơn GHN cho đơn {}", order.getOrderCode(), e);
