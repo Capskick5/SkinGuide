@@ -9,27 +9,18 @@ import java.util.Set;
 public final class OrderStatusTransitionPolicy {
 
     private static final Map<Order.OrderStatus, Integer> OUTBOUND_PROGRESS = progressMap(
-            Order.OrderStatus.READY_TO_PICK,
-            Order.OrderStatus.PICKING,
-            Order.OrderStatus.PICKED,
-            Order.OrderStatus.STORING,
-            Order.OrderStatus.SORTING,
-            Order.OrderStatus.TRANSPORTING,
+            Order.OrderStatus.PROCESSING,
             Order.OrderStatus.DELIVERING,
             Order.OrderStatus.DELIVERED);
 
     private static final Map<Order.OrderStatus, Integer> RETURN_PROGRESS = progressMap(
-            Order.OrderStatus.WAITING_TO_RETURN,
-            Order.OrderStatus.RETURN,
-            Order.OrderStatus.RETURN_TRANSPORTING,
-            Order.OrderStatus.RETURNING,
+            Order.OrderStatus.REFUSED,
             Order.OrderStatus.RETURNED);
 
     private static final Set<Order.OrderStatus> TERMINAL = Set.of(
             Order.OrderStatus.DELIVERED,
             Order.OrderStatus.RETURNED,
             Order.OrderStatus.RECEIVED,
-            Order.OrderStatus.REFUSED,
             Order.OrderStatus.CANCELLED);
 
     private OrderStatusTransitionPolicy() {
@@ -44,7 +35,7 @@ public final class OrderStatusTransitionPolicy {
         return switch (current) {
             case PENDING -> next == Order.OrderStatus.PROCESSING
                     || next == Order.OrderStatus.CANCELLED;
-            case PROCESSING -> next == Order.OrderStatus.READY_TO_PICK;
+            case PROCESSING -> next == Order.OrderStatus.DELIVERING;
             default -> false;
         };
     }
@@ -68,18 +59,10 @@ public final class OrderStatusTransitionPolicy {
             return OUTBOUND_PROGRESS.get(next) > OUTBOUND_PROGRESS.get(current);
         }
         if (OUTBOUND_PROGRESS.containsKey(current)) {
-            return next == Order.OrderStatus.DELIVERY_FAIL
-                    || RETURN_PROGRESS.containsKey(next);
-        }
-        if (current == Order.OrderStatus.DELIVERY_FAIL
-                || current == Order.OrderStatus.RETURN_FAIL) {
             return RETURN_PROGRESS.containsKey(next);
         }
         if (RETURN_PROGRESS.containsKey(current) && RETURN_PROGRESS.containsKey(next)) {
             return RETURN_PROGRESS.get(next) > RETURN_PROGRESS.get(current);
-        }
-        if (RETURN_PROGRESS.containsKey(current) && next == Order.OrderStatus.RETURN_FAIL) {
-            return true;
         }
         return false;
     }

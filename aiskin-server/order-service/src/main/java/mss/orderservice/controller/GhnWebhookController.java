@@ -83,67 +83,21 @@ public class GhnWebhookController {
             }
 
             // Ánh xạ trạng thái GHN sang trạng thái Hệ thống
-            Order.OrderStatus newStatus = null;
-            switch (status) {
-                case "ready_to_pick":
-                    newStatus = Order.OrderStatus.READY_TO_PICK;
-                    break;
-                case "picking":
-                    newStatus = Order.OrderStatus.PICKING;
-                    break;
-                case "picked":
-                    newStatus = Order.OrderStatus.PICKED;
-                    break;
-                case "storing":
-                    newStatus = Order.OrderStatus.STORING;
-                    break;
-                case "sorting":
-                    newStatus = Order.OrderStatus.SORTING;
-                    break;
-                case "transporting":
-                    newStatus = Order.OrderStatus.TRANSPORTING;
-                    break;
-                case "delivering":
-                    newStatus = Order.OrderStatus.DELIVERING;
-                    break;
-                case "delivered":
-                case "deliveried":
-                    newStatus = Order.OrderStatus.DELIVERED;
-                    break;
-                case "delivery_fail":
-                    newStatus = Order.OrderStatus.DELIVERY_FAIL;
-                    break;
-                case "waiting_to_return":
-                    newStatus = Order.OrderStatus.WAITING_TO_RETURN;
-                    break;
-                case "return":
-                    newStatus = Order.OrderStatus.RETURN;
-                    break;
-                case "return_transporting":
-                    newStatus = Order.OrderStatus.RETURN_TRANSPORTING;
-                    break;
-                case "returning":
-                    newStatus = Order.OrderStatus.RETURNING;
-                    break;
-                case "return_fail":
-                    newStatus = Order.OrderStatus.RETURN_FAIL;
-                    break;
-                case "returned":
-                    newStatus = Order.OrderStatus.RETURNED;
-                    break;
-                case "cancel":
-                    newStatus = Order.OrderStatus.CANCELLED;
-                    break;
-                default:
-                    log.info("Trạng thái GHN {} không cần map.", status);
-                    break;
-            }
+            Order.OrderStatus newStatus = orderService.mapGhnStatusToSystemStatus(status);
 
             if (newStatus != null) {
-                String description = stringValue(payload.get("Description"));
                 String note = "Webhook cập nhật từ GHN";
-                if (description != null && !description.trim().isEmpty()) {
-                    note = "GHN: " + description;
+                if (newStatus == Order.OrderStatus.REFUSED) {
+                    note = "Khách hàng từ chối nhận hàng";
+                } else if (newStatus == Order.OrderStatus.RETURNED) {
+                    note = "Đã hoàn hàng về kho";
+                } else if (newStatus == Order.OrderStatus.DELIVERED) {
+                    note = "Khách hàng đã thanh toán và giao hàng thành công";
+                } else {
+                    String description = stringValue(payload.get("Description"));
+                    if (description != null && !description.trim().isEmpty()) {
+                        note = "GHN: " + description;
+                    }
                 }
                 orderService.applyShippingStatus(order, newStatus, note);
             }
@@ -186,8 +140,6 @@ public class GhnWebhookController {
             case "storing":
             case "sorting":
             case "transporting":
-                newStatus = ReturnOrder.ReturnStatus.TRANSPORTING;
-                break;
             case "delivering":
                 newStatus = ReturnOrder.ReturnStatus.DELIVERING;
                 break;

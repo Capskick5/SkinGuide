@@ -5,40 +5,38 @@ import httpClient from '@/api/httpClient'
 import { resolveImageUrl } from '@/page/products/productUtils'
 
 const STATUS = {
-  // Nhóm 1: Chờ duyệt
+  // 1. Chờ duyệt
   PENDING: { label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-  // Nhóm 2: Đang chuẩn bị
+  // 2. Đang chuẩn bị
   PROCESSING: { label: 'Đang chuẩn bị', icon: 'inventory_2', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
-  // Nhóm 3: Chờ lấy hàng
-  READY_TO_PICK: { label: 'Chờ lấy hàng', icon: 'outbox', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
-  PICKING: { label: 'Đang lấy hàng', icon: 'outbox', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
-  PICKED: { label: 'Đã lấy hàng', icon: 'outbox', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
-  // Nhóm 4: Đang vận chuyển
-  STORING: { label: 'Nhập kho', icon: 'warehouse', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  TRANSPORTING: { label: 'Trung chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  SORTING: { label: 'Đang phân loại', icon: 'category', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  DELIVERING: { label: 'Đang giao hàng', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  DELIVERY_FAIL: { label: 'Giao thất bại (Hoàn về kho)', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  // Nhóm 5: Thành công
+  // 3. Đang vận chuyển
+  READY_TO_PICK: { label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  PICKING: { label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  PICKED: { label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  STORING: { label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  TRANSPORTING: { label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  SORTING: { label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  DELIVERING: { label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  DELIVERY_FAIL: { label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  // 4. Thành công
   DELIVERED: { label: 'Thành công', icon: 'done_all', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
   RECEIVED: { label: 'Thành công', icon: 'done_all', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
-  // Nhóm 6: Giao thất bại / Hoàn trả (Từ chối nhận hàng)
-  WAITING_TO_RETURN: { label: 'Chờ hoàn trả', icon: 'keyboard_return', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
-  RETURN: { label: 'Đang hoàn trả', icon: 'keyboard_return', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
-  RETURN_TRANSPORTING: { label: 'Luân chuyển hàng hoàn', icon: 'keyboard_return', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
-  RETURNING: { label: 'Đang trả hàng', icon: 'keyboard_return', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
-  RETURN_FAIL: { label: 'Hoàn trả thất bại', icon: 'keyboard_return', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
-  RETURNED: { label: 'Đã hoàn trả', icon: 'keyboard_return', tone: 'bg-orange-50 text-orange-700 border-orange-100' },
-  REFUSED: { label: 'Từ chối nhận hàng', icon: 'cancel', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
-  // Khác
+  // 5. Từ chối nhận hàng (Hoàn trả)
+  WAITING_TO_RETURN: { label: 'Từ chối nhận hàng đang hoàn kho', icon: 'cancel', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
+  RETURN: { label: 'Từ chối nhận hàng đang hoàn kho', icon: 'cancel', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
+  RETURN_TRANSPORTING: { label: 'Từ chối nhận hàng đang hoàn kho', icon: 'cancel', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
+  RETURNING: { label: 'Từ chối nhận hàng đang hoàn kho', icon: 'cancel', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
+  RETURN_FAIL: { label: 'Từ chối nhận hàng đang hoàn kho', icon: 'cancel', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
+  REFUSED: { label: 'Từ chối nhận hàng đang hoàn kho', icon: 'cancel', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
+  RETURNED: { label: 'Đã hoàn hàng về kho', icon: 'keyboard_return', tone: 'bg-gray-100 text-gray-700 border-gray-200' },
+  // 6. Đã hủy
   CANCELLED: { label: 'Đã hủy', icon: 'block', tone: 'bg-gray-100 text-gray-700 border-gray-200' },
 }
 
 const TABS = [
   { key: 'PENDING', query: 'PENDING', label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
   { key: 'PROCESSING', query: 'PROCESSING', label: 'Đang chuẩn bị', icon: 'inventory_2', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
-  { key: 'READY_TO_PICK', query: 'READY_TO_PICK,PICKING,PICKED', label: 'Chờ lấy hàng', icon: 'outbox', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
-  { key: 'TRANSPORTING', query: 'STORING,TRANSPORTING,SORTING,DELIVERING,DELIVERY_FAIL', label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  { key: 'DELIVERING', query: 'READY_TO_PICK,PICKING,PICKED,STORING,TRANSPORTING,SORTING,DELIVERING,DELIVERY_FAIL', label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   { key: 'DELIVERED', query: 'DELIVERED,RECEIVED', label: 'Thành công', icon: 'done_all', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
   { key: 'REFUSED', query: 'WAITING_TO_RETURN,RETURN,RETURN_TRANSPORTING,RETURNING,RETURN_FAIL,RETURNED,REFUSED', label: 'Từ chối nhận hàng', icon: 'cancel', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
   { key: 'CANCELLED', query: 'CANCELLED', label: 'Đã hủy', icon: 'block', tone: 'bg-gray-100 text-gray-700 border-gray-200' }
@@ -209,7 +207,12 @@ function OrderDetailModal({ order, onClose }) {
             </h3>
             <div className="relative pl-3 border-l-2 border-gray-200 space-y-5">
               {(order.statusHistory?.length > 0
-                ? [...order.statusHistory].reverse()
+                ? [...order.statusHistory].reverse().filter((h, index, array) => {
+                    if (index === 0) return true;
+                    const prevConfig = STATUS[array[index - 1].status] || STATUS.PENDING;
+                    const currConfig = STATUS[h.status] || STATUS.PENDING;
+                    return prevConfig.label !== currConfig.label;
+                  })
                 : [{ status: order.status, note: order.cancelReason || 'Cập nhật trạng thái', createdAt: order.updatedAt || order.createdAt }]
               ).map((h, idx) => {
                 const isLatest = idx === 0;
@@ -257,7 +260,7 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
   if (!change) return null
   const config = STATUS[change.newStatus]
   const isCancel = change.newStatus === 'CANCELLED'
-  const isReadyToPick = change.newStatus === 'READY_TO_PICK'
+  const isReadyToPick = change.newStatus === 'DELIVERING'
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -275,6 +278,20 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
         {isCancel && (
           <div className="mt-4 text-left">
             <label className="block text-sm font-semibold text-gray-700 mb-1">Lý do hủy đơn <span className="text-rose-500">*</span></label>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {['Khách không chuyển khoản', 'Hết hàng', 'Sai thông tin', 'Khác'].map(r => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setReason(r === 'Khác' ? '' : r)}
+                  className={`px-3 py-1.5 text-[11px] rounded border transition-colors ${
+                    reason === r ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -420,6 +437,13 @@ export default function AdminOrdersPage() {
   function handleStatusChange(order, newStatus) {
     if (order.status === 'CANCELLED' && newStatus !== 'CANCELLED') return
     if (order.status === newStatus) return
+    
+    // Ràng buộc: Không được chuyển sang PROCESSING nếu là BANK_TRANSFER chưa thanh toán
+    if (newStatus === 'PROCESSING' && order.paymentMethod === 'BANK_TRANSFER' && order.paymentStatus !== 'PAID') {
+      message.error('Không thể chuẩn bị hàng! Đơn hàng chuyển khoản chưa được thanh toán.')
+      return
+    }
+
     setConfirmUpdate({ orderId: order.id, orderCode: order.orderCode, newStatus })
   }
 
@@ -532,7 +556,7 @@ export default function AdminOrdersPage() {
                   const manualStatuses = order.status === 'PENDING'
                     ? ['PROCESSING', 'CANCELLED']
                     : order.status === 'PROCESSING'
-                      ? ['READY_TO_PICK']
+                      ? ['DELIVERING']
                       : []
                   return (
                     <tr key={order.id} className="hover:bg-gray-50">

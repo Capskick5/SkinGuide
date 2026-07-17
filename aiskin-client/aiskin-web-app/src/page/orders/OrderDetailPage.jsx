@@ -13,31 +13,30 @@ function money(value) {
 
 function getStatusLabel(status) {
   const map = {
-    // Nhóm 1: Chờ duyệt
+    // 1. Chờ duyệt
     PENDING: { label: 'Chờ duyệt', color: 'text-amber-600 bg-amber-50 border-amber-200', icon: 'schedule' },
-    // Nhóm 2: Đang chuẩn bị
+    
+    // 2. Đang chuẩn bị
     PROCESSING: { label: 'Đang chuẩn bị', color: 'text-blue-600 bg-blue-50 border-blue-200', icon: 'inventory_2' },
-    // Nhóm 3: Chờ lấy hàng
-    READY_TO_PICK: { label: 'Chờ lấy hàng', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'inventory' },
-    PICKING: { label: 'Đang lấy hàng', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'inventory' },
-    PICKED: { label: 'Đã lấy hàng', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'inventory' },
-    // Nhóm 4: Đang vận chuyển
-    STORING: { label: 'Nhập kho', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'warehouse' },
-    TRANSPORTING: { label: 'Trung chuyển', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'local_shipping' },
-    SORTING: { label: 'Đang phân loại', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'category' },
-    DELIVERING: { label: 'Đang giao hàng', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'local_shipping' },
-    DELIVERY_FAIL: { label: 'Giao thất bại (Đang hoàn về kho)', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'local_shipping' },
-    // Nhóm 5: Thành công
+    
+    // 3. Đang vận chuyển (Gom tất cả các bước trung gian của GHN)
+    DELIVERING: { label: 'Đang vận chuyển', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'local_shipping' },
+    DELIVERY_FAIL: { label: 'Đang vận chuyển', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'local_shipping' },
+    
+    // 4. Thành công
     DELIVERED: { label: 'Thành công', color: 'text-teal-600 bg-teal-50 border-teal-200', icon: 'mark_email_read' },
     RECEIVED: { label: 'Thành công', color: 'text-teal-600 bg-teal-50 border-teal-200', icon: 'mark_email_read' },
-    // Nhóm 6: Giao thất bại / Hoàn trả
-    WAITING_TO_RETURN: { label: 'Chờ hoàn trả', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
-    RETURN: { label: 'Đang hoàn trả', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
-    RETURN_TRANSPORTING: { label: 'Luân chuyển hàng hoàn', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
-    RETURNING: { label: 'Đang trả hàng', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
-    RETURN_FAIL: { label: 'Hoàn trả thất bại', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
-    RETURNED: { label: 'Đã hoàn trả', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
-    REFUSED: { label: 'Từ chối nhận hàng', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'cancel' },
+    
+    // 5. Từ chối nhận hàng (Gom tất cả các bước Hoàn trả)
+    WAITING_TO_RETURN: { label: 'Từ chối nhận hàng đang hoàn kho', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'keyboard_return' },
+    RETURN: { label: 'Từ chối nhận hàng đang hoàn kho', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'keyboard_return' },
+    RETURN_TRANSPORTING: { label: 'Từ chối nhận hàng đang hoàn kho', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'keyboard_return' },
+    RETURNING: { label: 'Từ chối nhận hàng đang hoàn kho', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'keyboard_return' },
+    RETURN_FAIL: { label: 'Từ chối nhận hàng đang hoàn kho', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'keyboard_return' },
+    REFUSED: { label: 'Từ chối nhận hàng đang hoàn kho', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'cancel' },
+    RETURNED: { label: 'Đã hoàn hàng về kho', color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'keyboard_return' },
+    
+    // 6. Đã hủy
     CANCELLED: { label: 'Đã hủy', color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'block' }
   }
   return map[status] || { label: status, color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'info' }
@@ -45,13 +44,6 @@ function getStatusLabel(status) {
 
 const RETURN_STATUS_VN = {
   PENDING: 'Chờ duyệt',
-  APPROVED: 'Chờ khách hàng trả hàng',
-  READY_TO_PICK: 'Đang trả hàng',
-  PICKING: 'Đang trả hàng',
-  PICKED: 'Đang trả hàng',
-  STORING: 'Đang trả hàng',
-  TRANSPORTING: 'Đang trả hàng',
-  SORTING: 'Đang trả hàng',
   DELIVERING: 'Đang trả hàng',
   DELIVERED: 'Đang trả hàng',
   RECEIVED: 'Hoàn tất trả hàng',
@@ -365,8 +357,7 @@ export default function OrderDetailPage() {
                 <div>
                   <p className="text-caption text-on-surface-variant mb-1">Trạng thái xử lý</p>
                   <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-sm border ${
-                    returnRequest.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                    ['READY_TO_PICK', 'PICKING', 'PICKED', 'STORING', 'TRANSPORTING', 'SORTING', 'DELIVERING', 'DELIVERED'].includes(returnRequest.status) ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                    ['DELIVERING', 'DELIVERED'].includes(returnRequest.status) ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
                     ['RECEIVED', 'REFUNDED'].includes(returnRequest.status) ? 'bg-teal-50 text-teal-700 border-teal-200' :
                     returnRequest.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                     'bg-orange-50 text-orange-700 border-orange-200'
@@ -565,7 +556,7 @@ export default function OrderDetailPage() {
               </div>
             </div>
 
-            {returnRequest.status === 'APPROVED' && (
+            {['DELIVERING', 'DELIVERED'].includes(returnRequest.status) && (
               <div className="mt-6 pt-6 border-t border-orange-200">
                 <h4 className="font-bold text-lg text-orange-800 mb-4 flex items-center gap-2">
                   <Icon name="local_shipping" /> Hướng dẫn gửi hàng hoàn trả
@@ -698,17 +689,17 @@ export default function OrderDetailPage() {
               <p className="text-body-sm text-on-surface-variant mt-2 leading-relaxed">{order.shippingAddress}</p>
               
               {order.trackingCode && (
-                <div className="mt-auto pt-4 border-t border-border-pink">
-                  <p className="text-body-sm text-on-surface-variant mb-2">Mã Vận Đơn GHN</p>
+                <div className="mt-auto pt-5 border-t border-border-pink">
+                  <p className="text-body-sm font-semibold text-on-surface-variant mb-3">Tra cứu hành trình chi tiết</p>
                   <a 
                     href={`https://tracking.ghn.dev/?order_code=${order.trackingCode}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-bold text-blue-700 flex items-center gap-2 bg-blue-50 w-fit px-4 py-2 rounded-lg border border-blue-200 hover:bg-blue-100 hover:text-blue-800 transition-colors"
-                    title="Bấm để theo dõi đơn hàng trên GHN"
+                    className="w-full sm:w-auto font-bold text-white bg-blue-600 px-6 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors shadow-sm"
+                    title="Mở trang tracking của Giao Hàng Nhanh"
                   >
                     <Icon name="local_shipping" className="text-xl" />
-                    {order.trackingCode}
+                    Theo dõi đơn hàng GHN ({order.trackingCode})
                     <Icon name="open_in_new" className="text-sm ml-1" />
                   </a>
                 </div>
@@ -723,7 +714,13 @@ export default function OrderDetailPage() {
               <div className="flex justify-between text-body-sm font-medium mb-2">
                 <span className="text-on-surface-variant">Phương thức</span>
                 <span className="text-on-surface">
-                  {order.paymentMethod === 'MOMO' ? 'Ví MoMo' : order.paymentMethod === 'VNPAY' ? 'Thanh toán trực tuyến (VNPay)' : 'Tiền mặt (COD)'}
+                  {order.paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản (CK)' : 'Tiền mặt (COD)'}
+                </span>
+              </div>
+              <div className="flex justify-between text-body-sm font-medium mb-2">
+                <span className="text-on-surface-variant">Trạng thái thanh toán</span>
+                <span className={order.paymentStatus === 'PAID' ? 'text-teal-600 font-bold' : 'text-error font-bold'}>
+                  {order.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'}
                 </span>
               </div>
               <div className="flex justify-between text-body-sm font-medium mb-3 border-b border-border-pink pb-3">
@@ -741,6 +738,10 @@ export default function OrderDetailPage() {
                   {order.paymentStatus === 'UNPAID' && order.paymentMethod !== 'COD' && (
                     <button
                       onClick={async () => {
+                        if (order.paymentMethod === 'BANK_TRANSFER') {
+                          navigate(`/payment/bank-transfer/${order.orderCode || order.id}`)
+                          return
+                        }
                         try {
                           message.loading('Đang khởi tạo cổng thanh toán...')
                           const res = await httpClient.get(`/orders/${order.id}/payment-url`)
@@ -796,24 +797,27 @@ export default function OrderDetailPage() {
             </div>
           </div>
 
-          {/* Hành trình đơn hàng */}
-          <div className="mt-6 rounded-2xl border border-border-pink p-6 bg-white">
-            <h3 className="font-bold text-title-md text-on-surface mb-6 flex items-center gap-2">
-              <Icon name="route" className="text-primary" />
-              Hành trình đơn hàng
+          {/* Lịch sử trạng thái */}
+          <div className="rounded-2xl border border-border-pink p-6 bg-surface-container-lowest flex flex-col">
+            <h3 className="font-bold text-body-md text-on-surface mb-5 flex items-center gap-2">
+              <Icon name="route" className="text-primary text-xl" />
+              Lịch sử trạng thái
             </h3>
-            <div className="relative pl-4 border-l-2 border-primary/20 space-y-6">
+            <div className="relative pl-4 border-l-2 border-border-pink space-y-6">
               {(order.statusHistory?.length > 0
-                ? [...order.statusHistory].reverse()
+                ? [...order.statusHistory].reverse().filter((h, index, array) => {
+                    if (index === 0) return true;
+                    const prevConfig = getStatusLabel(array[index - 1].status);
+                    const currConfig = getStatusLabel(h.status);
+                    return prevConfig.label !== currConfig.label;
+                  })
                 : [{ status: order.status, note: order.cancelReason || 'Cập nhật trạng thái', createdAt: order.updatedAt || order.createdAt }]
               ).map((h, idx) => {
                 const isLatest = idx === 0;
                 const hConfig = getStatusLabel(h.status);
                 return (
                   <div key={idx} className="relative">
-                    {/* Dot */}
-                    <div className={`absolute -left-[21px] w-3 h-3 rounded-full border-2 border-white ${isLatest ? 'bg-primary ring-4 ring-primary/20' : 'bg-gray-300'}`}></div>
-                    
+                    <div className={`absolute -left-[23px] w-3 h-3 rounded-full border-2 border-white ${isLatest ? 'bg-primary ring-4 ring-primary/20' : 'bg-gray-300'}`}></div>
                     <div className="pl-4 -mt-1.5">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-1">
                         <span className={`font-bold text-body-md ${isLatest ? 'text-primary' : 'text-on-surface-variant'}`}>
@@ -827,7 +831,7 @@ export default function OrderDetailPage() {
                         </span>
                       </div>
                       {h.note && (
-                        <p className={`text-body-sm mt-1 p-2.5 rounded-xl border ${isLatest ? 'bg-primary-light border-primary/20 text-on-surface' : 'bg-surface-container-lowest border-gray-100 text-gray-500'}`}>
+                        <p className={`text-body-sm mt-2 p-3 rounded-xl border ${isLatest ? 'bg-primary/5 border-primary/10 text-primary' : 'bg-white border-border-pink text-on-surface-variant'}`}>
                           {h.note}
                         </p>
                       )}
@@ -837,6 +841,7 @@ export default function OrderDetailPage() {
               })}
             </div>
           </div>
+
         </div>
       </div>
       {confirmDeleteReturn && (

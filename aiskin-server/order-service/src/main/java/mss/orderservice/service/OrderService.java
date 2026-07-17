@@ -121,7 +121,8 @@ public class OrderService {
                 .paymentStatus(Order.PaymentStatus.UNPAID)
                 .inventoryReserved(true)
                 .inventoryCommitted(false)
-                .reservationExpiresAt(request.getPaymentMethod() == Order.PaymentMethod.COD ? null : LocalDateTime.now().plusMinutes(15))
+                .reservationExpiresAt(request.getPaymentMethod() == Order.PaymentMethod.COD ? null : 
+                                      LocalDateTime.now().plusMinutes(15))
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -177,6 +178,8 @@ public class OrderService {
                 paymentUrl = generateMomoPaymentUrl(order);
             } else if (order.getPaymentMethod() == Order.PaymentMethod.VNPAY) {
                 paymentUrl = generateVnpayPaymentUrl(order);
+            } else if (order.getPaymentMethod() == Order.PaymentMethod.BANK_TRANSFER) {
+                paymentUrl = ""; // Frontend tự xử lý hiển thị QR
             }
         }
         return OrderResponse.builder()
@@ -496,6 +499,29 @@ public class OrderService {
         return new PaymentProcessingResult(order.getPaymentStatus(), false);
     }
 
+    public PaymentProcessingResult simulateBankTransfer(String orderCode) {
+        Order order = orderRepository.findByOrderCode(orderCode)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng"));
+        if (order.getPaymentMethod() != Order.PaymentMethod.BANK_TRANSFER) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng không sử dụng hình thức chuyển khoản");
+        }
+        
+        if (order.getPaymentStatus() != Order.PaymentStatus.UNPAID) {
+            return existingPaymentResult(order);
+        }
+
+        rejectLatePayment(order);
+        
+        order.setPaymentStatus(Order.PaymentStatus.PAID);
+        order.setPaymentTransactionId("SIMULATED-" + java.util.UUID.randomUUID().toString().substring(0, 8));
+        order.setPaidAt(LocalDateTime.now());
+        order.addStatusHistory(Order.OrderStatus.PROCESSING, "Khách hàng đã chuyển khoản");
+        order.setUpdatedAt(LocalDateTime.now());
+        orderRepository.save(order);
+        
+        return new PaymentProcessingResult(order.getPaymentStatus(), false);
+    }
+
     private PaymentProcessingResult existingPaymentResult(Order order) {
         return new PaymentProcessingResult(order.getPaymentStatus(), true);
     }
@@ -529,8 +555,12 @@ public class OrderService {
         }
     }
 
-    public Order getOrderById(String orderId) {
-        return orderRepository.findById(orderId)
+    public Order getOrderById(String idOrCode) {
+        if (idOrCode != null && idOrCode.startsWith("ORD-")) {
+            return orderRepository.findByOrderCode(idOrCode)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        }
+        return orderRepository.findById(idOrCode)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
     }
 
@@ -637,8 +667,8 @@ public class OrderService {
 
                 // Rule for PROCESSING orders
                 if (order.getStatus() == Order.OrderStatus.PROCESSING) {
-                    if (status != Order.OrderStatus.READY_TO_PICK) {
-                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn đang chuẩn bị chỉ có thể chuyển sang Chờ lấy hàng");
+                    if (status != Order.OrderStatus.DELIVERING) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn đang chuẩn bị chỉ có thể chuyển sang Đang vận chuyển");
                     }
                     if (weight == null || weight <= 0) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng nhập khối lượng kiện hàng (gram)");
@@ -646,7 +676,7 @@ public class OrderService {
                 }
                 
                 // GHN Integration
-                if (status == Order.OrderStatus.READY_TO_PICK && order.getStatus() == Order.OrderStatus.PROCESSING) {
+                if (status == Order.OrderStatus.DELIVERING && order.getStatus() == Order.OrderStatus.PROCESSING) {
                     if (order.getGhnWardCode() == null || order.getGhnDistrictId() == null) {
                          throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng không có mã địa chỉ GHN. Không thể tạo đơn.");
                     }
@@ -704,18 +734,24 @@ public class OrderService {
                     }
                 }
                 
-                String note = "Admin cập nhật trạng thái";
-                if (status == Order.OrderStatus.CANCELLED && cancelReason != null && !cancelReason.trim().isEmpty()) {
+                String note = "Cập nhật trạng thái";
+                if (status == Order.OrderStatus.PROCESSING) {
+                    note = "Đơn hàng đang chuẩn bị";
+                } else if (status == Order.OrderStatus.DELIVERING) {
+                    note = "Đơn đang vận chuyển";
+                } else if (status == Order.OrderStatus.DELIVERED) {
+                    note = "Khách hàng đã thanh toán và giao hàng thành công";
+                } else if (status == Order.OrderStatus.CANCELLED && cancelReason != null && !cancelReason.trim().isEmpty()) {
                     note = "Hủy đơn: " + cancelReason;
                 }
                 order.addStatusHistory(status, note);
                 
-                // Update payment status for CANCELLED/REFUSED
-                if ((status == Order.OrderStatus.CANCELLED || status == Order.OrderStatus.REFUSED) 
+                // Update payment status for CANCELLED/REFUSED/RETURNED
+                if ((status == Order.OrderStatus.CANCELLED || status == Order.OrderStatus.REFUSED || status == Order.OrderStatus.RETURNED) 
                     && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
                     order.setPaymentStatus(Order.PaymentStatus.FAILED);
                 }
-                if (status == Order.OrderStatus.CANCELLED || status == Order.OrderStatus.REFUSED) {
+                if (status == Order.OrderStatus.CANCELLED || status == Order.OrderStatus.RETURNED) {
                     releaseInventoryIfNeeded(order);
                 }
                 
@@ -758,7 +794,15 @@ public class OrderService {
                     String ghnStatus = (String) detail.get("status");
                     Order.OrderStatus newStatus = mapGhnStatusToSystemStatus(ghnStatus);
                     if (newStatus != null && newStatus != order.getStatus()) {
-                        applyShippingStatus(order, newStatus, "Hệ thống tự động cập nhật từ GHN");
+                        String note = "Cập nhật trạng thái";
+                        if (newStatus == Order.OrderStatus.REFUSED) {
+                            note = "Khách hàng từ chối nhận hàng";
+                        } else if (newStatus == Order.OrderStatus.RETURNED) {
+                            note = "Đã hoàn hàng về kho";
+                        } else if (newStatus == Order.OrderStatus.DELIVERED) {
+                            note = "Khách hàng đã thanh toán và giao hàng thành công";
+                        }
+                        applyShippingStatus(order, newStatus, note);
                         log.info("Auto-synced GHN order {}: {} -> {}", order.getOrderCode(), ghnStatus, newStatus);
                     }
                 }
@@ -771,34 +815,24 @@ public class OrderService {
     public Order.OrderStatus mapGhnStatusToSystemStatus(String ghnStatus) {
         switch (ghnStatus) {
             case "ready_to_pick":
-                return Order.OrderStatus.READY_TO_PICK;
             case "picking":
-                return Order.OrderStatus.PICKING;
             case "picked":
-                return Order.OrderStatus.PICKED;
             case "storing":
-                return Order.OrderStatus.STORING;
             case "sorting":
-                return Order.OrderStatus.SORTING;
             case "transporting":
-                return Order.OrderStatus.TRANSPORTING;
             case "delivering":
+            case "delivery_fail":
                 return Order.OrderStatus.DELIVERING;
             case "delivered":
             case "deliveried":
                 return Order.OrderStatus.DELIVERED;
-            case "delivery_fail":
-                return Order.OrderStatus.DELIVERY_FAIL;
             case "waiting_to_return":
-                return Order.OrderStatus.WAITING_TO_RETURN;
             case "return":
-                return Order.OrderStatus.RETURN;
             case "return_transporting":
-                return Order.OrderStatus.RETURN_TRANSPORTING;
             case "returning":
-                return Order.OrderStatus.RETURNING;
             case "return_fail":
-                return Order.OrderStatus.RETURN_FAIL;
+            case "refused":
+                return Order.OrderStatus.REFUSED;
             case "returned":
                 return Order.OrderStatus.RETURNED;
             case "cancel":
@@ -818,10 +852,12 @@ public class OrderService {
             return order;
         }
         order.addStatusHistory(newStatus, note);
-        if (newStatus == Order.OrderStatus.CANCELLED || newStatus == Order.OrderStatus.REFUSED) {
+        if (newStatus == Order.OrderStatus.CANCELLED || newStatus == Order.OrderStatus.REFUSED || newStatus == Order.OrderStatus.RETURNED) {
             if (order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
                 order.setPaymentStatus(Order.PaymentStatus.FAILED);
             }
+        }
+        if (newStatus == Order.OrderStatus.CANCELLED || newStatus == Order.OrderStatus.RETURNED) {
             releaseInventoryIfNeeded(order);
         }
         if (newStatus == Order.OrderStatus.DELIVERED) {

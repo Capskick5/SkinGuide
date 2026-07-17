@@ -85,6 +85,8 @@ export function toProductCard(product, brandMap, categoryMap) {
     targetSkinTypes: (product.targetSkinTypes || []).map(translateTag),
     keyIngredientIds: product.keyIngredientIds || [],
     variants: product.variants || [],
+    totalAvailableQuantity: product.totalAvailableQuantity,
+    totalOnHandQuantity: product.totalOnHandQuantity,
     searchBlob: makeSearchBlob(product, brandName, categoryName),
   }
 }

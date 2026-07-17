@@ -35,14 +35,7 @@ function getVisiblePages(currentPage, totalPages) {
 
 const RETURN_STATUS = {
   PENDING: { label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-  APPROVED: { label: 'Chờ khách gửi hàng', icon: 'thumb_up', tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
-  READY_TO_PICK: { label: 'Chờ lấy hàng', icon: 'inventory_2', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
-  PICKING: { label: 'Đang lấy hàng', icon: 'front_hand', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
-  PICKED: { label: 'Đã lấy hàng', icon: 'check_box', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
-  STORING: { label: 'Nhập kho', icon: 'store', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  TRANSPORTING: { label: 'Đang trung chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  SORTING: { label: 'Đang phân loại', icon: 'alt_route', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  DELIVERING: { label: 'Đang giao đến kho', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  DELIVERING: { label: 'Đang vận chuyển hoàn', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   DELIVERED: { label: 'Đã giao đến kho', icon: 'done_all', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
   RECEIVED: { label: 'Đã nhận hàng trả', icon: 'inventory_2', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   REFUNDED: { label: 'Đã hoàn tiền', icon: 'price_check', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
@@ -51,7 +44,7 @@ const RETURN_STATUS = {
 
 const TABS = [
   { key: 'PENDING', query: 'PENDING', label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-  { key: 'SHIPPING', query: 'APPROVED,READY_TO_PICK,PICKING,PICKED,STORING,TRANSPORTING,SORTING,DELIVERING,DELIVERED', label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  { key: 'SHIPPING', query: 'DELIVERING,DELIVERED', label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   { key: 'RECEIVED', query: 'RECEIVED', label: 'Đã nhận trả', icon: 'inventory_2', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   { key: 'REFUNDED', query: 'REFUNDED', label: 'Đã hoàn tiền', icon: 'price_check', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
   { key: 'REJECTED', query: 'REJECTED', label: 'Từ chối', icon: 'block', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
@@ -489,10 +482,22 @@ export default function AdminReturnOrdersPage() {
 
   const statusActions = (req) => {
     const nextStatuses = req.status === 'PENDING'
-      ? ['APPROVED', 'REJECTED']
-      : ['APPROVED', 'DELIVERED'].includes(req.status) ? ['RECEIVED'] : []
+      ? ['DELIVERING', 'REJECTED']
+      : req.status === 'DELIVERED' ? ['RECEIVED'] : []
 
     return nextStatuses.flatMap(status => {
+      if (status === 'DELIVERING') {
+        return [{
+          key: 'DELIVERING',
+          label: (
+            <div className="flex items-center gap-2 px-1">
+              <Icon name="check_circle" className="text-[15px] text-emerald-700" />
+              <span className="text-sm font-semibold">Duyệt & Tạo đơn hoàn</span>
+            </div>
+          ),
+          onClick: () => handleStatusChange(req, 'DELIVERING'),
+        }]
+      }
       if (status === 'RECEIVED') {
         return [
           {
@@ -634,21 +639,21 @@ export default function AdminReturnOrdersPage() {
                               items: statusActions(req)
                             }}
                             trigger={['click']}
-                            disabled={['REFUNDED', 'REJECTED', 'RECEIVED', 'READY_TO_PICK', 'PICKING', 'PICKED', 'STORING', 'TRANSPORTING', 'SORTING', 'DELIVERING'].includes(req.status)}
+                            disabled={['REFUNDED', 'REJECTED', 'RECEIVED', 'DELIVERING'].includes(req.status)}
                           >
                             <button 
-                              className={`inline-flex items-center justify-between min-w-36 gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${!['REFUNDED', 'REJECTED', 'RECEIVED', 'READY_TO_PICK', 'PICKING', 'PICKED', 'STORING', 'TRANSPORTING', 'SORTING', 'DELIVERING'].includes(req.status) ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${RETURN_STATUS[req.status]?.tone || 'bg-gray-100 text-gray-700 border-gray-200'}`}
+                              className={`inline-flex items-center justify-between min-w-36 gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${!['REFUNDED', 'REJECTED', 'RECEIVED', 'DELIVERING'].includes(req.status) ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${RETURN_STATUS[req.status]?.tone || 'bg-gray-100 text-gray-700 border-gray-200'}`}
                             >
                               <div className="flex items-center gap-1.5">
                                 <Icon name={RETURN_STATUS[req.status]?.icon || 'info'} className="text-[15px]" />
                                 {RETURN_STATUS[req.status]?.label || req.status}
                               </div>
-                              {!['REFUNDED', 'REJECTED', 'RECEIVED', 'READY_TO_PICK', 'PICKING', 'PICKED', 'STORING', 'TRANSPORTING', 'SORTING', 'DELIVERING'].includes(req.status) && (
+                              {!['REFUNDED', 'REJECTED', 'RECEIVED', 'DELIVERING'].includes(req.status) && (
                                 <Icon name="expand_more" className="text-lg opacity-60" />
                               )}
                             </button>
                           </Dropdown>
-                          {['READY_TO_PICK', 'PICKING', 'PICKED', 'STORING', 'TRANSPORTING', 'SORTING', 'DELIVERING', 'DELIVERED'].includes(req.status) && req.returnTrackingCode && (
+                          {['DELIVERING', 'DELIVERED'].includes(req.status) && req.returnTrackingCode && (
                             <p className="text-xs text-blue-600 flex items-center gap-1 ml-1 mt-1">
                               <Icon name="sync" className="text-[14px]" /> 
                               GHN tự động cập nhật
