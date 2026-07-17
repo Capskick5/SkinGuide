@@ -129,7 +129,7 @@ public class ReturnOrderService {
             }
         }
         
-        if (newStatus == ReturnOrder.ReturnStatus.APPROVED
+        if (newStatus == ReturnOrder.ReturnStatus.DELIVERING
                 && returnOrder.getReturnTrackingCode() == null) {
             tryCreateGhnReturnShipment(returnOrder);
         }
@@ -275,7 +275,7 @@ public class ReturnOrderService {
             String rejectReason,
             ReturnOrder.InventoryDisposition inventoryDisposition) {
         boolean pendingDecision = currentStatus == ReturnOrder.ReturnStatus.PENDING
-                && (newStatus == ReturnOrder.ReturnStatus.APPROVED
+                && (newStatus == ReturnOrder.ReturnStatus.DELIVERING
                 || newStatus == ReturnOrder.ReturnStatus.REJECTED);
         boolean receivingPhysicalReturn = isReturnInTransit(currentStatus)
                 && newStatus == ReturnOrder.ReturnStatus.RECEIVED;
@@ -307,8 +307,7 @@ public class ReturnOrderService {
 
     private boolean isReturnInTransit(ReturnOrder.ReturnStatus status) {
         return switch (status) {
-            case APPROVED, READY_TO_PICK, PICKING, PICKED, STORING, SORTING,
-                    TRANSPORTING, DELIVERING, DELIVERED -> true;
+            case DELIVERING, DELIVERED -> true;
             default -> false;
         };
     }
@@ -389,8 +388,8 @@ public class ReturnOrderService {
         ReturnOrder returnOrder = returnOrderRepository.findById(id)
                 .orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
 
-        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.APPROVED) {
-            throw conflict("Chỉ có thể cập nhật mã vận đơn sau khi yêu cầu trả hàng được duyệt");
+        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.DELIVERING) {
+            throw conflict("Chỉ có thể cập nhật mã vận đơn sau khi yêu cầu trả hàng được duyệt (Đang vận chuyển hoàn)");
         }
         String normalizedTrackingCode = trackingCode.trim();
         if (returnOrder.getReturnTrackingCode() != null
@@ -451,13 +450,7 @@ public class ReturnOrderService {
 
     private ReturnOrder.ReturnStatus mapGhnStatus(String ghnStatus) {
         return switch (ghnStatus) {
-            case "ready_to_pick" -> ReturnOrder.ReturnStatus.READY_TO_PICK;
-            case "picking" -> ReturnOrder.ReturnStatus.PICKING;
-            case "picked" -> ReturnOrder.ReturnStatus.PICKED;
-            case "storing" -> ReturnOrder.ReturnStatus.STORING;
-            case "sorting" -> ReturnOrder.ReturnStatus.SORTING;
-            case "transporting" -> ReturnOrder.ReturnStatus.TRANSPORTING;
-            case "delivering" -> ReturnOrder.ReturnStatus.DELIVERING;
+            case "ready_to_pick", "picking", "picked", "storing", "sorting", "transporting", "delivering" -> ReturnOrder.ReturnStatus.DELIVERING;
             case "delivered", "deliveried" -> ReturnOrder.ReturnStatus.DELIVERED;
             default -> null;
         };
@@ -471,15 +464,8 @@ public class ReturnOrderService {
 
     private int shippingRank(ReturnOrder.ReturnStatus status) {
         return switch (status) {
-            case APPROVED -> 0;
-            case READY_TO_PICK -> 1;
-            case PICKING -> 2;
-            case PICKED -> 3;
-            case STORING -> 4;
-            case SORTING -> 5;
-            case TRANSPORTING -> 6;
-            case DELIVERING -> 7;
-            case DELIVERED -> 8;
+            case DELIVERING -> 1;
+            case DELIVERED -> 2;
             default -> Integer.MAX_VALUE;
         };
     }

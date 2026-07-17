@@ -364,20 +364,12 @@ function PaymentMethodStep({ selectedMethod, availability, onSelect, onBack, onN
       accent: 'border-primary bg-primary/5 text-primary',
     },
     {
-      id: 'MOMO',
-      label: 'Ví điện tử MoMo',
-      desc: 'Thanh toán qua cổng MoMo',
-      icon: 'account_balance_wallet',
-      badge: 'Trực tuyến',
-      accent: 'border-pink-600 bg-pink-50 text-pink-700',
-    },
-    {
-      id: 'VNPAY',
-      label: 'Thanh toán trực tuyến (VNPay)',
-      desc: 'Thanh toán an toàn qua cổng VNPay',
-      icon: 'credit_card',
-      badge: 'Khuyên dùng',
-      accent: 'border-blue-600 bg-blue-50 text-blue-700',
+      id: 'BANK_TRANSFER',
+      label: 'Chuyển khoản ngân hàng',
+      desc: 'Chuyển khoản qua quét mã QR (VietQR)',
+      icon: 'account_balance',
+      badge: 'Thủ công',
+      accent: 'border-green-600 bg-green-50 text-green-700',
     },
   ]
 
@@ -440,8 +432,6 @@ function PaymentMethodStep({ selectedMethod, availability, onSelect, onBack, onN
 
 function ConfirmStep({ formData, items, paymentMethod, onBack, onConfirm, loading }) {
   const fullAddress = [formData.addressDetail, formData.ward, formData.district, formData.city].filter(Boolean).join(', ')
-  const isMomo = paymentMethod === 'MOMO'
-  const isVnPay = paymentMethod === 'VNPAY'
 
   return (
     <div className="space-y-4">
@@ -462,7 +452,7 @@ function ConfirmStep({ formData, items, paymentMethod, onBack, onConfirm, loadin
           Phương thức thanh toán
         </p>
         <p className="font-semibold text-on-surface">
-          {isMomo ? 'Ví MoMo' : isVnPay ? 'Thanh toán trực tuyến (VNPay)' : 'Thanh toán khi nhận hàng (COD)'}
+          {paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản ngân hàng' : 'Thanh toán khi nhận hàng (COD)'}
         </p>
       </div>
 
@@ -646,15 +636,15 @@ export default function CheckoutPage() {
         headers: { 'Idempotency-Key': idempotencyKeyRef.current },
       })
 
-      if (paymentMethod === 'VNPAY' || paymentMethod === 'MOMO') {
-        if (!result?.paymentUrl) {
-          throw new Error('Cổng thanh toán chưa trả về đường dẫn. Vui lòng thử lại hoặc chọn COD.')
-        }
-        window.location.href = result.paymentUrl
+
+
+      clearCart()
+
+      if (paymentMethod === 'BANK_TRANSFER') {
+        navigate(`/payment/bank-transfer/${result.orderCode}`)
         return
       }
 
-      clearCart()
       navigate('/orders', { state: { orderCode: result.orderCode, success: true } })
     } catch (err) {
       console.error(err)

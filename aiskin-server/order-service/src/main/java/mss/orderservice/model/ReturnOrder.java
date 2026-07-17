@@ -67,14 +67,7 @@ public class ReturnOrder {
 
     public enum ReturnStatus {
         PENDING,     // Chờ Admin duyệt
-        APPROVED,    // Admin đã duyệt, chờ kho nhận hàng (Khách chưa gửi / GHN chưa lấy)
-        READY_TO_PICK, // GHN: Chờ lấy hàng
-        PICKING,     // GHN: Đang lấy hàng
-        PICKED,      // GHN: Đã lấy hàng
-        STORING,     // GHN: Nhập kho
-        TRANSPORTING,// GHN đang trung chuyển kiện hàng hoàn
-        SORTING,     // GHN: Đang phân loại
-        DELIVERING,  // GHN đang giao kiện hàng hoàn cho kho SkinGuide
+        DELIVERING,  // GHN đang trung chuyển/giao kiện hàng hoàn
         DELIVERED,   // GHN đã giao thành công cho kho SkinGuide
         REJECTED,    // Admin từ chối trả hàng
         RECEIVED,    // Kho đã nhận được hàng trả về (Admin xác nhận thủ công)

@@ -27,8 +27,14 @@ public class OrderAuthorizationService {
     }
 
     public void requireOrderAccess(String orderId, Authentication authentication) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        Order order;
+        if (orderId != null && orderId.startsWith("ORD-")) {
+            order = orderRepository.findByOrderCode(orderId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        } else {
+            order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        }
         requireSameCustomerOrAdmin(order.getCustomerId(), authentication);
     }
 

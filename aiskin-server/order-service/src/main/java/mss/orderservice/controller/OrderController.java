@@ -59,6 +59,16 @@ public class OrderController {
         return ResponseEntity.ok(orderService.cancelOrder(id, reason));
     }
 
+    @PostMapping("/{id}/payment/simulate-bank-transfer")
+    @Operation(summary = "Simulate Bank Transfer Payment", description = "For development/testing. Simulates receiving money via bank transfer.")
+    public ResponseEntity<?> simulateBankTransfer(
+            @PathVariable String id,
+            Authentication authentication) {
+        authorizationService.requireOrderAccess(id, authentication);
+        PaymentProcessingResult result = orderService.simulateBankTransfer(id);
+        return ResponseEntity.ok(result);
+    }
+
     @PostMapping("/payment/momo-ipn")
     @Operation(summary = "MoMo IPN Callback", description = "Server-to-server callback for Momo payment status")
     public ResponseEntity<?> momoIpn(@RequestBody Map<String, Object> requestBody) {
@@ -71,6 +81,7 @@ public class OrderController {
     public ResponseEntity<?> getPaymentMethods() {
         return ResponseEntity.ok(Map.of(
                 "COD", true,
+                "BANK_TRANSFER", true,
                 "MOMO", paymentConfigurationValidator.isMomoConfigured(),
                 "VNPAY", paymentConfigurationValidator.isVnpayConfigured()));
     }

@@ -108,7 +108,6 @@ public class RefundRequestService {
         }
 
         if (order.getPaymentStatus() != Order.PaymentStatus.REFUNDED) {
-            order.addStatusHistory(Order.OrderStatus.RETURNED, "Đã nhận hàng trả và hoàn tiền thành công");
             order.setPaymentStatus(Order.PaymentStatus.REFUNDED);
             orderRepository.save(order);
         }

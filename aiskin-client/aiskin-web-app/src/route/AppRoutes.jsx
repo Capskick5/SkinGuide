@@ -21,6 +21,7 @@ const CartPage = lazy(() => import('@/page/cart/CartPage'))
 const CheckoutPage = lazy(() => import('@/page/cart/CheckoutPage'))
 const MomoReturnPage = lazy(() => import('@/page/cart/MomoReturnPage'))
 const VnpayReturnPage = lazy(() => import('@/page/cart/VnpayReturnPage'))
+const BankTransferPage = lazy(() => import('@/page/cart/BankTransferPage'))
 const OrdersPage = lazy(() => import('@/page/orders/OrdersPage'))
 const OrderDetailPage = lazy(() => import('@/page/orders/OrderDetailPage'))
 const ReturnRequestPage = lazy(() => import('@/page/orders/ReturnRequestPage'))
@@ -86,6 +87,7 @@ export default function AppRoutes() {
             <Route path={PATHS.ORDER_RETURN} element={<ReturnRequestPage />} />
             <Route path={PATHS.MOMO_RETURN} element={<MomoReturnPage />} />
             <Route path={PATHS.VNPAY_RETURN} element={<VnpayReturnPage />} />
+            <Route path={PATHS.BANK_TRANSFER_PAYMENT} element={<BankTransferPage />} />
             <Route path={PATHS.HISTORY} element={<HistoryPage />} />
             <Route path={PATHS.HISTORY_DETAIL} element={<HistoryDetailPage />} />
             <Route path={PATHS.PROFILE} element={<ProfilePage />} />

@@ -30,6 +30,7 @@ export const PATHS = {
   ORDER_RETURN: '/orders/:id/return',
   MOMO_RETURN: '/payment/momo-return',
   VNPAY_RETURN: '/payment/vnpay-return',
+  BANK_TRANSFER_PAYMENT: '/payment/bank-transfer/:id',
   HISTORY: '/history',
   HISTORY_DETAIL: '/history/:id',
 

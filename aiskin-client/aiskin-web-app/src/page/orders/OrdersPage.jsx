@@ -13,31 +13,36 @@ function money(value) {
 
 function getStatusLabel(status) {
   const map = {
-    // Nhóm 1: Chờ duyệt
+    // 1. Chờ duyệt
     PENDING: { label: 'Chờ duyệt', color: 'text-amber-600 bg-amber-50 border-amber-200', icon: 'schedule' },
-    // Nhóm 2: Đang chuẩn bị
+    
+    // 2. Đang chuẩn bị
     PROCESSING: { label: 'Đang chuẩn bị', color: 'text-blue-600 bg-blue-50 border-blue-200', icon: 'inventory_2' },
-    // Nhóm 3: Chờ lấy hàng
-    READY_TO_PICK: { label: 'Chờ lấy hàng', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'inventory' },
-    PICKING: { label: 'Đang lấy hàng', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'inventory' },
-    PICKED: { label: 'Đã lấy hàng', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'inventory' },
-    // Nhóm 4: Đang vận chuyển
-    STORING: { label: 'Nhập kho', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'warehouse' },
-    TRANSPORTING: { label: 'Trung chuyển', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'local_shipping' },
-    SORTING: { label: 'Đang phân loại', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'category' },
-    DELIVERING: { label: 'Đang giao hàng', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'local_shipping' },
-    DELIVERY_FAIL: { label: 'Giao thất bại (Đang hoàn về kho)', color: 'text-purple-600 bg-purple-50 border-purple-200', icon: 'local_shipping' },
-    // Nhóm 5: Thành công
+    
+    // 3. Đang vận chuyển (Gom tất cả các bước trung gian của GHN)
+    READY_TO_PICK: { label: 'Đang vận chuyển', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'local_shipping' },
+    PICKING: { label: 'Đang vận chuyển', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'local_shipping' },
+    PICKED: { label: 'Đang vận chuyển', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'local_shipping' },
+    STORING: { label: 'Đang vận chuyển', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'local_shipping' },
+    TRANSPORTING: { label: 'Đang vận chuyển', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'local_shipping' },
+    SORTING: { label: 'Đang vận chuyển', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'local_shipping' },
+    DELIVERING: { label: 'Đang vận chuyển', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'local_shipping' },
+    DELIVERY_FAIL: { label: 'Đang vận chuyển', color: 'text-indigo-600 bg-indigo-50 border-indigo-200', icon: 'local_shipping' },
+    
+    // 4. Thành công
     DELIVERED: { label: 'Thành công', color: 'text-teal-600 bg-teal-50 border-teal-200', icon: 'mark_email_read' },
     RECEIVED: { label: 'Thành công', color: 'text-teal-600 bg-teal-50 border-teal-200', icon: 'mark_email_read' },
-    // Nhóm 6: Giao thất bại / Hoàn trả
-    WAITING_TO_RETURN: { label: 'Chờ hoàn trả', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
-    RETURN: { label: 'Đang hoàn trả', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
-    RETURN_TRANSPORTING: { label: 'Luân chuyển hàng hoàn', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
-    RETURNING: { label: 'Đang trả hàng', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
-    RETURN_FAIL: { label: 'Hoàn trả thất bại', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
-    RETURNED: { label: 'Đã hoàn trả', color: 'text-orange-600 bg-orange-50 border-orange-200', icon: 'keyboard_return' },
-    REFUSED: { label: 'Từ chối nhận hàng', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'cancel' },
+    
+    // 5. Từ chối nhận hàng (Gom tất cả các bước Hoàn trả)
+    WAITING_TO_RETURN: { label: 'Từ chối nhận hàng đang hoàn kho', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'keyboard_return' },
+    RETURN: { label: 'Từ chối nhận hàng đang hoàn kho', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'keyboard_return' },
+    RETURN_TRANSPORTING: { label: 'Từ chối nhận hàng đang hoàn kho', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'keyboard_return' },
+    RETURNING: { label: 'Từ chối nhận hàng đang hoàn kho', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'keyboard_return' },
+    RETURN_FAIL: { label: 'Từ chối nhận hàng đang hoàn kho', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'keyboard_return' },
+    REFUSED: { label: 'Từ chối nhận hàng đang hoàn kho', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: 'cancel' },
+    RETURNED: { label: 'Đã hoàn hàng về kho', color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'keyboard_return' },
+    
+    // 6. Đã hủy
     CANCELLED: { label: 'Đã hủy', color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'block' }
   }
   return map[status] || { label: status, color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'info' }
@@ -46,8 +51,7 @@ function getStatusLabel(status) {
 const TABS = [
   { key: 'PENDING', query: 'PENDING', label: 'Chờ duyệt' },
   { key: 'PROCESSING', query: 'PROCESSING', label: 'Đang chuẩn bị' },
-  { key: 'READY_TO_PICK', query: 'READY_TO_PICK,PICKING,PICKED', label: 'Chờ lấy hàng' },
-  { key: 'TRANSPORTING', query: 'STORING,TRANSPORTING,SORTING,DELIVERING,DELIVERY_FAIL', label: 'Đang vận chuyển' },
+  { key: 'TRANSPORTING', query: 'READY_TO_PICK,PICKING,PICKED,STORING,TRANSPORTING,SORTING,DELIVERING,DELIVERY_FAIL', label: 'Đang vận chuyển' },
   { key: 'DELIVERED', query: 'DELIVERED,RECEIVED', label: 'Thành công' },
   { key: 'REFUSED', query: 'WAITING_TO_RETURN,RETURN,RETURN_TRANSPORTING,RETURNING,RETURN_FAIL,RETURNED,REFUSED', label: 'Từ chối nhận hàng' },
   { key: 'CANCELLED', query: 'CANCELLED', label: 'Đã hủy' },
@@ -284,25 +288,31 @@ export default function OrdersPage() {
           </Link>
         </div>
       ) : (
-        <div className="flex flex-col gap-6 w-full">
+        <div className="flex flex-col gap-3 w-full">
           {orders.map(order => {
             const statusConfig = getStatusLabel(order.status)
             const firstItem = order.items[0]
             const remainingCount = order.items.length - 1
 
             return (
-              <div key={order.id} className="bg-white rounded-2xl border border-border-pink shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col w-full">
+              <div key={order.id} className="bg-white rounded-lg border border-border-pink shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col w-full">
                 {/* Header Card */}
-                <div className="px-5 py-3 border-b border-border-pink/50 bg-surface-container-lowest flex items-center justify-between gap-3">
+                <div className="px-4 py-2 border-b border-border-pink/50 bg-surface-container-lowest flex items-center justify-between gap-3">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
-                    <h3 className="font-bold text-on-surface text-body-md">
+                    <h3 className="font-bold text-on-surface text-[13px]">
                       Mã đơn: <span className="text-primary">{order.orderCode}</span>
                     </h3>
                     
-                    {returnRequests.find(r => r.orderId === order.id && r.status !== 'REFUNDED') && (
+                    {returnRequests.find(r => r.orderId === order.id && r.status !== 'REFUNDED' && r.status !== 'REJECTED') && (
                       <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
                         <Icon name="gavel" className="text-[13px]" />
                         Đang khiếu nại
+                      </span>
+                    )}
+                    {returnRequests.find(r => r.orderId === order.id && r.status === 'REFUNDED') && (
+                      <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <Icon name="price_check" className="text-[13px]" />
+                        Đã trả hàng & Hoàn tiền
                       </span>
                     )}
 
@@ -312,19 +322,27 @@ export default function OrdersPage() {
                       {new Date(order.createdAt).toLocaleDateString('vi-VN')}
                     </p>
                   </div>
-                  <div className={`shrink-0 px-3 py-1.5 rounded-lg border text-[11px] uppercase font-bold tracking-wide flex items-center gap-1.5 ${statusConfig.color}`}>
-                    <Icon name={statusConfig.icon} className="text-[14px]" />
-                    {statusConfig.label}
+                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+                    {order.status === 'PENDING' && order.paymentMethod === 'BANK_TRANSFER' && order.paymentStatus === 'UNPAID' && (
+                      <div className="shrink-0 px-3 py-1.5 rounded-lg border text-[11px] uppercase font-bold tracking-wide flex items-center gap-1.5 text-orange-600 bg-orange-50 border-orange-200">
+                        <Icon name="payment" className="text-[14px]" />
+                        Chờ thanh toán
+                      </div>
+                    )}
+                    <div className={`shrink-0 px-3 py-1.5 rounded-lg border text-[11px] uppercase font-bold tracking-wide flex items-center gap-1.5 ${statusConfig.color}`}>
+                      <Icon name={statusConfig.icon} className="text-[14px]" />
+                      {statusConfig.label}
+                    </div>
                   </div>
                 </div>
 
                 {/* Body Card (Product & Actions combined) */}
-                <div className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
                   {/* Left: Product summary */}
-                  <div className="flex items-center gap-4 flex-1 min-w-0 w-full">
+                  <div className="flex items-center gap-3 flex-1 min-w-0 w-full">
                     {firstItem && (
                       <>
-                        <div className="w-14 h-14 rounded-xl bg-primary-light flex items-center justify-center shrink-0 border border-border-pink overflow-hidden">
+                        <div className="w-12 h-12 rounded-lg bg-primary-light flex items-center justify-center shrink-0 border border-border-pink overflow-hidden">
                           {firstItem.imageUrl ? (
                             <img src={resolveImageUrl(firstItem.imageUrl)} alt={firstItem.productName} className="w-full h-full object-cover" />
                           ) : (
@@ -347,14 +365,14 @@ export default function OrdersPage() {
                   </div>
 
                   {/* Right: Total and Button */}
-                  <div className="flex items-center shrink-0 w-full sm:w-auto sm:border-l sm:border-border-pink sm:pl-5 mt-2 sm:mt-0 pt-3 sm:pt-0 border-t border-border-pink sm:border-t-0 gap-4 justify-between sm:justify-start">
+                  <div className="flex items-center shrink-0 w-full sm:w-auto sm:border-l sm:border-border-pink sm:pl-4 mt-2 sm:mt-0 pt-2 sm:pt-0 border-t border-border-pink sm:border-t-0 gap-3 justify-between sm:justify-start">
                     <div className="text-right flex flex-col sm:block">
-                      <span className="text-caption text-on-surface-variant sm:mr-2">Tổng thanh toán:</span>
+                      <span className="text-caption text-on-surface-variant sm:mr-1">Tổng thanh toán:</span>
                       <span className="font-bold text-primary text-body-lg">{money(order.totalAmount)}</span>
                     </div>
                     <Link
                       to={`/orders/${order.id}`}
-                      className="px-4 py-2 rounded-xl border border-primary text-primary font-bold text-sm hover:bg-primary hover:text-white transition-colors shrink-0"
+                      className="px-3 py-1.5 rounded-lg border border-primary text-primary font-bold text-sm hover:bg-primary hover:text-white transition-colors shrink-0"
                     >
                       Xem chi tiết
                     </Link>

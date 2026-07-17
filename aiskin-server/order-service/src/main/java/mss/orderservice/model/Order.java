@@ -83,11 +83,18 @@ public class Order {
         if (this.statusHistory == null) {
             this.statusHistory = new ArrayList<>();
         }
-        // Tránh bị duplicate liên tiếp cùng trạng thái
+        
+        String newGroup = getStatusGroup(newStatus);
+        
         if (!this.statusHistory.isEmpty()) {
             OrderStatusHistory lastHistory = this.statusHistory.get(this.statusHistory.size() - 1);
-            if (lastHistory.getStatus() == newStatus && (note == null || note.equals(lastHistory.getNote()))) {
-                return; // Bỏ qua nếu hoàn toàn trùng lặp trạng thái và ghi chú so với lần cuối
+            String lastGroup = getStatusGroup(lastHistory.getStatus());
+            
+            // Nếu cùng một nhóm trạng thái chính thì không tạo thêm lịch sử mới
+            // Chỉ cập nhật trạng thái thực tế của đơn hàng (để theo dõi GHN)
+            if (lastGroup.equals(newGroup)) {
+                this.setStatus(newStatus);
+                return;
             }
         }
         
@@ -98,6 +105,38 @@ public class Order {
         
         this.statusHistory.add(history);
         this.setStatus(newStatus); // Tự động cập nhật field status chính
+    }
+    
+    private String getStatusGroup(OrderStatus status) {
+        if (status == null) return "";
+        switch (status) {
+            case PENDING: return "PENDING";
+            case PROCESSING: return "PROCESSING";
+            case READY_TO_PICK:
+            case PICKING:
+            case PICKED:
+            case STORING:
+            case SORTING:
+            case TRANSPORTING:
+            case DELIVERING:
+            case DELIVERY_FAIL:
+                return "DELIVERING";
+            case DELIVERED:
+            case RECEIVED:
+                return "DELIVERED";
+            case WAITING_TO_RETURN:
+            case RETURN:
+            case RETURN_TRANSPORTING:
+            case RETURNING:
+            case RETURN_FAIL:
+            case REFUSED:
+                return "REFUSED";
+            case RETURNED:
+                return "RETURNED";
+            case CANCELLED:
+                return "CANCELLED";
+            default: return status.name();
+        }
     }
     
     @Data
@@ -118,7 +157,7 @@ public class Order {
     }
     
     public enum PaymentMethod {
-        COD, MOMO, VNPAY
+        COD, MOMO, VNPAY, BANK_TRANSFER
     }
     
     public enum PaymentStatus {

@@ -28,7 +28,7 @@ public interface OrderRepository extends MongoRepository<Order, String> {
     @Query("{ 'status': 'PENDING', 'paymentMethod': { $ne: 'COD' }, 'paymentStatus': 'UNPAID', 'inventoryReserved': true, 'reservationExpiresAt': { $lt: ?0 } }")
     List<Order> findExpiredUnpaidOrders(LocalDateTime threshold);
 
-    @Query("{ 'trackingCode': { $ne: null }, 'status': { $nin: ['DELIVERED', 'DELIVERY_FAIL', 'CANCELLED', 'REFUSED', 'RETURNED'] } }")
+    @Query("{ 'trackingCode': { $ne: null }, 'status': { $nin: ['DELIVERED', 'RETURNED', 'RECEIVED', 'CANCELLED'] } }")
     List<Order> findActiveGhnOrders();
 
     @Query("{ 'paymentStatus': 'PAID', 'createdAt': { $gte: ?0, $lte: ?1 } }")

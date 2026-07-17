@@ -36,11 +36,16 @@ export default function ProductDetailPage() {
   const [showFullDescription, setShowFullDescription] = useState(false)
   const [showAllIngredients, setShowAllIngredients] = useState(false)
   const activeVariants = (product?.variants || []).filter((variant) => variant.isActive !== false)
+  // Tính tổng số lượng từ các biến thể hoặc lấy trực tiếp từ product
+  const availableQuantity = product?.totalAvailableQuantity ?? product?.totalOnHandQuantity ?? activeVariants.reduce(
+    (sum, v) => sum + Math.max(0, Number(v.availableQuantity || v.onHandQuantity || 0)), 0
+  )
+  
   const sellableVariant = activeVariants.find((variant) => (
-    variant.trackInventory === false || Number(variant.availableQuantity || 0) > 0
+    variant.trackInventory === false || Number(variant.availableQuantity || variant.onHandQuantity || availableQuantity) > 0
   )) || activeVariants[0]
+  
   const tracksInventory = sellableVariant?.trackInventory !== false
-  const availableQuantity = Number(sellableVariant?.availableQuantity || 0)
   const outOfStock = tracksInventory && availableQuantity <= 0
   const inCart = items.some((item) => (
     item.id === product?.id && item.variantId === sellableVariant?.id
@@ -62,7 +67,7 @@ export default function ProductDetailPage() {
       variantName: sellableVariant?.name,
       sku: sellableVariant?.sku,
       unit: sellableVariant?.unit,
-      availableQuantity: sellableVariant?.availableQuantity,
+      availableQuantity: sellableVariant?.availableQuantity ?? availableQuantity,
       trackInventory: sellableVariant?.trackInventory,
     })
     setAddedToCart(true)
