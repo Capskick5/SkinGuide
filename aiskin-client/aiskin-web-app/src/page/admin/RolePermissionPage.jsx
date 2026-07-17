@@ -173,15 +173,17 @@ export default function RolePermissionPage() {
     const handleSyncEndpoints = async () => {
         setSyncing(true);
         try {
-            const [userEps, productEps, scanEps] = await Promise.all([
+            const [userEps, productEps, scanEps, orderEps] = await Promise.all([
                 systemApi.getUserServiceEndpoints().catch(() => []),
                 systemApi.getProductServiceEndpoints().catch(() => []),
-                systemApi.getAiScanServiceEndpoints().catch(() => [])
+                systemApi.getAiScanServiceEndpoints().catch(() => []),
+                systemApi.getOrderServiceEndpoints().catch(() => [])
             ]);
 
             if (userEps.length > 0) await permissionApi.syncEndpoints({ service: 'user-service', endpoints: userEps });
             if (productEps.length > 0) await permissionApi.syncEndpoints({ service: 'product-service', endpoints: productEps });
             if (scanEps.length > 0) await permissionApi.syncEndpoints({ service: 'ai-scan-service', endpoints: scanEps });
+            if (orderEps.length > 0) await permissionApi.syncEndpoints({ service: 'order-service', endpoints: orderEps });
 
             message.success('Đồng bộ API thành công!');
             loadData(selectedRole?.id);

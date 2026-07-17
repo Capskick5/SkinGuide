@@ -63,7 +63,7 @@ public class GhnService {
         }
     }
 
-    public String createOrder(Map<String, Object> orderData) {
+    public Map<String, Object> createOrder(Map<String, Object> orderData) {
         if (!canCallGhn()) {
             throw new IllegalStateException("GHN chưa được cấu hình hoặc credential đã bị từ chối");
         }
@@ -73,8 +73,7 @@ public class GhnService {
 
         try {
             Map response = restTemplate.postForObject(url, entity, Map.class);
-            Map<String, Object> data = (Map<String, Object>) response.get("data");
-            return (String) data.get("order_code");
+            return (Map<String, Object>) response.get("data");
         } catch (Exception e) {
             rejectInvalidCredentials(e);
             throw new IllegalStateException("Không thể tạo vận đơn GHN", e);

@@ -56,14 +56,14 @@ public class RefundRequestController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission('/api/refunds', 'GET')")
     @Operation(summary = "Lấy tất cả yêu cầu hoàn tiền (Admin)")
     public ResponseEntity<List<RefundRequest>> getAllRefundRequests() {
         return ResponseEntity.ok(refundRequestService.getAllRefundRequests());
     }
 
     @PutMapping("/admin/{id}/complete")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission('/api/refunds/admin/{id}/complete', 'PUT')")
     @Operation(summary = "Admin xác nhận đã chuyển khoản")
     public ResponseEntity<RefundRequest> completeRefund(
             @PathVariable String id,
@@ -73,7 +73,7 @@ public class RefundRequestController {
     }
 
     @PutMapping("/admin/{id}/reject")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission('/api/refunds/admin/{id}/reject', 'PUT')")
     @Operation(summary = "Admin đánh dấu thông tin sai")
     public ResponseEntity<RefundRequest> rejectRefund(@PathVariable String id) {
         return ResponseEntity.ok(refundRequestService.rejectRefund(id));

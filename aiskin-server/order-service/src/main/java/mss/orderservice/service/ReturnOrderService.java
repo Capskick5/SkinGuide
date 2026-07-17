@@ -146,9 +146,14 @@ public class ReturnOrderService {
 
         try {
             Map<String, Object> ghnData = buildGhnReturnRequest(order, returnOrder);
-            String trackingCode = ghnService.createOrder(ghnData);
+            Map<String, Object> ghnResponse = ghnService.createOrder(ghnData);
+            String trackingCode = ghnResponse != null ? (String) ghnResponse.get("order_code") : null;
             if (trackingCode == null || trackingCode.isBlank()) {
                 throw new IllegalStateException("GHN returned an empty tracking code");
+            }
+            if (ghnResponse.containsKey("total_fee")) {
+                Number feeObj = (Number) ghnResponse.get("total_fee");
+                returnOrder.setReturnShippingFee(new BigDecimal(feeObj.toString()));
             }
             returnOrder.setReturnTrackingCode(trackingCode);
             returnOrder.setReturnCourier("GHN");

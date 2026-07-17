@@ -17,7 +17,6 @@ const ADMIN_NAV_GROUPS = [
       { key: 'returns', label: 'Đơn khiếu nại', icon: 'assignment_return', path: PATHS.ADMIN_RETURNS },
       { key: 'products', label: 'Sản phẩm', icon: 'inventory_2', path: PATHS.ADMIN_PRODUCTS },
       { key: 'inventory', label: 'Quản lý kho', icon: 'warehouse', path: PATHS.ADMIN_INVENTORY },
-      { key: 'scans', label: 'Quét da', icon: 'document_scanner', path: PATHS.ADMIN_SCANS },
     ],
   },
   {
@@ -61,40 +60,49 @@ export default function AdminLayout() {
 
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <div className="space-y-5">
-            {ADMIN_NAV_GROUPS.filter((group) => 
-              user?.roles?.includes('ADMIN') ? true : group.title !== 'Hệ thống'
-            ).map((group) => (
-              <div key={group.title}>
-                <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                  {group.title}
-                </p>
-                <ul className="space-y-1">
-                  {group.items.map((item) => (
-                    <li key={item.key}>
-                      <NavLink
-                        to={item.path}
-                        end={item.path === PATHS.ADMIN_DASHBOARD}
-                        className={({ isActive }) =>
-                          [
-                            'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition',
-                            isActive
-                              ? 'bg-gray-950 text-white shadow-sm'
-                              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-950',
-                          ].join(' ')
-                        }
-                      >
-                        {({ isActive }) => (
-                          <>
-                            <Icon name={item.icon} filled={isActive} className="text-xl" />
-                            <span>{item.label}</span>
-                          </>
-                        )}
-                      </NavLink>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            {ADMIN_NAV_GROUPS.map((group) => {
+              const filteredItems = group.items.filter(item => {
+                if (user?.roles?.includes('ADMIN')) return true;
+                // MANAGER chỉ được phép xem các mục này
+                const managerAllowed = ['dashboard', 'orders', 'returns', 'inventory'];
+                return managerAllowed.includes(item.key);
+              });
+
+              if (filteredItems.length === 0) return null;
+
+              return (
+                <div key={group.title}>
+                  <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                    {group.title}
+                  </p>
+                  <ul className="space-y-1">
+                    {filteredItems.map((item) => (
+                      <li key={item.key}>
+                        <NavLink
+                          to={item.path}
+                          end={item.path === PATHS.ADMIN_DASHBOARD}
+                          className={({ isActive }) =>
+                            [
+                              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition',
+                              isActive
+                                ? 'bg-gray-950 text-white shadow-sm'
+                                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-950',
+                            ].join(' ')
+                          }
+                        >
+                          {({ isActive }) => (
+                            <>
+                              <Icon name={item.icon} filled={isActive} className="text-xl" />
+                              <span>{item.label}</span>
+                            </>
+                          )}
+                        </NavLink>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
           </div>
         </nav>
 

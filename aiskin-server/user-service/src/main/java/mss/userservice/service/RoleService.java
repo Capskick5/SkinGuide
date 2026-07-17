@@ -58,6 +58,9 @@ public class RoleService {
         if (roleRepository.findByName("USER").isEmpty()) {
             roleRepository.save(Role.builder().name("USER").description("Người dùng cơ bản").build());
         }
+        if (roleRepository.findByName("MANAGER").isEmpty()) {
+            roleRepository.save(Role.builder().name("MANAGER").description("Quản lý cửa hàng").build());
+        }
         if (roleRepository.findByName("ADMIN").isEmpty()) {
             roleRepository.save(Role.builder().name("ADMIN").description("Quản trị viên hệ thống").build());
         }

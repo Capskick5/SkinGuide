@@ -97,22 +97,25 @@ export default function AppRoutes() {
 
         <Route element={<AdminRoute />}>
           <Route element={<AdminLayout />}>
+            {/* Hệ thống */}
             <Route path={PATHS.ADMIN_USERS} element={<AdminUsersPage />} />
             <Route path={PATHS.ADMIN_ROLES} element={<RolePermissionPage />} />
+            {/* Sản phẩm & Quét da */}
+            <Route path={PATHS.ADMIN_PRODUCTS} element={<AdminProductsPage />} />
+            <Route path={PATHS.ADMIN_SCANS} element={<AdminScansPage />} />
+            {/* Danh mục */}
+            <Route path={PATHS.ADMIN_BRANDS} element={<AdminBrandsPage />} />
+            <Route path={PATHS.ADMIN_CATEGORIES} element={<AdminCategoriesPage />} />
+            <Route path={PATHS.ADMIN_INGREDIENTS} element={<AdminIngredientsPage />} />
           </Route>
         </Route>
 
         <Route element={<ManagerRoute />}>
           <Route element={<AdminLayout />}>
             <Route path={PATHS.ADMIN_DASHBOARD} element={<AdminDashboardPage />} />
-            <Route path={PATHS.ADMIN_PRODUCTS} element={<AdminProductsPage />} />
             <Route path={PATHS.ADMIN_INVENTORY} element={<AdminInventoryPage />} />
             <Route path={PATHS.ADMIN_ORDERS} element={<AdminOrdersPage />} />
             <Route path={PATHS.ADMIN_RETURNS} element={<AdminReturnOrdersPage />} />
-            <Route path={PATHS.ADMIN_SCANS} element={<AdminScansPage />} />
-            <Route path={PATHS.ADMIN_BRANDS} element={<AdminBrandsPage />} />
-            <Route path={PATHS.ADMIN_CATEGORIES} element={<AdminCategoriesPage />} />
-            <Route path={PATHS.ADMIN_INGREDIENTS} element={<AdminIngredientsPage />} />
           </Route>
         </Route>
 

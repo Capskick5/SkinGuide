@@ -61,7 +61,7 @@ public class ReturnOrderController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission('/api/returns', 'GET')")
     @Operation(summary = "Get all returns", description = "Admin endpoint to fetch all return requests with pagination and optional status filter")
     public ResponseEntity<?> getAllReturns(
             @RequestParam(defaultValue = "0") int page,
@@ -71,7 +71,7 @@ public class ReturnOrderController {
     }
 
     @PutMapping("/admin/{id}/status")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission('/api/returns/admin/{id}/status', 'PUT')")
     @Operation(summary = "Update return status", description = "Admin updates status of a return request")
     public ResponseEntity<ReturnOrder> updateReturnStatus(
             @PathVariable String id,
@@ -110,7 +110,7 @@ public class ReturnOrderController {
     }
 
     @PostMapping("/sync-ghn")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission('/api/returns/sync-ghn', 'POST')")
     @Operation(summary = "Đồng bộ GHN thủ công", description = "Đồng bộ trạng thái toàn bộ đơn trả hàng từ GHN")
     public ResponseEntity<?> syncGhnReturnOrderStatusManual() {
         try {

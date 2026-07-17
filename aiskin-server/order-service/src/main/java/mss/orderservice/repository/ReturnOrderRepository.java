@@ -22,7 +22,7 @@ public interface ReturnOrderRepository extends MongoRepository<ReturnOrder, Stri
     Page<ReturnOrder> findAll(Pageable pageable);
     Page<ReturnOrder> findByStatusIn(List<ReturnOrder.ReturnStatus> statuses, Pageable pageable);
 
-    @org.springframework.data.mongodb.repository.Query("{ 'status': { $in: ['RECEIVED', 'REFUNDED'] } }")
+    @org.springframework.data.mongodb.repository.Query("{ 'status': { $in: ['DELIVERING', 'DELIVERED', 'RECEIVED', 'REFUNDED'] } }")
     List<ReturnOrder> findCompletedReturns();
 
     @org.springframework.data.mongodb.repository.Query("{ 'status': 'REFUNDED' }")
