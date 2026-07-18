@@ -10,10 +10,8 @@ import mss.orderservice.repository.ReturnOrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.math.BigDecimal;
 import java.util.Optional;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,21 +23,20 @@ import static org.mockito.Mockito.when;
 class RefundRequestServiceTest {
 
     private RefundRequestRepository refundRequestRepository;
+
     private ReturnOrderRepository returnOrderRepository;
+
     private OrderRepository orderRepository;
-    private RefundRequestService service;
+
+    private IRefundRequestService service;
 
     @BeforeEach
     void setUp() {
         refundRequestRepository = mock(RefundRequestRepository.class);
         returnOrderRepository = mock(ReturnOrderRepository.class);
         orderRepository = mock(OrderRepository.class);
-        service = new RefundRequestService(
-                refundRequestRepository,
-                returnOrderRepository,
-                orderRepository);
-        when(refundRequestRepository.save(any(RefundRequest.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        service = new RefundRequestService(refundRequestRepository, returnOrderRepository, orderRepository);
+        when(refundRequestRepository.save(any(RefundRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @Test
@@ -47,15 +44,7 @@ class RefundRequestServiceTest {
         ReturnOrder returnOrder = receivedReturn();
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
         when(refundRequestRepository.findByReturnOrderId("return-1")).thenReturn(Optional.empty());
-
-        RefundRequest result = service.createRefundRequest(
-                "customer-1",
-                new RefundCreateRequest(
-                        "return-1",
-                        "  Vietcombank ",
-                        "0123456789",
-                        "  Nguyen Van A "));
-
+        RefundRequest result = service.createRefundRequest("customer-1", new RefundCreateRequest("return-1", "  Vietcombank ", "0123456789", "  Nguyen Van A "));
         assertThat(result.getAmount()).isEqualByComparingTo("150000");
         assertThat(result.getBankName()).isEqualTo("Vietcombank");
         assertThat(result.getAccountNumber()).isEqualTo("0123456789");
@@ -67,17 +56,11 @@ class RefundRequestServiceTest {
     void completingRefundUpdatesRefundReturnAndOriginalOrder() {
         RefundRequest refund = pendingRefund();
         ReturnOrder returnOrder = receivedReturn();
-        Order order = Order.builder()
-                .id("order-1")
-                .status(Order.OrderStatus.DELIVERED)
-                .paymentStatus(Order.PaymentStatus.PAID)
-                .build();
+        Order order = Order.builder().id("order-1").status(Order.OrderStatus.DELIVERED).paymentStatus(Order.PaymentStatus.PAID).build();
         when(refundRequestRepository.findById("refund-1")).thenReturn(Optional.of(refund));
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
         when(orderRepository.findById("order-1")).thenReturn(Optional.of(order));
-
         RefundRequest result = service.completeRefund("refund-1", "https://example.com/receipt.jpg");
-
         assertThat(result.getStatus()).isEqualTo(RefundRequest.RefundStatus.COMPLETED);
         assertThat(returnOrder.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.REFUNDED);
         assertThat(order.getStatus()).isEqualTo(Order.OrderStatus.RETURNED);
@@ -94,11 +77,7 @@ class RefundRequestServiceTest {
         returnOrder.setInventoryProcessed(false);
         when(refundRequestRepository.findById("refund-1")).thenReturn(Optional.of(refund));
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
-
-        assertThatThrownBy(() -> service.completeRefund("refund-1", null))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("chưa được kho phân loại");
-
+        assertThatThrownBy(() -> service.completeRefund("refund-1", null)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("chưa được kho phân loại");
         verify(orderRepository, never()).save(any());
         verify(returnOrderRepository, never()).save(any());
         verify(refundRequestRepository, never()).save(any());
@@ -109,25 +88,13 @@ class RefundRequestServiceTest {
         RefundRequest refund = pendingRefund();
         refund.setStatus(RefundRequest.RefundStatus.COMPLETED);
         when(refundRequestRepository.findById("refund-1")).thenReturn(Optional.of(refund));
-
         assertThat(service.completeRefund("refund-1", null)).isSameAs(refund);
-
         verify(returnOrderRepository, never()).findById(any());
         verify(orderRepository, never()).findById(any());
     }
 
     private ReturnOrder receivedReturn() {
-        return ReturnOrder.builder()
-                .id("return-1")
-                .orderId("order-1")
-                .orderCode("ORD-1")
-                .customerId("customer-1")
-                .customerName("Nguyen Van A")
-                .refundAmount(BigDecimal.valueOf(150_000))
-                .status(ReturnOrder.ReturnStatus.RECEIVED)
-                .inventoryProcessed(true)
-                .inventoryDisposition(ReturnOrder.InventoryDisposition.RESTOCK)
-                .build();
+        return ReturnOrder.builder().id("return-1").orderId("order-1").orderCode("ORD-1").customerId("customer-1").customerName("Nguyen Van A").refundAmount(BigDecimal.valueOf(150_000)).status(ReturnOrder.ReturnStatus.RECEIVED).inventoryProcessed(true).inventoryDisposition(ReturnOrder.InventoryDisposition.RESTOCK).build();
     }
 
     private RefundRequest pendingRefund() {

@@ -7,16 +7,16 @@ import mss.userservice.service.PermissionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import mss.userservice.service.IPermissionService;
 
 @RestController
 @RequestMapping("/api/admin/permissions")
 public class PermissionController {
 
-    private final PermissionService permissionService;
+    private final IPermissionService permissionService;
 
-    public PermissionController(PermissionService permissionService) {
+    public PermissionController(IPermissionService permissionService) {
         this.permissionService = permissionService;
     }
 

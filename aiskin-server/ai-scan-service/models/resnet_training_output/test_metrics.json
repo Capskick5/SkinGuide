@@ -1,0 +1,47 @@
+{
+  "accuracy": 0.41044776119402987,
+  "macro_f1": 0.40543840113210616,
+  "per_class": {
+    "Dry": {
+      "precision": 0.35135135135135137,
+      "recall": 0.37142857142857144,
+      "f1-score": 0.3611111111111111,
+      "support": 35.0
+    },
+    "Normal": {
+      "precision": 0.5227272727272727,
+      "recall": 0.3898305084745763,
+      "f1-score": 0.44660194174757284,
+      "support": 59.0
+    },
+    "Oily": {
+      "precision": 0.3584905660377358,
+      "recall": 0.475,
+      "f1-score": 0.40860215053763443,
+      "support": 40.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      13,
+      10,
+      12
+    ],
+    [
+      14,
+      23,
+      22
+    ],
+    [
+      10,
+      11,
+      19
+    ]
+  ],
+  "calibration": {
+    "temperature": 5.0,
+    "expected_calibration_error": 0.11933332858865553,
+    "brier_score": 0.6559493541717529,
+    "mean_confidence": 0.48586171865463257
+  }
+}

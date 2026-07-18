@@ -14,10 +14,12 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
-public class OrderAuthorizationService {
+public class OrderAuthorizationService implements IOrderAuthorizationService {
 
     private final OrderRepository orderRepository;
+
     private final ReturnOrderRepository returnOrderRepository;
+
     private final RefundRequestRepository refundRequestRepository;
 
     public void requireSameCustomerOrAdmin(String customerId, Authentication authentication) {
@@ -29,18 +31,15 @@ public class OrderAuthorizationService {
     public void requireOrderAccess(String orderId, Authentication authentication) {
         Order order;
         if (orderId != null && orderId.startsWith("ORD-")) {
-            order = orderRepository.findByOrderCode(orderId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+            order = orderRepository.findByOrderCode(orderId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
         } else {
-            order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+            order = orderRepository.findById(orderId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
         }
         requireSameCustomerOrAdmin(order.getCustomerId(), authentication);
     }
 
     public void requireReturnAccess(String returnId, Authentication authentication) {
-        ReturnOrder returnOrder = returnOrderRepository.findById(returnId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Return order not found"));
+        ReturnOrder returnOrder = returnOrderRepository.findById(returnId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Return order not found"));
         requireSameCustomerOrAdmin(returnOrder.getCustomerId(), authentication);
     }
 
@@ -49,20 +48,17 @@ public class OrderAuthorizationService {
     }
 
     public void requireRefundAccess(String refundId, Authentication authentication) {
-        RefundRequest refund = refundRequestRepository.findById(refundId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Refund request not found"));
+        RefundRequest refund = refundRequestRepository.findById(refundId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Refund request not found"));
         requireSameCustomerOrAdmin(refund.getCustomerId(), authentication);
     }
 
     public void requireRefundByReturnAccess(String returnOrderId, Authentication authentication) {
-        ReturnOrder returnOrder = returnOrderRepository.findById(returnOrderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Return order not found"));
+        ReturnOrder returnOrder = returnOrderRepository.findById(returnOrderId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Return order not found"));
         requireSameCustomerOrAdmin(returnOrder.getCustomerId(), authentication);
     }
 
     private boolean isAdmin(Authentication authentication) {
-        return authentication.getAuthorities().stream()
-                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
+        return authentication.getAuthorities().stream().anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
     }
 
     private ResponseStatusException forbidden() {

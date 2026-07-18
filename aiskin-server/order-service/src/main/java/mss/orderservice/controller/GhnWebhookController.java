@@ -14,10 +14,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.util.Map;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import mss.orderservice.service.IOrderService;
 
 @Slf4j
 @RestController
@@ -26,14 +26,14 @@ import java.security.MessageDigest;
 public class GhnWebhookController {
 
     private final OrderRepository orderRepository;
+
     private final ReturnOrderRepository returnOrderRepository;
-    private final OrderService orderService;
+
+    private final IOrderService orderService;
+
     private final GhnConfig ghnConfig;
 
-    public GhnWebhookController(OrderRepository orderRepository,
-                                ReturnOrderRepository returnOrderRepository,
-                                OrderService orderService,
-                                GhnConfig ghnConfig) {
+    public GhnWebhookController(OrderRepository orderRepository, ReturnOrderRepository returnOrderRepository, IOrderService orderService, GhnConfig ghnConfig) {
         this.orderRepository = orderRepository;
         this.returnOrderRepository = returnOrderRepository;
         this.orderService = orderService;
@@ -42,10 +42,7 @@ public class GhnWebhookController {
 
     @PostMapping
     @Operation(summary = "GHN Webhook Endpoint")
-    public ResponseEntity<String> handleGhnWebhook(
-            @RequestBody Map<String, Object> payload,
-            @org.springframework.web.bind.annotation.RequestHeader(value = "X-GHN-Webhook-Secret", required = false) String headerSecret,
-            @org.springframework.web.bind.annotation.RequestParam(value = "token", required = false) String querySecret) {
+    public ResponseEntity<String> handleGhnWebhook(@RequestBody Map<String, Object> payload, @org.springframework.web.bind.annotation.RequestHeader(value = "X-GHN-Webhook-Secret", required = false) String headerSecret, @org.springframework.web.bind.annotation.RequestParam(value = "token", required = false) String querySecret) {
         String suppliedSecret = headerSecret != null ? headerSecret : querySecret;
         if (!validWebhookSecret(suppliedSecret)) {
             return ResponseEntity.status(401).body("Invalid webhook secret");
@@ -55,13 +52,10 @@ public class GhnWebhookController {
             String ghnOrderCode = stringValue(payload.get("OrderCode"));
             String clientOrderCode = stringValue(payload.get("ClientOrderCode"));
             String status = stringValue(payload.get("Status"));
-
             if (isBlank(ghnOrderCode) || isBlank(status)) {
                 return ResponseEntity.badRequest().body("Thiếu dữ liệu OrderCode hoặc Status");
             }
-
             log.info("Processing GHN webhook for order {} with status {}", ghnOrderCode, status);
-
             Order order = null;
             if (clientOrderCode != null && !clientOrderCode.trim().isEmpty()) {
                 order = orderRepository.findByOrderCode(clientOrderCode).orElse(null);
@@ -69,7 +63,6 @@ public class GhnWebhookController {
             if (order == null) {
                 order = orderRepository.findByTrackingCode(ghnOrderCode).orElse(null);
             }
-
             if (order == null) {
                 // Thử tìm trong ReturnOrder
                 ReturnOrder returnOrder = returnOrderRepository.findByReturnTrackingCode(ghnOrderCode).orElse(null);
@@ -77,14 +70,12 @@ public class GhnWebhookController {
                     handleReturnOrderWebhook(returnOrder, status);
                     return ResponseEntity.ok("OK");
                 }
-                
                 log.warn("Không tìm thấy Order hay ReturnOrder trong hệ thống với GHN code: {} hoặc Client code: {}", ghnOrderCode, clientOrderCode);
-                return ResponseEntity.ok("OK"); // Vẫn trả về OK để GHN không spam lại
+                // Vẫn trả về OK để GHN không spam lại
+                return ResponseEntity.ok("OK");
             }
-
             // Ánh xạ trạng thái GHN sang trạng thái Hệ thống
             Order.OrderStatus newStatus = orderService.mapGhnStatusToSystemStatus(status);
-
             if (newStatus != null) {
                 String note = "Webhook cập nhật từ GHN";
                 if (newStatus == Order.OrderStatus.REFUSED) {
@@ -102,7 +93,6 @@ public class GhnWebhookController {
                 orderService.applyShippingStatus(order, newStatus, note);
             }
             return ResponseEntity.ok("OK");
-
         } catch (Exception e) {
             log.error("Lỗi xử lý webhook GHN: {}", e.getMessage());
             return ResponseEntity.internalServerError().body("Error");
@@ -111,10 +101,7 @@ public class GhnWebhookController {
 
     private boolean validWebhookSecret(String suppliedSecret) {
         String expected = ghnConfig.getWebhookSecret();
-        return expected != null && !expected.isBlank() && suppliedSecret != null
-                && MessageDigest.isEqual(
-                        expected.getBytes(StandardCharsets.UTF_8),
-                        suppliedSecret.getBytes(StandardCharsets.UTF_8));
+        return expected != null && !expected.isBlank() && suppliedSecret != null && MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), suppliedSecret.getBytes(StandardCharsets.UTF_8));
     }
 
     private String stringValue(Object value) {
@@ -127,14 +114,11 @@ public class GhnWebhookController {
 
     private void handleReturnOrderWebhook(ReturnOrder returnOrder, String status) {
         // Nếu đã hoàn thành quy trình rồi thì bỏ qua
-        if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.RECEIVED || 
-            returnOrder.getStatus() == ReturnOrder.ReturnStatus.REFUNDED ||
-            returnOrder.getStatus() == ReturnOrder.ReturnStatus.REJECTED) {
+        if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.RECEIVED || returnOrder.getStatus() == ReturnOrder.ReturnStatus.REFUNDED || returnOrder.getStatus() == ReturnOrder.ReturnStatus.REJECTED) {
             return;
         }
-
         ReturnOrder.ReturnStatus newStatus = null;
-        switch (status) {
+        switch(status) {
             case "picking":
             case "picked":
             case "storing":
@@ -148,7 +132,6 @@ public class GhnWebhookController {
                 newStatus = ReturnOrder.ReturnStatus.DELIVERED;
                 break;
         }
-
         if (newStatus != null && returnOrder.getStatus() != newStatus) {
             returnOrder.setStatus(newStatus);
             returnOrderRepository.save(returnOrder);

@@ -9,17 +9,19 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.util.List;
+import mss.productservice.service.IDataImportService;
+import mss.productservice.service.IDemoInventoryService;
 
 @RestController
 @RequestMapping("/api/products/internal/import")
 public class DataImportController {
 
-    private final DataImportService dataImportService;
-    private final DemoInventoryService demoInventoryService;
+    private final IDataImportService dataImportService;
 
-    public DataImportController(DataImportService dataImportService, DemoInventoryService demoInventoryService) {
+    private final IDemoInventoryService demoInventoryService;
+
+    public DataImportController(IDataImportService dataImportService, IDemoInventoryService demoInventoryService) {
         this.dataImportService = dataImportService;
         this.demoInventoryService = demoInventoryService;
     }
@@ -33,8 +35,7 @@ public class DataImportController {
     }
 
     @PostMapping("/demo-inventory")
-    public ResponseEntity<DemoInventoryService.SeedInventoryResult> seedDemoInventory(
-            @RequestParam(defaultValue = "50") int quantityPerVariant) {
+    public ResponseEntity<DemoInventoryService.SeedInventoryResult> seedDemoInventory(@RequestParam(defaultValue = "50") int quantityPerVariant) {
         return ResponseEntity.ok(demoInventoryService.seedMissingInventory(quantityPerVariant));
     }
 }

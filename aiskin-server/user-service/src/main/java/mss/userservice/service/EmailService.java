@@ -16,19 +16,19 @@ import org.springframework.stereotype.Service;
  * can disable SMTP only when the OTP is exposed in the API response.
  */
 @Service
-public class EmailService {
+public class EmailService implements IEmailService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
     private final JavaMailSender mailSender;
+
     private final MailDeliveryProperties properties;
+
     private final OtpProperties otpProperties;
+
     private final String smtpHost;
 
-    public EmailService(ObjectProvider<JavaMailSender> mailSenderProvider,
-                        MailDeliveryProperties properties,
-                        OtpProperties otpProperties,
-                        @Value("${spring.mail.host:}") String smtpHost) {
+    public EmailService(ObjectProvider<JavaMailSender> mailSenderProvider, MailDeliveryProperties properties, OtpProperties otpProperties, @Value("${spring.mail.host:}") String smtpHost) {
         this.mailSender = mailSenderProvider.getIfAvailable();
         this.properties = properties;
         this.otpProperties = otpProperties;
@@ -41,8 +41,7 @@ public class EmailService {
             throw new IllegalStateException("MAIL_ENABLED=true requires a configured SMTP_HOST");
         }
         if (!properties.enabled() && !otpProperties.exposeInResponse()) {
-            throw new IllegalStateException(
-                    "OTP delivery is unavailable: enable SMTP or set OTP_EXPOSE=true for local development");
+            throw new IllegalStateException("OTP delivery is unavailable: enable SMTP or set OTP_EXPOSE=true for local development");
         }
     }
 
@@ -55,14 +54,11 @@ public class EmailService {
             }
             return;
         }
-
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(properties.from());
         message.setTo(to);
         message.setSubject(properties.subjectPrefix() + " Mã xác thực " + purpose);
-        message.setText("Mã OTP của bạn là " + code
-                + ". Mã chỉ sử dụng một lần và sẽ hết hiệu lực trong "
-                + Math.max(1, otpProperties.ttlSeconds() / 60) + " phút.");
+        message.setText("Mã OTP của bạn là " + code + ". Mã chỉ sử dụng một lần và sẽ hết hiệu lực trong " + Math.max(1, otpProperties.ttlSeconds() / 60) + " phút.");
         mailSender.send(message);
         log.info("Sent {} OTP email to {}", purpose, to);
     }

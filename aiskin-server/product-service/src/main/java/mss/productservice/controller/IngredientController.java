@@ -10,15 +10,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import mss.productservice.service.IIngredientService;
 
 @RestController
 @RequestMapping("/api/ingredients")
 @RequiredArgsConstructor
 public class IngredientController {
 
-    private final IngredientService ingredientService;
+    private final IIngredientService ingredientService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<IngredientResponse>>> getAllIngredients() {
@@ -51,8 +51,7 @@ public class IngredientController {
     }
 
     @GetMapping("/safe")
-    public ResponseEntity<ApiResponse<List<IngredientResponse>>> getSafeIngredients(
-            @RequestParam(defaultValue = "3") Integer maxEwgScore) {
+    public ResponseEntity<ApiResponse<List<IngredientResponse>>> getSafeIngredients(@RequestParam(defaultValue = "3") Integer maxEwgScore) {
         return ResponseEntity.ok(ApiResponse.ok(ingredientService.getSafeIngredients(maxEwgScore)));
     }
 
@@ -65,8 +64,7 @@ public class IngredientController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasPermission('/api/ingredients/{id}', 'PUT')")
-    public ResponseEntity<ApiResponse<IngredientResponse>> updateIngredient(@PathVariable String id,
-                                                                             @Valid @RequestBody IngredientRequest request) {
+    public ResponseEntity<ApiResponse<IngredientResponse>> updateIngredient(@PathVariable String id, @Valid @RequestBody IngredientRequest request) {
         return ResponseEntity.ok(ApiResponse.ok("Ingredient updated", ingredientService.updateIngredient(id, request)));
     }
 

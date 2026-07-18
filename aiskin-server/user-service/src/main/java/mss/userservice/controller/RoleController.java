@@ -7,17 +7,17 @@ import mss.userservice.service.RoleService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 import java.util.Set;
+import mss.userservice.service.IRoleService;
 
 @RestController
 @RequestMapping("/api/admin/roles")
 public class RoleController {
 
-    private final RoleService roleService;
+    private final IRoleService roleService;
 
-    public RoleController(RoleService roleService) {
+    public RoleController(IRoleService roleService) {
         this.roleService = roleService;
     }
 

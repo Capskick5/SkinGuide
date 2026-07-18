@@ -16,7 +16,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,42 +28,29 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class ReturnOrderService {
+public class ReturnOrderService implements IReturnOrderService {
 
     private final ReturnOrderRepository returnOrderRepository;
+
     private final OrderRepository orderRepository;
-    private final GhnService ghnService;
+
+    private final IGhnService ghnService;
+
     private final ReturnInventoryClient returnInventoryClient;
 
     public ReturnOrder createReturnRequest(String orderId, ReturnRequest request) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> notFound("Không tìm thấy đơn hàng"));
-
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> notFound("Không tìm thấy đơn hàng"));
         if (order.getStatus() != Order.OrderStatus.DELIVERED) {
             throw badRequest("Chỉ được yêu cầu trả hàng khi đơn đã giao thành công");
         }
         if (order.getPaymentStatus() != Order.PaymentStatus.PAID) {
             throw badRequest("Chỉ được yêu cầu trả hàng khi đơn đã thanh toán thành công");
         }
-
         if (returnOrderRepository.findByOrderId(orderId).isPresent()) {
             throw conflict("Đơn hàng này đã có yêu cầu trả hàng");
         }
         ReturnCalculation calculation = calculateReturn(order, request.items());
-
-        ReturnOrder returnOrder = ReturnOrder.builder()
-                .orderId(order.getId())
-                .orderCode(order.getOrderCode())
-                .customerId(order.getCustomerId())
-                .customerName(order.getCustomerName())
-                .reason(request.reason().trim())
-                .description(request.description().trim())
-                .imageUrls(List.copyOf(request.imageUrls()))
-                .items(calculation.items())
-                .refundAmount(calculation.totalRefund())
-                .status(ReturnOrder.ReturnStatus.PENDING)
-                .build();
-
+        ReturnOrder returnOrder = ReturnOrder.builder().orderId(order.getId()).orderCode(order.getOrderCode()).customerId(order.getCustomerId()).customerName(order.getCustomerName()).reason(request.reason().trim()).description(request.description().trim()).imageUrls(List.copyOf(request.imageUrls())).items(calculation.items()).refundAmount(calculation.totalRefund()).status(ReturnOrder.ReturnStatus.PENDING).build();
         return returnOrderRepository.save(returnOrder);
     }
 
@@ -81,11 +67,7 @@ public class ReturnOrderService {
             return returnOrderRepository.findAll(pageable);
         }
         try {
-            List<ReturnOrder.ReturnStatus> statusList = Arrays.stream(status.split(","))
-                    .map(String::trim)
-                    .map(String::toUpperCase)
-                    .map(ReturnOrder.ReturnStatus::valueOf)
-                    .collect(Collectors.toList());
+            List<ReturnOrder.ReturnStatus> statusList = Arrays.stream(status.split(",")).map(String::trim).map(String::toUpperCase).map(ReturnOrder.ReturnStatus::valueOf).collect(Collectors.toList());
             return returnOrderRepository.findByStatusIn(statusList, pageable);
         } catch (IllegalArgumentException exception) {
             throw badRequest("Trạng thái lọc không hợp lệ");
@@ -96,26 +78,18 @@ public class ReturnOrderService {
         return returnOrderRepository.findByOrderId(orderId).orElse(null);
     }
 
-    public ReturnOrder updateReturnStatus(
-            String id,
-            ReturnOrder.ReturnStatus newStatus,
-            String rejectReason,
-            ReturnOrder.InventoryDisposition inventoryDisposition) {
-        ReturnOrder returnOrder = returnOrderRepository.findById(id)
-                .orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
+    public ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason, ReturnOrder.InventoryDisposition inventoryDisposition) {
+        ReturnOrder returnOrder = returnOrderRepository.findById(id).orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
         ReturnOrder.ReturnStatus currentStatus = returnOrder.getStatus();
-
         if (newStatus == currentStatus) {
             validateRepeatedStatus(returnOrder, inventoryDisposition);
             return returnOrder;
         }
         validateAdminTransition(currentStatus, newStatus, rejectReason, inventoryDisposition);
         returnOrder.setStatus(newStatus);
-
         if (newStatus == ReturnOrder.ReturnStatus.REJECTED) {
             returnOrder.setRejectReason(rejectReason.trim());
         }
-
         if (newStatus == ReturnOrder.ReturnStatus.RECEIVED) {
             if (Boolean.TRUE.equals(returnOrder.getInventoryProcessed())) {
                 if (returnOrder.getInventoryDisposition() != inventoryDisposition) {
@@ -128,12 +102,9 @@ public class ReturnOrderService {
                 returnOrder.setInventoryProcessed(true);
             }
         }
-        
-        if (newStatus == ReturnOrder.ReturnStatus.DELIVERING
-                && returnOrder.getReturnTrackingCode() == null) {
+        if (newStatus == ReturnOrder.ReturnStatus.DELIVERING && returnOrder.getReturnTrackingCode() == null) {
             tryCreateGhnReturnShipment(returnOrder);
         }
-
         return returnOrderRepository.save(returnOrder);
     }
 
@@ -143,7 +114,6 @@ public class ReturnOrderService {
             returnOrder.setReturnShipmentError("Không tìm thấy đơn hàng gốc để tạo vận đơn");
             return;
         }
-
         try {
             Map<String, Object> ghnData = buildGhnReturnRequest(order, returnOrder);
             Map<String, Object> ghnResponse = ghnService.createOrder(ghnData);
@@ -160,8 +130,7 @@ public class ReturnOrderService {
             returnOrder.setReturnShipmentError(null);
         } catch (Exception exception) {
             log.warn("Return {} was approved but GHN shipment creation failed", returnOrder.getId(), exception);
-            returnOrder.setReturnShipmentError(
-                    "Chưa tạo được vận đơn GHN. Admin có thể xác nhận nhận hàng thủ công.");
+            returnOrder.setReturnShipmentError("Chưa tạo được vận đơn GHN. Admin có thể xác nhận nhận hàng thủ công.");
         }
     }
 
@@ -176,20 +145,17 @@ public class ReturnOrderService {
         ghnData.put("from_district_name", "");
         ghnData.put("from_ward_code", order.getGhnWardCode());
         ghnData.put("from_district_id", order.getGhnDistrictId());
-
         ghnData.put("to_name", "Kho SkinGuide");
         ghnData.put("to_phone", "0987654321");
         ghnData.put("to_address", "Đại học FPT, TPHCM, Khu Công nghệ cao");
         ghnData.put("to_ward_code", "90753");
         ghnData.put("to_district_id", 3695);
-
         ghnData.put("weight", 500);
         ghnData.put("length", 15);
         ghnData.put("width", 15);
         ghnData.put("height", 10);
         ghnData.put("service_type_id", 2);
         ghnData.put("insurance_value", 0);
-
         List<Map<String, Object>> ghnItems = new ArrayList<>();
         for (ReturnOrder.ReturnItem returnItem : returnOrder.getItems()) {
             Map<String, Object> item = new HashMap<>();
@@ -205,28 +171,21 @@ public class ReturnOrderService {
     }
 
     public ReturnOrder updateReturnRequest(String id, ReturnRequest request) {
-        ReturnOrder returnOrder = returnOrderRepository.findById(id)
-                .orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
-        
+        ReturnOrder returnOrder = returnOrderRepository.findById(id).orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
         if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.PENDING && returnOrder.getStatus() != ReturnOrder.ReturnStatus.REJECTED) {
             throw conflict("Chỉ có thể sửa yêu cầu khi đang chờ duyệt hoặc bị từ chối");
         }
-        
-        Order order = orderRepository.findById(returnOrder.getOrderId())
-                .orElseThrow(() -> notFound("Không tìm thấy đơn hàng gốc"));
+        Order order = orderRepository.findById(returnOrder.getOrderId()).orElseThrow(() -> notFound("Không tìm thấy đơn hàng gốc"));
         ReturnCalculation calculation = calculateReturn(order, request.items());
-
         returnOrder.setReason(request.reason().trim());
         returnOrder.setDescription(request.description().trim());
         returnOrder.setImageUrls(List.copyOf(request.imageUrls()));
         returnOrder.setItems(calculation.items());
         returnOrder.setRefundAmount(calculation.totalRefund());
-
         if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.REJECTED) {
             returnOrder.setStatus(ReturnOrder.ReturnStatus.PENDING);
             returnOrder.setRejectReason(null);
         }
-
         return returnOrderRepository.save(returnOrder);
     }
 
@@ -237,62 +196,32 @@ public class ReturnOrderService {
         if (requestedItems == null || requestedItems.isEmpty()) {
             throw badRequest("Cần chọn ít nhất một sản phẩm để trả");
         }
-
         List<ReturnOrder.ReturnItem> returnItems = new ArrayList<>();
         Map<String, Integer> requestedQuantities = new HashMap<>();
         BigDecimal totalRefund = BigDecimal.ZERO;
-
         for (ReturnItemRequest requestedItem : requestedItems) {
-            OrderItem originalItem = findOriginalItem(
-                    order,
-                    requestedItem.productId().trim(),
-                    normalized(requestedItem.variantId()),
-                    normalized(requestedItem.sku()),
-                    normalized(requestedItem.unit()));
+            OrderItem originalItem = findOriginalItem(order, requestedItem.productId().trim(), normalized(requestedItem.variantId()), normalized(requestedItem.sku()), normalized(requestedItem.unit()));
             validateReturnedQuantity(requestedQuantities, originalItem, requestedItem.quantity());
             if (originalItem.getUnitPrice() == null) {
                 throw conflict("Đơn hàng gốc thiếu giá sản phẩm: " + originalItem.getProductName());
             }
-
-            BigDecimal subTotal = originalItem.getUnitPrice()
-                    .multiply(BigDecimal.valueOf(requestedItem.quantity()));
+            BigDecimal subTotal = originalItem.getUnitPrice().multiply(BigDecimal.valueOf(requestedItem.quantity()));
             totalRefund = totalRefund.add(subTotal);
-            returnItems.add(ReturnOrder.ReturnItem.builder()
-                    .productId(originalItem.getProductId())
-                    .variantId(originalItem.getVariantId())
-                    .sku(originalItem.getSku())
-                    .variantName(originalItem.getVariantName())
-                    .productName(originalItem.getProductName())
-                    .imageUrl(originalItem.getImageUrl())
-                    .quantity(requestedItem.quantity())
-                    .unit(originalItem.getUnit())
-                    .unitPrice(originalItem.getUnitPrice())
-                    .subTotal(subTotal)
-                    .build());
+            returnItems.add(ReturnOrder.ReturnItem.builder().productId(originalItem.getProductId()).variantId(originalItem.getVariantId()).sku(originalItem.getSku()).variantName(originalItem.getVariantName()).productName(originalItem.getProductName()).imageUrl(originalItem.getImageUrl()).quantity(requestedItem.quantity()).unit(originalItem.getUnit()).unitPrice(originalItem.getUnitPrice()).subTotal(subTotal).build());
         }
-
         return new ReturnCalculation(List.copyOf(returnItems), totalRefund);
     }
 
-    private void validateAdminTransition(
-            ReturnOrder.ReturnStatus currentStatus,
-            ReturnOrder.ReturnStatus newStatus,
-            String rejectReason,
-            ReturnOrder.InventoryDisposition inventoryDisposition) {
-        boolean pendingDecision = currentStatus == ReturnOrder.ReturnStatus.PENDING
-                && (newStatus == ReturnOrder.ReturnStatus.DELIVERING
-                || newStatus == ReturnOrder.ReturnStatus.REJECTED);
-        boolean receivingPhysicalReturn = isReturnInTransit(currentStatus)
-                && newStatus == ReturnOrder.ReturnStatus.RECEIVED;
-
+    private void validateAdminTransition(ReturnOrder.ReturnStatus currentStatus, ReturnOrder.ReturnStatus newStatus, String rejectReason, ReturnOrder.InventoryDisposition inventoryDisposition) {
+        boolean pendingDecision = currentStatus == ReturnOrder.ReturnStatus.PENDING && (newStatus == ReturnOrder.ReturnStatus.DELIVERING || newStatus == ReturnOrder.ReturnStatus.REJECTED);
+        boolean receivingPhysicalReturn = isReturnInTransit(currentStatus) && newStatus == ReturnOrder.ReturnStatus.RECEIVED;
         if (!pendingDecision && !receivingPhysicalReturn) {
             if (newStatus == ReturnOrder.ReturnStatus.REFUNDED) {
                 throw conflict("Hãy hoàn tiền qua yêu cầu hoàn tiền đã được khách cung cấp thông tin ngân hàng");
             }
             throw conflict("Không thể chuyển yêu cầu trả hàng từ " + currentStatus + " sang " + newStatus);
         }
-        if (newStatus == ReturnOrder.ReturnStatus.REJECTED
-                && (rejectReason == null || rejectReason.isBlank())) {
+        if (newStatus == ReturnOrder.ReturnStatus.REJECTED && (rejectReason == null || rejectReason.isBlank())) {
             throw badRequest("Cần nhập lý do từ chối yêu cầu trả hàng");
         }
         if (newStatus == ReturnOrder.ReturnStatus.RECEIVED && inventoryDisposition == null) {
@@ -300,38 +229,26 @@ public class ReturnOrderService {
         }
     }
 
-    private void validateRepeatedStatus(
-            ReturnOrder returnOrder,
-            ReturnOrder.InventoryDisposition inventoryDisposition) {
-        if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.RECEIVED
-                && inventoryDisposition != null
-                && returnOrder.getInventoryDisposition() != inventoryDisposition) {
+    private void validateRepeatedStatus(ReturnOrder returnOrder, ReturnOrder.InventoryDisposition inventoryDisposition) {
+        if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.RECEIVED && inventoryDisposition != null && returnOrder.getInventoryDisposition() != inventoryDisposition) {
             throw conflict("Đơn trả hàng đã được xử lý kho với kết quả khác");
         }
     }
 
     private boolean isReturnInTransit(ReturnOrder.ReturnStatus status) {
-        return switch (status) {
-            case DELIVERING, DELIVERED -> true;
-            default -> false;
+        return switch(status) {
+            case DELIVERING, DELIVERED ->
+                true;
+            default ->
+                false;
         };
     }
 
-    private OrderItem findOriginalItem(
-            Order order,
-            String productId,
-            String variantId,
-            String sku,
-            String unit) {
+    private OrderItem findOriginalItem(Order order, String productId, String variantId, String sku, String unit) {
         if (productId == null || productId.isBlank()) {
             throw badRequest("Thiếu productId của sản phẩm trả lại");
         }
-        List<OrderItem> candidates = order.getItems().stream()
-                .filter(item -> Objects.equals(item.getProductId(), productId))
-                .filter(item -> variantId == null || Objects.equals(item.getVariantId(), variantId))
-                .filter(item -> sku == null || Objects.equals(item.getSku(), sku))
-                .filter(item -> variantId != null || sku != null || Objects.equals(item.getUnit(), unit))
-                .toList();
+        List<OrderItem> candidates = order.getItems().stream().filter(item -> Objects.equals(item.getProductId(), productId)).filter(item -> variantId == null || Objects.equals(item.getVariantId(), variantId)).filter(item -> sku == null || Objects.equals(item.getSku(), sku)).filter(item -> variantId != null || sku != null || Objects.equals(item.getUnit(), unit)).toList();
         if (candidates.size() != 1) {
             if (candidates.size() > 1) {
                 throw badRequest("Vui lòng chọn đúng biến thể/SKU của sản phẩm: " + productId);
@@ -341,33 +258,24 @@ public class ReturnOrderService {
         return candidates.getFirst();
     }
 
-    private void validateReturnedQuantity(
-            Map<String, Integer> requestedQuantities,
-            OrderItem originalItem,
-            int requestedQuantity) {
-        String key = originalItem.getVariantId() != null
-                ? originalItem.getProductId() + ":" + originalItem.getVariantId()
-                : originalItem.getProductId() + ":" + originalItem.getSku() + ":" + originalItem.getUnit();
+    private void validateReturnedQuantity(Map<String, Integer> requestedQuantities, OrderItem originalItem, int requestedQuantity) {
+        String key = originalItem.getVariantId() != null ? originalItem.getProductId() + ":" + originalItem.getVariantId() : originalItem.getProductId() + ":" + originalItem.getSku() + ":" + originalItem.getUnit();
         int totalRequested = requestedQuantities.merge(key, requestedQuantity, Integer::sum);
         if (originalItem.getQuantity() == null || totalRequested > originalItem.getQuantity()) {
-            throw badRequest("Số lượng trả lớn hơn số lượng đã mua cho sản phẩm: "
-                    + originalItem.getProductName());
+            throw badRequest("Số lượng trả lớn hơn số lượng đã mua cho sản phẩm: " + originalItem.getProductName());
         }
     }
 
     private void ensureReturnItemVariants(ReturnOrder returnOrder) {
-        if (returnOrder.getItems() == null || returnOrder.getItems().stream()
-                .allMatch(item -> item.getVariantId() != null && !item.getVariantId().isBlank())) {
+        if (returnOrder.getItems() == null || returnOrder.getItems().stream().allMatch(item -> item.getVariantId() != null && !item.getVariantId().isBlank())) {
             return;
         }
-        Order order = orderRepository.findById(returnOrder.getOrderId())
-                .orElseThrow(() -> notFound("Không tìm thấy đơn hàng gốc"));
+        Order order = orderRepository.findById(returnOrder.getOrderId()).orElseThrow(() -> notFound("Không tìm thấy đơn hàng gốc"));
         for (ReturnOrder.ReturnItem item : returnOrder.getItems()) {
             if (item.getVariantId() != null && !item.getVariantId().isBlank()) {
                 continue;
             }
-            OrderItem original = findOriginalItem(
-                    order, item.getProductId(), null, item.getSku(), item.getUnit());
+            OrderItem original = findOriginalItem(order, item.getProductId(), null, item.getSku(), item.getUnit());
             item.setVariantId(original.getVariantId());
             item.setSku(original.getSku());
             item.setVariantName(original.getVariantName());
@@ -379,36 +287,28 @@ public class ReturnOrderService {
     }
 
     public void deleteReturnRequest(String id) {
-        ReturnOrder returnOrder = returnOrderRepository.findById(id)
-                .orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
-        
+        ReturnOrder returnOrder = returnOrderRepository.findById(id).orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
         if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.PENDING) {
             throw conflict("Chỉ có thể xóa yêu cầu trả hàng khi đang chờ duyệt");
         }
-        
         returnOrderRepository.delete(returnOrder);
     }
 
     public ReturnOrder updateReturnTracking(String id, String courier, String trackingCode) {
-        ReturnOrder returnOrder = returnOrderRepository.findById(id)
-                .orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
-
+        ReturnOrder returnOrder = returnOrderRepository.findById(id).orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
         if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.DELIVERING) {
             throw conflict("Chỉ có thể cập nhật mã vận đơn sau khi yêu cầu trả hàng được duyệt (Đang vận chuyển hoàn)");
         }
         String normalizedTrackingCode = trackingCode.trim();
-        if (returnOrder.getReturnTrackingCode() != null
-                && !returnOrder.getReturnTrackingCode().equals(normalizedTrackingCode)) {
+        if (returnOrder.getReturnTrackingCode() != null && !returnOrder.getReturnTrackingCode().equals(normalizedTrackingCode)) {
             throw conflict("Yêu cầu trả hàng đã có mã vận đơn và không thể thay thế");
         }
-
         returnOrder.setReturnCourier(courier.trim());
         returnOrder.setReturnTrackingCode(normalizedTrackingCode);
         returnOrder.setReturnShipmentError(null);
-
         return returnOrderRepository.save(returnOrder);
     }
-    
+
     public void syncGhnReturnOrderStatus() {
         List<ReturnOrder> activeReturns = returnOrderRepository.findActiveGhnReturns();
         for (ReturnOrder returnOrder : activeReturns) {
@@ -416,13 +316,11 @@ public class ReturnOrderService {
                 Map<String, Object> detail = ghnService.getOrderDetail(returnOrder.getReturnTrackingCode());
                 if (detail != null && detail.containsKey("status")) {
                     ReturnOrder.ReturnStatus newStatus = mapGhnStatus(String.valueOf(detail.get("status")));
-                    
                     boolean changed = false;
                     if (newStatus != null && isForwardShippingStatus(returnOrder.getStatus(), newStatus)) {
                         returnOrder.setStatus(newStatus);
                         changed = true;
                     }
-                    
                     // Lấy phí ship nếu có
                     if (detail.containsKey("logistics") && detail.get("logistics") instanceof Map) {
                         Map<String, Object> logistics = (Map<String, Object>) detail.get("logistics");
@@ -442,7 +340,6 @@ public class ReturnOrderService {
                             changed = true;
                         }
                     }
-                    
                     if (changed) {
                         returnOrderRepository.save(returnOrder);
                     }
@@ -454,24 +351,28 @@ public class ReturnOrderService {
     }
 
     private ReturnOrder.ReturnStatus mapGhnStatus(String ghnStatus) {
-        return switch (ghnStatus) {
-            case "ready_to_pick", "picking", "picked", "storing", "sorting", "transporting", "delivering" -> ReturnOrder.ReturnStatus.DELIVERING;
-            case "delivered", "deliveried" -> ReturnOrder.ReturnStatus.DELIVERED;
-            default -> null;
+        return switch(ghnStatus) {
+            case "ready_to_pick", "picking", "picked", "storing", "sorting", "transporting", "delivering" ->
+                ReturnOrder.ReturnStatus.DELIVERING;
+            case "delivered", "deliveried" ->
+                ReturnOrder.ReturnStatus.DELIVERED;
+            default ->
+                null;
         };
     }
 
-    private boolean isForwardShippingStatus(
-            ReturnOrder.ReturnStatus currentStatus,
-            ReturnOrder.ReturnStatus newStatus) {
+    private boolean isForwardShippingStatus(ReturnOrder.ReturnStatus currentStatus, ReturnOrder.ReturnStatus newStatus) {
         return shippingRank(newStatus) > shippingRank(currentStatus);
     }
 
     private int shippingRank(ReturnOrder.ReturnStatus status) {
-        return switch (status) {
-            case DELIVERING -> 1;
-            case DELIVERED -> 2;
-            default -> Integer.MAX_VALUE;
+        return switch(status) {
+            case DELIVERING ->
+                1;
+            case DELIVERED ->
+                2;
+            default ->
+                Integer.MAX_VALUE;
         };
     }
 
