@@ -100,3 +100,7 @@ aiskin-server/order-service/uploads/
 
 # Environment files
 *.env
+
+# Root level uploads and logs-runtime
+/uploads/
+/logs-runtime/
