@@ -8,7 +8,7 @@ import mss.userservice.dto.ChangePasswordRequest;
 import mss.userservice.dto.UpdateProfileRequest;
 import mss.userservice.dto.UserResponse;
 import mss.userservice.model.DeliveryAddress;
-import mss.userservice.service.UserService;
+import mss.userservice.service.impl.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;

@@ -9,7 +9,7 @@ import mss.orderservice.dto.RefundCompletionRequest;
 import mss.orderservice.dto.RefundCreateRequest;
 import mss.orderservice.model.RefundRequest;
 import mss.orderservice.security.OrderAuthorizationService;
-import mss.orderservice.service.RefundRequestService;
+import mss.orderservice.service.impl.RefundRequestService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;

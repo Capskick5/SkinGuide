@@ -11,5 +11,7 @@ import java.util.List;
 
 public interface IDemoInventoryService {
 
-    DemoInventoryService.SeedInventoryResult seedMissingInventory(int quantityPerVariant);
+    public record SeedInventoryResult(int initializedVariants, int skippedVariants, int totalVariants, int quantityPerVariant) {}
+
+    SeedInventoryResult seedMissingInventory(int quantityPerVariant);
 }

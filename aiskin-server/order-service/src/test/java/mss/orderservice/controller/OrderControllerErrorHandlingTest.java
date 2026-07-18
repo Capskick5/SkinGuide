@@ -1,8 +1,8 @@
 package mss.orderservice.controller;
 
 import mss.orderservice.security.OrderAuthorizationService;
-import mss.orderservice.service.DashboardService;
-import mss.orderservice.service.OrderService;
+import mss.orderservice.service.impl.DashboardService;
+import mss.orderservice.service.impl.OrderService;
 import mss.orderservice.service.PaymentConfigurationValidator;
 import mss.orderservice.service.PaymentWebhookVerifier;
 import org.junit.jupiter.api.BeforeEach;

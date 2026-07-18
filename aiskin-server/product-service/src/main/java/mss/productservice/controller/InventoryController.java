@@ -7,7 +7,7 @@ import mss.productservice.dto.request.InventoryReturnRequest;
 import mss.productservice.dto.response.ApiResponse;
 import mss.productservice.dto.response.InventoryMovementResponse;
 import mss.productservice.dto.response.InventoryReservationResponse;
-import mss.productservice.service.InventoryService;
+import mss.productservice.service.impl.InventoryService;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.data.domain.Page;

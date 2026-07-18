@@ -8,7 +8,7 @@ import mss.orderservice.model.ReturnOrder;
 import mss.orderservice.repository.OrderRepository;
 import mss.orderservice.repository.ReturnOrderRepository;
 import mss.orderservice.config.GhnConfig;
-import mss.orderservice.service.OrderService;
+import mss.orderservice.service.impl.OrderService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

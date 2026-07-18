@@ -9,6 +9,8 @@ import java.util.Optional;
 import mss.productservice.util.SlugUtil;
 
 public interface IDataImportService {
+    
+    public record ImportResult(int imported, int skipped, int total) {}
 
-    DataImportService.ImportResult importProducts(List<Product> products);
+    ImportResult importProducts(List<Product> products);
 }
