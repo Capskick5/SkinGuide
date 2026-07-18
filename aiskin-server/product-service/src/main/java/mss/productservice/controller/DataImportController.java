@@ -1,8 +1,8 @@
 package mss.productservice.controller;
 
 import mss.productservice.model.Product;
-import mss.productservice.service.DataImportService;
-import mss.productservice.service.DemoInventoryService;
+import mss.productservice.service.impl.DataImportService;
+import mss.productservice.service.impl.DemoInventoryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,7 +27,7 @@ public class DataImportController {
     }
 
     @PostMapping("/json")
-    public ResponseEntity<DataImportService.ImportResult> importProducts(@RequestBody List<Product> products) {
+    public ResponseEntity<IDataImportService.ImportResult> importProducts(@RequestBody List<Product> products) {
         if (products == null || products.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }

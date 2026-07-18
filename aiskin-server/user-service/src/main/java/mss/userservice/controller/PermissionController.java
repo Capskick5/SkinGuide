@@ -3,7 +3,7 @@ package mss.userservice.controller;
 import jakarta.validation.Valid;
 import mss.userservice.dto.PermissionResponse;
 import mss.userservice.dto.SyncEndpointsRequest;
-import mss.userservice.service.PermissionService;
+import mss.userservice.service.impl.PermissionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;

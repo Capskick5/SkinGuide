@@ -7,7 +7,7 @@ import mss.productservice.dto.response.ApiResponse;
 import mss.productservice.dto.response.ProductResponse;
 import mss.productservice.dto.response.ProductSummaryResponse;
 import mss.productservice.dto.request.ProductSearchRequest;
-import mss.productservice.service.ProductService;
+import mss.productservice.service.impl.ProductService;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

@@ -8,7 +8,7 @@ import mss.orderservice.dto.ProductReviewEligibilityResponse;
 import mss.orderservice.dto.ProductReviewRequest;
 import mss.orderservice.dto.ProductReviewResponse;
 import mss.orderservice.dto.ProductReviewSummaryResponse;
-import mss.orderservice.service.ProductReviewService;
+import mss.orderservice.service.impl.ProductReviewService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;

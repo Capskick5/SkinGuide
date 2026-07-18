@@ -3,7 +3,7 @@ package mss.orderservice.controller;
 import mss.orderservice.config.GhnConfig;
 import mss.orderservice.repository.OrderRepository;
 import mss.orderservice.repository.ReturnOrderRepository;
-import mss.orderservice.service.OrderService;
+import mss.orderservice.service.impl.OrderService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

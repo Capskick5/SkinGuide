@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import mss.productservice.dto.request.IngredientRequest;
 import mss.productservice.dto.response.ApiResponse;
 import mss.productservice.dto.response.IngredientResponse;
-import mss.productservice.service.IngredientService;
+import mss.productservice.service.impl.IngredientService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
