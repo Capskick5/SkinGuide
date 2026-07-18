@@ -24,7 +24,7 @@ app:
     connect-timeout: ${HTTP_CONNECT_TIMEOUT:5s}
     read-timeout: ${HTTP_READ_TIMEOUT:15s}
 
-eureka:
+
   client:
     service-url:
       defaultZone: ${EUREKA_URI}

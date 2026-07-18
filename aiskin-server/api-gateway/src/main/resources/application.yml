@@ -8,31 +8,31 @@ spring:
           routes:
             # Auth endpoints (public): /api/auth/**
             - id: user-service-auth
-              uri: lb://user-service
+              uri: http://localhost:${USER_SERVICE_PORT:8081}
               predicates:
                 - Path=/api/auth/**
                 
             # User endpoints (protected downstream): /api/users/**
             - id: user-service-users
-              uri: lb://user-service
+              uri: http://localhost:${USER_SERVICE_PORT:8081}
               predicates:
                 - Path=/api/users/**
 
             # Admin endpoints: /api/admin/users/**, roles, permissions
             - id: user-service-admin-users
-              uri: lb://user-service
+              uri: http://localhost:${USER_SERVICE_PORT:8081}
               predicates:
                 - Path=/api/admin/users/**,/api/admin/roles/**,/api/admin/permissions/**
 
             # System endpoints cho user-service
             - id: user-service-system
-              uri: lb://user-service
+              uri: http://localhost:${USER_SERVICE_PORT:8081}
               predicates:
                 - Path=/api/users/system/**
 
             # Expose user-service OpenAPI doc through the gateway for Swagger aggregation
             - id: user-service-api-docs
-              uri: lb://user-service
+              uri: http://localhost:${USER_SERVICE_PORT:8081}
               predicates:
                 - Path=/api-docs/user-service/**
               filters:
@@ -40,13 +40,13 @@ spring:
 
             # Product service endpoints
             - id: product-service
-              uri: lb://product-service
+              uri: http://localhost:${PRODUCT_SERVICE_PORT:8082}
               predicates:
                 - Path=/api/products/**,/api/brands/**,/api/categories/**,/api/ingredients/**,/api/products/system/**
 
             # Expose product-service OpenAPI doc through the gateway
             - id: product-service-api-docs
-              uri: lb://product-service
+              uri: http://localhost:${PRODUCT_SERVICE_PORT:8082}
               predicates:
                 - Path=/api-docs/product-service/**
               filters:
@@ -54,13 +54,13 @@ spring:
 
             # AI Scan service endpoints: /api/scans/**
             - id: ai-scan-service
-              uri: lb://ai-scan-service
+              uri: http://localhost:${AI_SCAN_PORT:5000}
               predicates:
                 - Path=/api/scans/**
 
             # Expose ai-scan-service OpenAPI doc through the gateway
             - id: ai-scan-service-api-docs
-              uri: lb://ai-scan-service
+              uri: http://localhost:${AI_SCAN_PORT:5000}
               predicates:
                 - Path=/api-docs/ai-scan-service/**
               filters:
@@ -68,13 +68,13 @@ spring:
 
             # Recommendation service endpoints
             - id: recommendation-service
-              uri: lb://recommendation-service
+              uri: http://localhost:${RECOMMENDATION_PORT:5001}
               predicates:
                 - Path=/api/v1/recommend/**
 
             # Expose recommendation-service OpenAPI doc through the gateway
             - id: recommendation-service-api-docs
-              uri: lb://recommendation-service
+              uri: http://localhost:${RECOMMENDATION_PORT:5001}
               predicates:
                 - Path=/api-docs/recommendation-service/**
               filters:
@@ -82,13 +82,13 @@ spring:
 
             # Order service endpoints
             - id: order-service
-              uri: lb://order-service
+              uri: http://localhost:${ORDER_SERVICE_PORT:8083}
               predicates:
                 - Path=/api/orders/**,/api/payments/**,/api/ghn/**,/api/returns/**,/api/refunds/**
 
             # Expose order-service OpenAPI doc through the gateway
             - id: order-service-api-docs
-              uri: lb://order-service
+              uri: http://localhost:${ORDER_SERVICE_PORT:8083}
               predicates:
                 - Path=/api-docs/order-service/**
               filters:
@@ -96,14 +96,6 @@ spring:
 
 server:
   port: ${API_GATEWAY_PORT}
-
-eureka:
-  client:
-    service-url:
-      defaultZone: ${EUREKA_URI}
-  instance:
-    hostname: ${EUREKA_INSTANCE_HOSTNAME:127.0.0.1}
-    prefer-ip-address: false
 
 # Aggregated Swagger UI: one page with a dropdown per downstream service
 springdoc:
