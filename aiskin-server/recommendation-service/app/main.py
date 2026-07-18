@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import List, Optional
 
-import py_eureka_client.eureka_client as eureka_client
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,7 +23,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Constants
-EUREKA_SERVER = os.getenv("EUREKA_URI")
 APP_NAME = "recommendation-service"
 APP_PORT = 5001
 MONGO_URI = os.getenv("MONGODB_URI_RECOMMENDATION")
@@ -210,23 +208,6 @@ async def lifespan(app: FastAPI):
         logger.info("Kafka Consumer đã sẵn sàng lắng nghe realtime events.")
     except Exception as e:
         logger.error(f"Lỗi khi khởi động Kafka Consumer: {e}")
-
-    # 2. Đăng ký với Eureka Server
-    eureka_registered = False
-    if EUREKA_SERVER:
-        try:
-            await eureka_client.init_async(
-                eureka_server=EUREKA_SERVER,
-                app_name=APP_NAME,
-                instance_port=APP_PORT,
-                instance_host="127.0.0.1",
-            )
-            eureka_registered = True
-            logger.info("Đã đăng ký với Eureka thành công!")
-        except Exception as e:
-            logger.error(f"Lỗi Eureka: {e}")
-    else:
-        logger.warning("EUREKA_URI chưa được cấu hình; Recommendation Service chạy độc lập.")
         
     yield
     
@@ -234,12 +215,6 @@ async def lifespan(app: FastAPI):
     if kafka_consumer_task:
         await kafka_consumer_task.stop()
         
-    if eureka_registered:
-        try:
-            await eureka_client.stop_async()
-            logger.info("Đã hủy đăng ký Eureka thành công!")
-        except Exception as e:
-            logger.error(f"Lỗi khi hủy Eureka: {e}")
     if mongo_client is not None:
         mongo_client.close()
         mongo_client = None

@@ -10,7 +10,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
-import py_eureka_client.eureka_client as eureka_client
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,7 +32,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Constants
-EUREKA_SERVER = os.getenv("EUREKA_URI")
 APP_NAME = "ai-scan-service"
 APP_PORT = int(os.getenv("AI_SCAN_PORT", "5000"))
 MONGO_URI = os.getenv("MONGODB_URI_SCAN")
@@ -206,7 +204,6 @@ async def _retention_worker() -> None:
 async def lifespan(_app: FastAPI):
     global skin_detector, ultimate_detector, ultimate_model_error, db, mongo_client
     logger.info("Khởi động AI Scan Service...")
-    eureka_registered = False
     
     # 1. Connect MongoDB
     try:
@@ -242,35 +239,12 @@ async def lifespan(_app: FastAPI):
         ultimate_model_error = "No validated multi-label Model B checkpoint is installed."
         logger.warning(f"Model B không khả dụng, API sẽ trả fallback minh bạch: {e}")
         
-    # 3. Register to Eureka on startup
-    if EUREKA_SERVER:
-        try:
-            await eureka_client.init_async(
-                eureka_server=EUREKA_SERVER,
-                app_name=APP_NAME,
-                instance_port=APP_PORT,
-                instance_host="127.0.0.1",
-            )
-            eureka_registered = True
-            logger.info("Đã đăng ký với Eureka thành công!")
-        except Exception as e:
-            logger.error(f"Lỗi Eureka: {e}")
-    else:
-        logger.warning("EUREKA_URI chưa được cấu hình; AI Scan Service chạy độc lập.")
-        
     retention_task = asyncio.create_task(_retention_worker())
     yield
     retention_task.cancel()
     with suppress(asyncio.CancelledError):
         await retention_task
     
-    # Unregister from Eureka on shutdown
-    if eureka_registered:
-        try:
-            await eureka_client.stop_async()
-            logger.info("Đã hủy đăng ký Eureka thành công!")
-        except Exception as e:
-            logger.error(f"Lỗi khi hủy Eureka: {e}")
     if mongo_client is not None:
         mongo_client.close()
         mongo_client = None

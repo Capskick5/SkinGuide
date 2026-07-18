@@ -3,7 +3,6 @@ uvicorn
 pandas
 numpy
 scikit-learn
-py-eureka-client
 aiokafka
 aiohttp
 pymongo
