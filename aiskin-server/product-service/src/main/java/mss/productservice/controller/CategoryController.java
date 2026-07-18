@@ -10,15 +10,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import mss.productservice.service.ICategoryService;
 
 @RestController
 @RequestMapping("/api/categories")
 @RequiredArgsConstructor
 public class CategoryController {
 
-    private final CategoryService categoryService;
+    private final ICategoryService categoryService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<CategoryResponse>>> getAllCategories() {
@@ -49,8 +49,7 @@ public class CategoryController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasPermission('/api/categories/{id}', 'PUT')")
-    public ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(@PathVariable String id,
-                                                                         @Valid @RequestBody CategoryRequest request) {
+    public ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(@PathVariable String id, @Valid @RequestBody CategoryRequest request) {
         return ResponseEntity.ok(ApiResponse.ok("Category updated", categoryService.updateCategory(id, request)));
     }
 

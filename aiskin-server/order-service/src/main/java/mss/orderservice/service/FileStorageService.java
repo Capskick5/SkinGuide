@@ -5,7 +5,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
-
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -17,28 +16,25 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
-public class FileStorageService {
+public class FileStorageService implements IFileStorageService {
 
     static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
+
     static final long MAX_IMAGE_PIXELS = 40_000_000L;
-    private static final Map<String, String> ALLOWED_TYPES = Map.of(
-            "image/jpeg", ".jpg",
-            "image/png", ".png"
-    );
+
+    private static final Map<String, String> ALLOWED_TYPES = Map.of("image/jpeg", ".jpg", "image/png", ".png");
 
     @Value("${app.upload-dir:./uploads}")
     private String uploadDir;
 
     public String storeEvidenceImage(MultipartFile file) {
         validateBasicMetadata(file);
-
         String extension = ALLOWED_TYPES.get(file.getContentType());
         Path directory = Path.of(uploadDir).toAbsolutePath().normalize();
         Path target = directory.resolve(UUID.randomUUID() + extension).normalize();
         if (!target.startsWith(directory)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid upload path");
         }
-
         try {
             validateImageContent(file);
             Files.createDirectories(directory);

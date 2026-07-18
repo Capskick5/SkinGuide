@@ -10,15 +10,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import mss.productservice.service.IBrandService;
 
 @RestController
 @RequestMapping("/api/brands")
 @RequiredArgsConstructor
 public class BrandController {
 
-    private final BrandService brandService;
+    private final IBrandService brandService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<BrandResponse>>> getAllBrands() {
@@ -54,8 +54,7 @@ public class BrandController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasPermission('/api/brands/{id}', 'PUT')")
-    public ResponseEntity<ApiResponse<BrandResponse>> updateBrand(@PathVariable String id,
-                                                                   @Valid @RequestBody BrandRequest request) {
+    public ResponseEntity<ApiResponse<BrandResponse>> updateBrand(@PathVariable String id, @Valid @RequestBody BrandRequest request) {
         return ResponseEntity.ok(ApiResponse.ok("Brand updated", brandService.updateBrand(id, request)));
     }
 

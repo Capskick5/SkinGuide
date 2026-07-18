@@ -4,7 +4,6 @@ import mss.userservice.dto.ChangePasswordRequest;
 import mss.userservice.dto.UpdateProfileRequest;
 import mss.userservice.dto.UserResponse;
 import mss.userservice.exception.ApiException;
-
 import mss.userservice.model.User;
 import mss.userservice.model.DeliveryAddress;
 import mss.userservice.repository.UserRepository;
@@ -20,19 +19,19 @@ import org.springframework.stereotype.Service;
  * User profile read/write operations.
  */
 @Service
-public class UserService {
+public class UserService implements IUserService {
 
     private static final int MAX_PAGE_SIZE = 100;
 
     private final UserRepository userRepository;
+
     private final RoleRepository roleRepository;
+
     private final PasswordEncoder passwordEncoder;
+
     private final RefreshTokenStore refreshTokenStore;
 
-    public UserService(UserRepository userRepository,
-                       RoleRepository roleRepository,
-                       PasswordEncoder passwordEncoder,
-                       RefreshTokenStore refreshTokenStore) {
+    public UserService(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder, RefreshTokenStore refreshTokenStore) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
@@ -43,7 +42,9 @@ public class UserService {
         return UserResponse.from(loadUser(userId));
     }
 
-    /** Update display name and/or skin profile (only non-null fields applied). */
+    /**
+     * Update display name and/or skin profile (only non-null fields applied).
+     */
     public UserResponse updateProfile(String userId, UpdateProfileRequest request) {
         User user = loadUser(userId);
         if (request.fullName() != null) {
@@ -55,14 +56,18 @@ public class UserService {
         return UserResponse.from(userRepository.save(user));
     }
 
-    /** Save or replace the user's default checkout delivery address. */
+    /**
+     * Save or replace the user's default checkout delivery address.
+     */
     public DeliveryAddress updateDeliveryAddress(String userId, DeliveryAddress address) {
         User user = loadUser(userId);
         user.setDeliveryAddress(address);
         return userRepository.save(user).getDeliveryAddress();
     }
 
-    /** Change password after verifying the current one; revokes other sessions. */
+    /**
+     * Change password after verifying the current one; revokes other sessions.
+     */
     public void changePassword(String userId, ChangePasswordRequest request) {
         User user = loadUser(userId);
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
@@ -74,18 +79,17 @@ public class UserService {
     }
 
     // ---------- Admin operations ----------
-
     public Page<UserResponse> listUsers(String role, Pageable pageable) {
-        Pageable safePageable = pageable.isPaged()
-                ? PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), MAX_PAGE_SIZE), pageable.getSort())
-                : PageRequest.of(0, MAX_PAGE_SIZE);
+        Pageable safePageable = pageable.isPaged() ? PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), MAX_PAGE_SIZE), pageable.getSort()) : PageRequest.of(0, MAX_PAGE_SIZE);
         if (role != null && !role.isBlank()) {
             return userRepository.findByRoles(role.toUpperCase(), safePageable).map(UserResponse::from);
         }
         return userRepository.findAll(safePageable).map(UserResponse::from);
     }
 
-    /** Enable/disable an account (soft delete via isActive). */
+    /**
+     * Enable/disable an account (soft delete via isActive).
+     */
     public UserResponse setActive(String userId, boolean active) {
         User user = loadUser(userId);
         user.setActive(active);
@@ -95,7 +99,9 @@ public class UserService {
         return UserResponse.from(userRepository.save(user));
     }
 
-    /** Assign a single role to user (replaces existing roles). */
+    /**
+     * Assign a single role to user (replaces existing roles).
+     */
     public UserResponse setRole(String userId, String roleName) {
         String upperRole = roleName == null ? "" : roleName.trim().toUpperCase(java.util.Locale.ROOT);
         if (upperRole.isEmpty() || roleRepository.findByName(upperRole).isEmpty()) {
@@ -107,7 +113,6 @@ public class UserService {
     }
 
     private User loadUser(String userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> ApiException.notFound("Người dùng không tồn tại"));
+        return userRepository.findById(userId).orElseThrow(() -> ApiException.notFound("Người dùng không tồn tại"));
     }
 }

@@ -15,8 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.Map;
+import mss.orderservice.security.IOrderAuthorizationService;
+import mss.orderservice.service.IReturnOrderService;
 
 @RestController
 @RequestMapping("/api/returns")
@@ -25,24 +26,20 @@ import java.util.Map;
 @Slf4j
 public class ReturnOrderController {
 
-    private final ReturnOrderService returnOrderService;
-    private final OrderAuthorizationService authorizationService;
+    private final IReturnOrderService returnOrderService;
+
+    private final IOrderAuthorizationService authorizationService;
 
     @PostMapping("/order/{orderId}")
     @Operation(summary = "Create a return request", description = "Customer creates a return request for a delivered order")
-    public ResponseEntity<ReturnOrder> createReturnRequest(
-            @PathVariable String orderId,
-            @Valid @RequestBody ReturnRequest request,
-            Authentication authentication) {
+    public ResponseEntity<ReturnOrder> createReturnRequest(@PathVariable String orderId, @Valid @RequestBody ReturnRequest request, Authentication authentication) {
         authorizationService.requireOrderAccess(orderId, authentication);
         return ResponseEntity.ok(returnOrderService.createReturnRequest(orderId, request));
     }
 
     @GetMapping("/order/{orderId}")
     @Operation(summary = "Get return by order ID", description = "Check if an order has a return request")
-    public ResponseEntity<ReturnOrder> getReturnByOrderId(
-            @PathVariable String orderId,
-            Authentication authentication) {
+    public ResponseEntity<ReturnOrder> getReturnByOrderId(@PathVariable String orderId, Authentication authentication) {
         authorizationService.requireReturnByOrderAccess(orderId, authentication);
         ReturnOrder returnOrder = returnOrderService.getReturnByOrderId(orderId);
         if (returnOrder == null) {
@@ -53,9 +50,7 @@ public class ReturnOrderController {
 
     @GetMapping("/user/{customerId}")
     @Operation(summary = "Get returns by customer", description = "Fetch all return requests for a customer")
-    public ResponseEntity<?> getReturnsByCustomer(
-            @PathVariable String customerId,
-            Authentication authentication) {
+    public ResponseEntity<?> getReturnsByCustomer(@PathVariable String customerId, Authentication authentication) {
         authorizationService.requireSameCustomerOrAdmin(customerId, authentication);
         return ResponseEntity.ok(returnOrderService.getReturnsByCustomer(customerId));
     }
@@ -63,29 +58,20 @@ public class ReturnOrderController {
     @GetMapping
     @PreAuthorize("hasPermission('/api/returns', 'GET')")
     @Operation(summary = "Get all returns", description = "Admin endpoint to fetch all return requests with pagination and optional status filter")
-    public ResponseEntity<?> getAllReturns(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false, defaultValue = "ALL") String status) {
+    public ResponseEntity<?> getAllReturns(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size, @RequestParam(required = false, defaultValue = "ALL") String status) {
         return ResponseEntity.ok(returnOrderService.getAllReturns(page, size, status));
     }
 
     @PutMapping("/admin/{id}/status")
     @PreAuthorize("hasPermission('/api/returns/admin/{id}/status', 'PUT')")
     @Operation(summary = "Update return status", description = "Admin updates status of a return request")
-    public ResponseEntity<ReturnOrder> updateReturnStatus(
-            @PathVariable String id,
-            @Valid @RequestBody ReturnStatusUpdateRequest request) {
-        return ResponseEntity.ok(returnOrderService.updateReturnStatus(
-                id, request.status(), request.rejectReason(), request.inventoryDisposition()));
+    public ResponseEntity<ReturnOrder> updateReturnStatus(@PathVariable String id, @Valid @RequestBody ReturnStatusUpdateRequest request) {
+        return ResponseEntity.ok(returnOrderService.updateReturnStatus(id, request.status(), request.rejectReason(), request.inventoryDisposition()));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update a return request", description = "Customer updates an existing return request")
-    public ResponseEntity<ReturnOrder> updateReturnRequest(
-            @PathVariable String id,
-            @Valid @RequestBody ReturnRequest request,
-            Authentication authentication) {
+    public ResponseEntity<ReturnOrder> updateReturnRequest(@PathVariable String id, @Valid @RequestBody ReturnRequest request, Authentication authentication) {
         authorizationService.requireReturnAccess(id, authentication);
         return ResponseEntity.ok(returnOrderService.updateReturnRequest(id, request));
     }
@@ -100,13 +86,9 @@ public class ReturnOrderController {
 
     @PutMapping("/{id}/tracking")
     @Operation(summary = "Update return tracking", description = "Customer updates tracking info for their return package")
-    public ResponseEntity<ReturnOrder> updateReturnTracking(
-            @PathVariable String id,
-            @Valid @RequestBody ReturnTrackingRequest request,
-            Authentication authentication) {
+    public ResponseEntity<ReturnOrder> updateReturnTracking(@PathVariable String id, @Valid @RequestBody ReturnTrackingRequest request, Authentication authentication) {
         authorizationService.requireReturnAccess(id, authentication);
-        return ResponseEntity.ok(returnOrderService.updateReturnTracking(
-                id, request.courier(), request.trackingCode()));
+        return ResponseEntity.ok(returnOrderService.updateReturnTracking(id, request.courier(), request.trackingCode()));
     }
 
     @PostMapping("/sync-ghn")
@@ -118,8 +100,7 @@ public class ReturnOrderController {
             return ResponseEntity.ok(Map.of("message", "Đồng bộ thành công"));
         } catch (Exception exception) {
             log.error("Failed to synchronize GHN return statuses", exception);
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("message", "Không thể đồng bộ trạng thái GHN"));
+            return ResponseEntity.internalServerError().body(Map.of("message", "Không thể đồng bộ trạng thái GHN"));
         }
     }
 }

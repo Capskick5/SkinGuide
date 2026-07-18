@@ -7,29 +7,29 @@ import mss.orderservice.service.OrderService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-
 import java.util.Map;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
+import mss.orderservice.service.IOrderService;
 
 class GhnWebhookControllerTest {
 
     private final OrderRepository orderRepository = mock(OrderRepository.class);
+
     private final ReturnOrderRepository returnOrderRepository = mock(ReturnOrderRepository.class);
-    private final OrderService orderService = mock(OrderService.class);
+
+    private final IOrderService orderService = mock(OrderService.class);
+
     private final GhnConfig ghnConfig = mock(GhnConfig.class);
-    private final GhnWebhookController controller =
-            new GhnWebhookController(orderRepository, returnOrderRepository, orderService, ghnConfig);
+
+    private final GhnWebhookController controller = new GhnWebhookController(orderRepository, returnOrderRepository, orderService, ghnConfig);
 
     @Test
     void rejectsBlankRequiredFieldsAfterAuthenticatingWebhook() {
         when(ghnConfig.getWebhookSecret()).thenReturn("webhook-secret");
-        ResponseEntity<String> response = controller.handleGhnWebhook(
-                Map.of("OrderCode", "", "Status", "delivered"), "webhook-secret", null);
-
+        ResponseEntity<String> response = controller.handleGhnWebhook(Map.of("OrderCode", "", "Status", "delivered"), "webhook-secret", null);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(orderRepository, returnOrderRepository);
     }
@@ -37,9 +37,7 @@ class GhnWebhookControllerTest {
     @Test
     void rejectsNonStringRequiredFieldsAsBadRequest() {
         when(ghnConfig.getWebhookSecret()).thenReturn("webhook-secret");
-        ResponseEntity<String> response = controller.handleGhnWebhook(
-                Map.of("OrderCode", 123, "Status", "delivered"), "webhook-secret", null);
-
+        ResponseEntity<String> response = controller.handleGhnWebhook(Map.of("OrderCode", 123, "Status", "delivered"), "webhook-secret", null);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(orderRepository, returnOrderRepository);
     }

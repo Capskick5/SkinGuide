@@ -29,7 +29,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -39,34 +38,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-public class OrderService {
+public class OrderService implements IOrderService {
 
     private static final ZoneId VIETNAM_TIME_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+
     private static final DateTimeFormatter VNPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
     private static final int MAX_PAGE_SIZE = 100;
 
     private final OrderRepository orderRepository;
+
     private final MomoConfig momoConfig;
+
     private final VnpayConfig vnpayConfig;
-    private final GhnService ghnService;
+
+    private final IGhnService ghnService;
+
     private final PaymentConfigurationValidator paymentConfigurationValidator;
+
     private final RestTemplate restTemplate;
+
     private final String productServiceBaseUrl;
+
     private final String internalServiceToken;
 
-    public OrderService(OrderRepository orderRepository,
-                        MomoConfig momoConfig,
-                        VnpayConfig vnpayConfig,
-                        GhnService ghnService,
-                        PaymentConfigurationValidator paymentConfigurationValidator,
-                        RestTemplate restTemplate,
-                        @Value("${product-service.base-url}") String productServiceBaseUrl,
-                        @Value("${product-service.internal-token}") String internalServiceToken) {
+    public OrderService(OrderRepository orderRepository, MomoConfig momoConfig, VnpayConfig vnpayConfig, IGhnService ghnService, PaymentConfigurationValidator paymentConfigurationValidator, RestTemplate restTemplate, @Value("${product-service.base-url}") String productServiceBaseUrl, @Value("${product-service.internal-token}") String internalServiceToken) {
         this.orderRepository = orderRepository;
         this.momoConfig = momoConfig;
         this.vnpayConfig = vnpayConfig;
@@ -82,51 +82,20 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng phải có ít nhất một sản phẩm");
         }
         requirePaymentMethodConfigured(request.getPaymentMethod());
-
-        Order existingOrder = orderRepository
-                .findByCustomerIdAndIdempotencyKey(request.getCustomerId(), idempotencyKey)
-                .orElse(null);
+        Order existingOrder = orderRepository.findByCustomerIdAndIdempotencyKey(request.getCustomerId(), idempotencyKey).orElse(null);
         if (existingOrder != null) {
             return toOrderResponse(existingOrder);
         }
-
         BigDecimal shippingFee = resolveShippingFee(request);
-
         // 1. Generate Order Code before reserving inventory, so stock logs can reference the order.
         String orderCode = "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-
         // 2. Reserve inventory and resolve trusted product/variant prices from product-service.
         ProductInventoryResponse inventory = callInventoryService("reserve", toInventoryRequest(orderCode, request));
         List<OrderItem> items = inventory.getItems().stream().map(this::toOrderItem).collect(Collectors.toList());
         BigDecimal totalAmount = inventory.getTotalAmount() != null ? inventory.getTotalAmount() : BigDecimal.ZERO;
-        
         totalAmount = totalAmount.add(shippingFee);
-
         // 3. Save Order
-        Order order = Order.builder()
-                .orderCode(orderCode)
-                .idempotencyKey(idempotencyKey)
-                .customerId(request.getCustomerId())
-                .customerName(request.getCustomerName())
-                .customerPhone(request.getCustomerPhone())
-                .shippingAddress(request.getShippingAddress())
-                .customerNote(request.getCustomerNote())
-                .ghnDistrictId(request.getGhnDistrictId())
-                .ghnWardCode(request.getGhnWardCode())
-                .shippingFee(shippingFee)
-                .items(items)
-                .totalAmount(totalAmount)
-                .status(Order.OrderStatus.PENDING)
-                .paymentMethod(request.getPaymentMethod())
-                .paymentStatus(Order.PaymentStatus.UNPAID)
-                .inventoryReserved(true)
-                .inventoryCommitted(false)
-                .reservationExpiresAt(request.getPaymentMethod() == Order.PaymentMethod.COD ? null : 
-                                      LocalDateTime.now().plusMinutes(15))
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-
+        Order order = Order.builder().orderCode(orderCode).idempotencyKey(idempotencyKey).customerId(request.getCustomerId()).customerName(request.getCustomerName()).customerPhone(request.getCustomerPhone()).shippingAddress(request.getShippingAddress()).customerNote(request.getCustomerNote()).ghnDistrictId(request.getGhnDistrictId()).ghnWardCode(request.getGhnWardCode()).shippingFee(shippingFee).items(items).totalAmount(totalAmount).status(Order.OrderStatus.PENDING).paymentMethod(request.getPaymentMethod()).paymentStatus(Order.PaymentStatus.UNPAID).inventoryReserved(true).inventoryCommitted(false).reservationExpiresAt(request.getPaymentMethod() == Order.PaymentMethod.COD ? null : LocalDateTime.now().plusMinutes(15)).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
         order.addStatusHistory(Order.OrderStatus.PENDING, "Khách hàng đặt đơn thành công");
         try {
             orderRepository.save(order);
@@ -134,7 +103,6 @@ public class OrderService {
             compensateFailedOrderCreation(orderCode, request, saveFailure);
             throw saveFailure;
         }
-
         // 4. Handle Payment Method
         String paymentUrl = "";
         if (request.getPaymentMethod() == Order.PaymentMethod.MOMO) {
@@ -142,12 +110,7 @@ public class OrderService {
         } else if (request.getPaymentMethod() == Order.PaymentMethod.VNPAY) {
             paymentUrl = generateVnpayPaymentUrl(order);
         }
-
-        return OrderResponse.builder()
-                .orderCode(orderCode)
-                .status(order.getStatus().name())
-                .paymentUrl(paymentUrl)
-                .build();
+        return OrderResponse.builder().orderCode(orderCode).status(order.getStatus().name()).paymentUrl(paymentUrl).build();
     }
 
     private void requirePaymentMethodConfigured(Order.PaymentMethod paymentMethod) {
@@ -159,11 +122,7 @@ public class OrderService {
     }
 
     private BigDecimal resolveShippingFee(OrderRequest request) {
-        Map<String, Object> feeResult = ghnService.calculateFee(
-                request.getGhnDistrictId(),
-                request.getGhnWardCode(),
-                500,
-                2);
+        Map<String, Object> feeResult = ghnService.calculateFee(request.getGhnDistrictId(), request.getGhnWardCode(), 500, 2);
         Object rawTotal = feeResult.get("total");
         if (!(rawTotal instanceof Number number) || number.longValue() < 0) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Không tính được phí giao hàng");
@@ -179,27 +138,15 @@ public class OrderService {
             } else if (order.getPaymentMethod() == Order.PaymentMethod.VNPAY) {
                 paymentUrl = generateVnpayPaymentUrl(order);
             } else if (order.getPaymentMethod() == Order.PaymentMethod.BANK_TRANSFER) {
-                paymentUrl = ""; // Frontend tự xử lý hiển thị QR
+                // Frontend tự xử lý hiển thị QR
+                paymentUrl = "";
             }
         }
-        return OrderResponse.builder()
-                .orderCode(order.getOrderCode())
-                .status(order.getStatus().name())
-                .paymentUrl(paymentUrl)
-                .build();
+        return OrderResponse.builder().orderCode(order.getOrderCode()).status(order.getStatus().name()).paymentUrl(paymentUrl).build();
     }
 
     private ProductInventoryRequest toInventoryRequest(String orderCode, OrderRequest request) {
-        return ProductInventoryRequest.builder()
-                .orderCode(orderCode)
-                .items(request.getItems().stream()
-                        .map(item -> ProductInventoryItemRequest.builder()
-                                .productId(item.getProductId())
-                                .variantId(item.getVariantId())
-                                .quantity(item.getQuantity())
-                                .build())
-                        .toList())
-                .build();
+        return ProductInventoryRequest.builder().orderCode(orderCode).items(request.getItems().stream().map(item -> ProductInventoryItemRequest.builder().productId(item.getProductId()).variantId(item.getVariantId()).quantity(item.getQuantity()).build()).toList()).build();
     }
 
     private void compensateFailedOrderCreation(String orderCode, OrderRequest request, RuntimeException saveFailure) {
@@ -213,31 +160,11 @@ public class OrderService {
     }
 
     private ProductInventoryRequest toInventoryRequest(Order order) {
-        return ProductInventoryRequest.builder()
-                .orderCode(order.getOrderCode())
-                .items(order.getItems().stream()
-                        .map(item -> ProductInventoryItemRequest.builder()
-                                .productId(item.getProductId())
-                                .variantId(item.getVariantId())
-                                .quantity(item.getQuantity())
-                                .build())
-                        .toList())
-                .build();
+        return ProductInventoryRequest.builder().orderCode(order.getOrderCode()).items(order.getItems().stream().map(item -> ProductInventoryItemRequest.builder().productId(item.getProductId()).variantId(item.getVariantId()).quantity(item.getQuantity()).build()).toList()).build();
     }
 
     private OrderItem toOrderItem(ProductInventoryItemResponse item) {
-        return OrderItem.builder()
-                .productId(item.getProductId())
-                .variantId(item.getVariantId())
-                .sku(item.getSku())
-                .variantName(item.getVariantName())
-                .productName(item.getProductName())
-                .imageUrl(item.getImageUrl())
-                .quantity(item.getQuantity())
-                .unit(item.getUnit())
-                .unitPrice(item.getUnitPrice())
-                .subTotal(item.getSubTotal())
-                .build();
+        return OrderItem.builder().productId(item.getProductId()).variantId(item.getVariantId()).sku(item.getSku()).variantName(item.getVariantName()).productName(item.getProductName()).imageUrl(item.getImageUrl()).quantity(item.getQuantity()).unit(item.getUnit()).unitPrice(item.getUnitPrice()).subTotal(item.getSubTotal()).build();
     }
 
     private ProductInventoryResponse callInventoryService(String action, ProductInventoryRequest request) {
@@ -246,17 +173,11 @@ public class OrderService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-Internal-Service-Token", internalServiceToken);
         HttpEntity<ProductInventoryRequest> entity = new HttpEntity<>(request, headers);
-
         for (int attempt = 1; attempt <= 2; attempt++) {
             try {
-                ProductInventoryApiResponse response = restTemplate.postForObject(
-                        url,
-                        entity,
-                        ProductInventoryApiResponse.class);
+                ProductInventoryApiResponse response = restTemplate.postForObject(url, entity, ProductInventoryApiResponse.class);
                 if (response == null || !Boolean.TRUE.equals(response.getSuccess()) || response.getData() == null) {
-                    String message = response != null && response.getMessage() != null
-                            ? response.getMessage()
-                            : "Inventory service did not return a valid response";
+                    String message = response != null && response.getMessage() != null ? response.getMessage() : "Inventory service did not return a valid response";
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
                 }
                 return response.getData();
@@ -267,21 +188,13 @@ public class OrderService {
                     log.warn("Retrying inventory action {} for order {} after stock conflict", action, request.getOrderCode());
                     continue;
                 }
-                HttpStatus status = e.getStatusCode().value() == HttpStatus.UNAUTHORIZED.value()
-                        ? HttpStatus.SERVICE_UNAVAILABLE
-                        : HttpStatus.BAD_REQUEST;
-                log.warn("Inventory action {} failed with HTTP {} for order {}",
-                        action, e.getStatusCode().value(), request.getOrderCode());
-                String message = status == HttpStatus.SERVICE_UNAVAILABLE
-                        ? "Tạm thời không thể xử lý tồn kho"
-                        : "Sản phẩm hoặc số lượng tồn kho không hợp lệ";
+                HttpStatus status = e.getStatusCode().value() == HttpStatus.UNAUTHORIZED.value() ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.BAD_REQUEST;
+                log.warn("Inventory action {} failed with HTTP {} for order {}", action, e.getStatusCode().value(), request.getOrderCode());
+                String message = status == HttpStatus.SERVICE_UNAVAILABLE ? "Tạm thời không thể xử lý tồn kho" : "Sản phẩm hoặc số lượng tồn kho không hợp lệ";
                 throw new ResponseStatusException(status, message);
             } catch (Exception e) {
-                log.error("Inventory action {} could not reach product-service for order {}",
-                        action, request.getOrderCode(), e);
-                throw new ResponseStatusException(
-                        HttpStatus.SERVICE_UNAVAILABLE,
-                        "Tạm thời không thể xử lý tồn kho");
+                log.error("Inventory action {} could not reach product-service for order {}", action, request.getOrderCode(), e);
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Tạm thời không thể xử lý tồn kho");
             }
         }
         throw new ResponseStatusException(HttpStatus.CONFLICT, "Tồn kho vừa thay đổi, vui lòng thử lại");
@@ -312,68 +225,29 @@ public class OrderService {
         String ipnUrl = momoConfig.getNotifyUrl();
         String requestType = "captureWallet";
         String extraData = "";
-
         // Raw signature data
-        String rawData = "accessKey=" + momoConfig.getAccessKey() +
-                "&amount=" + amount +
-                "&extraData=" + extraData +
-                "&ipnUrl=" + ipnUrl +
-                "&orderId=" + orderId +
-                "&orderInfo=" + orderInfo +
-                "&partnerCode=" + momoConfig.getPartnerCode() +
-                "&redirectUrl=" + redirectUrl +
-                "&requestId=" + requestId +
-                "&requestType=" + requestType;
-
+        String rawData = "accessKey=" + momoConfig.getAccessKey() + "&amount=" + amount + "&extraData=" + extraData + "&ipnUrl=" + ipnUrl + "&orderId=" + orderId + "&orderInfo=" + orderInfo + "&partnerCode=" + momoConfig.getPartnerCode() + "&redirectUrl=" + redirectUrl + "&requestId=" + requestId + "&requestType=" + requestType;
         String signature = MomoEncoderUtils.signHmacSHA256(rawData, momoConfig.getSecretKey());
-
-        MomoPaymentRequest momoRequest = MomoPaymentRequest.builder()
-                .partnerCode(momoConfig.getPartnerCode())
-                .requestId(requestId)
-                .amount(amount)
-                .orderId(orderId)
-                .orderInfo(orderInfo)
-                .redirectUrl(redirectUrl)
-                .ipnUrl(ipnUrl)
-                .requestType(requestType)
-                .extraData(extraData)
-                .lang("vi")
-                .signature(signature)
-                .build();
-
+        MomoPaymentRequest momoRequest = MomoPaymentRequest.builder().partnerCode(momoConfig.getPartnerCode()).requestId(requestId).amount(amount).orderId(orderId).orderInfo(orderInfo).redirectUrl(redirectUrl).ipnUrl(ipnUrl).requestType(requestType).extraData(extraData).lang("vi").signature(signature).build();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<MomoPaymentRequest> entity = new HttpEntity<>(momoRequest, headers);
-
         try {
-            MomoPaymentResponse response = restTemplate.postForObject(
-                    momoConfig.getEndpoint(),
-                    entity,
-                    MomoPaymentResponse.class
-            );
-
-            if (response != null
-                    && Integer.valueOf(0).equals(response.getResultCode())
-                    && response.getPayUrl() != null
-                    && !response.getPayUrl().isBlank()) {
+            MomoPaymentResponse response = restTemplate.postForObject(momoConfig.getEndpoint(), entity, MomoPaymentResponse.class);
+            if (response != null && Integer.valueOf(0).equals(response.getResultCode()) && response.getPayUrl() != null && !response.getPayUrl().isBlank()) {
                 return response.getPayUrl();
             }
-            log.warn("MoMo rejected payment initialization for order {} with resultCode {}",
-                    orderId,
-                    response == null ? null : response.getResultCode());
+            log.warn("MoMo rejected payment initialization for order {} with resultCode {}", orderId, response == null ? null : response.getResultCode());
         } catch (Exception exception) {
             log.error("MoMo payment initialization failed for order {}", orderId, exception);
         }
-        throw new ResponseStatusException(
-                HttpStatus.SERVICE_UNAVAILABLE,
-                "Không thể khởi tạo thanh toán MoMo lúc này");
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Không thể khởi tạo thanh toán MoMo lúc này");
     }
 
     private String generateVnpayPaymentUrl(Order order) {
         paymentConfigurationValidator.requireVnpayConfigured();
         long amount = order.getTotalAmount().movePointRight(2).longValueExact();
         LocalDateTime createdAt = LocalDateTime.now(VIETNAM_TIME_ZONE);
-
         Map<String, String> parameters = new HashMap<>();
         parameters.put("vnp_Version", "2.1.0");
         parameters.put("vnp_Command", "pay");
@@ -388,7 +262,6 @@ public class OrderService {
         parameters.put("vnp_IpAddr", resolveVnpayClientIp());
         parameters.put("vnp_CreateDate", createdAt.format(VNPAY_DATE_FORMAT));
         parameters.put("vnp_ExpireDate", createdAt.plusMinutes(15).format(VNPAY_DATE_FORMAT));
-
         String query = VnpayUtils.canonicalize(parameters);
         String secureHash = VnpayUtils.hmacSHA512(vnpayConfig.getHashSecret().trim(), query);
         String separator = vnpayConfig.getUrl().contains("?") ? "&" : "?";
@@ -398,9 +271,7 @@ public class OrderService {
     private String resolveVnpayClientIp() {
         String clientIp = "113.168.1.1";
         try {
-            org.springframework.web.context.request.ServletRequestAttributes attributes =
-                    (org.springframework.web.context.request.ServletRequestAttributes)
-                            org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            org.springframework.web.context.request.ServletRequestAttributes attributes = (org.springframework.web.context.request.ServletRequestAttributes) org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
             if (attributes != null) {
                 String remoteAddress = attributes.getRequest().getRemoteAddr();
                 if (remoteAddress != null && !remoteAddress.isBlank()) {
@@ -415,40 +286,26 @@ public class OrderService {
         }
         return clientIp;
     }
-    
+
     public OrderResponse cancelOrder(String orderId, String cancelReason) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found with id: " + orderId));
-        
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found with id: " + orderId));
         if (order.getStatus() != Order.OrderStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ có thể hủy đơn hàng đang chờ duyệt");
         }
-        
         if (cancelReason == null || cancelReason.trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng cung cấp lý do hủy đơn");
         }
-        
         order.addStatusHistory(Order.OrderStatus.CANCELLED, "Hủy đơn: " + cancelReason);
         order.setCancelReason(cancelReason);
-        
         if (order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
             order.setPaymentStatus(Order.PaymentStatus.FAILED);
         }
         releaseInventoryIfNeeded(order);
-        
         orderRepository.save(order);
-        
-        return OrderResponse.builder()
-                .orderCode(order.getOrderCode())
-                .status(order.getStatus().name())
-                .build();
+        return OrderResponse.builder().orderCode(order.getOrderCode()).status(order.getStatus().name()).build();
     }
 
-    public PaymentProcessingResult processMomoIpn(
-            String orderId,
-            int resultCode,
-            long amount,
-            String transactionId) {
+    public PaymentProcessingResult processMomoIpn(String orderId, int resultCode, long amount, String transactionId) {
         Order order = findPaymentOrder(orderId, Order.PaymentMethod.MOMO);
         validatePaymentAmount(order, BigDecimal.valueOf(amount));
         if (order.getPaymentStatus() != Order.PaymentStatus.UNPAID) {
@@ -470,18 +327,12 @@ public class OrderService {
         return new PaymentProcessingResult(order.getPaymentStatus(), false);
     }
 
-    public PaymentProcessingResult processVnpayIpn(
-            String orderId,
-            String responseCode,
-            String transactionStatus,
-            long amountTimes100,
-            String transactionId) {
+    public PaymentProcessingResult processVnpayIpn(String orderId, String responseCode, String transactionStatus, long amountTimes100, String transactionId) {
         Order order = findPaymentOrder(orderId, Order.PaymentMethod.VNPAY);
         validatePaymentAmount(order, BigDecimal.valueOf(amountTimes100, 2));
         if (order.getPaymentStatus() != Order.PaymentStatus.UNPAID) {
             return existingPaymentResult(order);
         }
-
         if ("00".equals(responseCode) && "00".equals(transactionStatus)) {
             rejectLatePayment(order);
             String verifiedTransactionId = requireTransactionId(transactionId);
@@ -500,25 +351,20 @@ public class OrderService {
     }
 
     public PaymentProcessingResult simulateBankTransfer(String orderCode) {
-        Order order = orderRepository.findByOrderCode(orderCode)
-                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng"));
+        Order order = orderRepository.findByOrderCode(orderCode).orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng"));
         if (order.getPaymentMethod() != Order.PaymentMethod.BANK_TRANSFER) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng không sử dụng hình thức chuyển khoản");
         }
-        
         if (order.getPaymentStatus() != Order.PaymentStatus.UNPAID) {
             return existingPaymentResult(order);
         }
-
         rejectLatePayment(order);
-        
         order.setPaymentStatus(Order.PaymentStatus.PAID);
         order.setPaymentTransactionId("SIMULATED-" + java.util.UUID.randomUUID().toString().substring(0, 8));
         order.setPaidAt(LocalDateTime.now());
         order.addStatusHistory(Order.OrderStatus.PROCESSING, "Khách hàng đã chuyển khoản");
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
-        
         return new PaymentProcessingResult(order.getPaymentStatus(), false);
     }
 
@@ -534,8 +380,7 @@ public class OrderService {
     }
 
     private Order findPaymentOrder(String orderCode, Order.PaymentMethod expectedMethod) {
-        Order order = orderRepository.findByOrderCode(orderCode)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn thanh toán"));
+        Order order = orderRepository.findByOrderCode(orderCode).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn thanh toán"));
         if (order.getPaymentMethod() != expectedMethod) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Callback không đúng phương thức thanh toán của đơn");
         }
@@ -549,19 +394,16 @@ public class OrderService {
     }
 
     private void rejectLatePayment(Order order) {
-        if (order.getStatus() == Order.OrderStatus.CANCELLED
-                || !Boolean.TRUE.equals(order.getInventoryReserved())) {
+        if (order.getStatus() == Order.OrderStatus.CANCELLED || !Boolean.TRUE.equals(order.getInventoryReserved())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng đã hết hạn hoặc đã hủy");
         }
     }
 
     public Order getOrderById(String idOrCode) {
         if (idOrCode != null && idOrCode.startsWith("ORD-")) {
-            return orderRepository.findByOrderCode(idOrCode)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+            return orderRepository.findByOrderCode(idOrCode).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
         }
-        return orderRepository.findById(idOrCode)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        return orderRepository.findById(idOrCode).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
     }
 
     public String getPaymentUrlForOrder(String orderId) {
@@ -569,12 +411,10 @@ public class OrderService {
         if (order.getPaymentStatus() == Order.PaymentStatus.PAID) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã được thanh toán");
         }
-        if (order.getStatus() == Order.OrderStatus.CANCELLED
-                || !Boolean.TRUE.equals(order.getInventoryReserved())) {
+        if (order.getStatus() == Order.OrderStatus.CANCELLED || !Boolean.TRUE.equals(order.getInventoryReserved())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng đã hủy hoặc không còn giữ hàng");
         }
-        if (order.getReservationExpiresAt() != null
-                && order.getReservationExpiresAt().isBefore(LocalDateTime.now())) {
+        if (order.getReservationExpiresAt() != null && order.getReservationExpiresAt().isBefore(LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng đã hết thời gian thanh toán 15 phút");
         }
         if (order.getPaymentMethod() == Order.PaymentMethod.MOMO) {
@@ -590,10 +430,7 @@ public class OrderService {
         if (status != null && !status.trim().isEmpty() && !status.equalsIgnoreCase("ALL")) {
             try {
                 String[] statusArray = status.split(",");
-                List<Order.OrderStatus> statuses = java.util.Arrays.stream(statusArray)
-                        .map(s -> Order.OrderStatus.valueOf(s.trim().toUpperCase()))
-                        .collect(java.util.stream.Collectors.toList());
-                        
+                List<Order.OrderStatus> statuses = java.util.Arrays.stream(statusArray).map(s -> Order.OrderStatus.valueOf(s.trim().toUpperCase())).collect(java.util.stream.Collectors.toList());
                 if (statuses.size() == 1) {
                     return orderRepository.findByCustomerIdAndStatusOrderByCreatedAtDesc(customerId, statuses.get(0), pageable);
                 } else if (statuses.size() > 1) {
@@ -605,15 +442,13 @@ public class OrderService {
         }
         return orderRepository.findByCustomerIdOrderByCreatedAtDesc(customerId, pageable);
     }
+
     public Page<Order> getAllOrders(int page, int size, String status) {
         Pageable pageable = validatedPageRequest(page, size);
         if (status != null && !status.trim().isEmpty() && !status.equalsIgnoreCase("ALL")) {
             try {
                 String[] statusArray = status.split(",");
-                List<Order.OrderStatus> statuses = java.util.Arrays.stream(statusArray)
-                        .map(s -> Order.OrderStatus.valueOf(s.trim().toUpperCase()))
-                        .collect(java.util.stream.Collectors.toList());
-                        
+                List<Order.OrderStatus> statuses = java.util.Arrays.stream(statusArray).map(s -> Order.OrderStatus.valueOf(s.trim().toUpperCase())).collect(java.util.stream.Collectors.toList());
                 if (statuses.size() == 1) {
                     return orderRepository.findByStatusOrderByCreatedAtDesc(statuses.get(0), pageable);
                 } else if (statuses.size() > 1) {
@@ -641,11 +476,8 @@ public class OrderService {
                     return order;
                 }
                 if (!OrderStatusTransitionPolicy.isAdminTransitionAllowed(order.getStatus(), status)) {
-                    throw new ResponseStatusException(
-                            HttpStatus.CONFLICT,
-                            "Chuyển trạng thái không hợp lệ; trạng thái giao vận do GHN cập nhật");
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Chuyển trạng thái không hợp lệ; trạng thái giao vận do GHN cập nhật");
                 }
-
                 // Rule for PENDING orders
                 if (order.getStatus() == Order.OrderStatus.PENDING) {
                     if (status != Order.OrderStatus.PROCESSING && status != Order.OrderStatus.CANCELLED) {
@@ -664,7 +496,6 @@ public class OrderService {
                         releaseInventoryIfNeeded(order);
                     }
                 }
-
                 // Rule for PROCESSING orders
                 if (order.getStatus() == Order.OrderStatus.PROCESSING) {
                     if (status != Order.OrderStatus.DELIVERING) {
@@ -674,13 +505,11 @@ public class OrderService {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng nhập khối lượng kiện hàng (gram)");
                     }
                 }
-                
                 // GHN Integration
                 if (status == Order.OrderStatus.DELIVERING && order.getStatus() == Order.OrderStatus.PROCESSING) {
                     if (order.getGhnWardCode() == null || order.getGhnDistrictId() == null) {
-                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng không có mã địa chỉ GHN. Không thể tạo đơn.");
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng không có mã địa chỉ GHN. Không thể tạo đơn.");
                     }
-                    
                     java.util.Map<String, Object> ghnData = new java.util.HashMap<>();
                     ghnData.put("payment_type_id", order.getPaymentMethod() == Order.PaymentMethod.COD ? 2 : 1);
                     ghnData.put("required_note", requiredNote != null ? requiredNote : "CHOXEMHANGKHONGTHU");
@@ -697,44 +526,39 @@ public class OrderService {
                     ghnData.put("length", length != null ? length : 15);
                     ghnData.put("width", width != null ? width : 15);
                     ghnData.put("height", height != null ? height : 10);
-                    ghnData.put("service_type_id", 2); // Đi bộ / Chuẩn
-                    
+                    // Đi bộ / Chuẩn
+                    ghnData.put("service_type_id", 2);
                     int totalAmount = order.getTotalAmount() != null ? order.getTotalAmount().intValue() : 0;
                     int shippingFee = order.getShippingFee() != null ? order.getShippingFee().intValue() : 0;
                     int insuranceValue = totalAmount - shippingFee;
                     ghnData.put("insurance_value", insuranceValue > 0 ? insuranceValue : 0);
-                    
                     if (order.getPaymentMethod() == Order.PaymentMethod.COD) {
                         ghnData.put("cod_amount", totalAmount);
                     } else {
                         ghnData.put("cod_amount", 0);
                     }
-                    
                     int itemWeight = weight / (order.getItems().size() > 0 ? order.getItems().size() : 1);
                     java.util.List<java.util.Map<String, Object>> ghnItems = order.getItems().stream().map(item -> {
                         java.util.Map<String, Object> map = new java.util.HashMap<>();
                         map.put("name", item.getProductName());
-                        map.put("code", item.getProductId()); // Mã sản phẩm
+                        // Mã sản phẩm
+                        map.put("code", item.getProductId());
                         map.put("quantity", item.getQuantity());
                         map.put("price", item.getUnitPrice().intValue());
-                        map.put("weight", itemWeight > 0 ? itemWeight : 50); // Cân nặng chia đều theo tổng
+                        // Cân nặng chia đều theo tổng
+                        map.put("weight", itemWeight > 0 ? itemWeight : 50);
                         return map;
                     }).collect(java.util.stream.Collectors.toList());
-                    
                     ghnData.put("items", ghnItems);
-                    
                     try {
                         Map<String, Object> ghnResponse = ghnService.createOrder(ghnData);
                         String trackingCode = ghnResponse != null ? (String) ghnResponse.get("order_code") : null;
                         order.setTrackingCode(trackingCode);
                     } catch (Exception e) {
                         log.error("Không thể tạo vận đơn GHN cho đơn {}", order.getOrderCode(), e);
-                        throw new ResponseStatusException(
-                                HttpStatus.SERVICE_UNAVAILABLE,
-                                "Chưa thể tạo vận đơn GHN lúc này, vui lòng thử lại sau");
+                        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Chưa thể tạo vận đơn GHN lúc này, vui lòng thử lại sau");
                     }
                 }
-                
                 String note = "Cập nhật trạng thái";
                 if (status == Order.OrderStatus.PROCESSING) {
                     note = "Đơn hàng đang chuẩn bị";
@@ -746,16 +570,13 @@ public class OrderService {
                     note = "Hủy đơn: " + cancelReason;
                 }
                 order.addStatusHistory(status, note);
-                
                 // Update payment status for CANCELLED/REFUSED/RETURNED
-                if ((status == Order.OrderStatus.CANCELLED || status == Order.OrderStatus.REFUSED || status == Order.OrderStatus.RETURNED) 
-                    && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
+                if ((status == Order.OrderStatus.CANCELLED || status == Order.OrderStatus.REFUSED || status == Order.OrderStatus.RETURNED) && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
                     order.setPaymentStatus(Order.PaymentStatus.FAILED);
                 }
                 if (status == Order.OrderStatus.CANCELLED || status == Order.OrderStatus.RETURNED) {
                     releaseInventoryIfNeeded(order);
                 }
-                
                 // Update payment status for DELIVERED COD
                 if (status == Order.OrderStatus.DELIVERED && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
                     order.setPaymentStatus(Order.PaymentStatus.PAID);
@@ -763,7 +584,6 @@ public class OrderService {
                 if (status == Order.OrderStatus.DELIVERED) {
                     commitInventoryIfNeeded(order);
                 }
-
                 return orderRepository.save(order);
             } catch (IllegalArgumentException e) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid order status: " + newStatus);
@@ -771,7 +591,8 @@ public class OrderService {
         }).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found with id: " + orderId));
     }
 
-    @Scheduled(fixedRate = 60000) // Chạy mỗi 1 phút
+    // Chạy mỗi 1 phút
+    @Scheduled(fixedRate = 60000)
     public void autoCancelUnpaidOrders() {
         LocalDateTime threshold = LocalDateTime.now();
         List<Order> expiredOrders = orderRepository.findExpiredUnpaidOrders(threshold);
@@ -785,7 +606,8 @@ public class OrderService {
         }
     }
 
-    @Scheduled(fixedRate = 300000) // Chạy mỗi 5 phút
+    // Chạy mỗi 5 phút
+    @Scheduled(fixedRate = 300000)
     public void syncGhnOrderStatus() {
         List<Order> activeOrders = orderRepository.findActiveGhnOrders();
         for (Order order : activeOrders) {
@@ -814,7 +636,7 @@ public class OrderService {
     }
 
     public Order.OrderStatus mapGhnStatusToSystemStatus(String ghnStatus) {
-        switch (ghnStatus) {
+        switch(ghnStatus) {
             case "ready_to_pick":
             case "picking":
             case "picked":
@@ -848,8 +670,7 @@ public class OrderService {
             return order;
         }
         if (!OrderStatusTransitionPolicy.isCarrierTransitionAllowed(order.getStatus(), newStatus)) {
-            log.warn("Ignored stale or invalid shipping transition for order {}: {} -> {}",
-                    order.getOrderCode(), order.getStatus(), newStatus);
+            log.warn("Ignored stale or invalid shipping transition for order {}: {} -> {}", order.getOrderCode(), order.getStatus(), newStatus);
             return order;
         }
         order.addStatusHistory(newStatus, note);

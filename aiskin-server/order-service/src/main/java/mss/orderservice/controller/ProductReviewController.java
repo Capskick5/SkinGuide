@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import mss.orderservice.service.IProductReviewService;
 
 @RestController
 @RequestMapping("/api/orders/reviews")
@@ -27,48 +28,35 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class ProductReviewController {
 
-    private final ProductReviewService reviewService;
+    private final IProductReviewService reviewService;
 
     @GetMapping("/product/{productId}")
     @Operation(summary = "List product reviews and rating summary")
-    public ProductReviewSummaryResponse getProductReviews(
-            @PathVariable String productId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+    public ProductReviewSummaryResponse getProductReviews(@PathVariable String productId, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         return reviewService.getProductReviews(productId, page, size);
     }
 
     @GetMapping("/product/{productId}/me")
     @Operation(summary = "Check whether the current customer can review a product")
-    public ProductReviewEligibilityResponse getEligibility(
-            @PathVariable String productId,
-            Authentication authentication) {
+    public ProductReviewEligibilityResponse getEligibility(@PathVariable String productId, Authentication authentication) {
         return reviewService.getEligibility(authentication.getName(), productId);
     }
 
     @PostMapping("/product/{productId}")
     @Operation(summary = "Create a verified-purchase review")
-    public ProductReviewResponse createReview(
-            @PathVariable String productId,
-            @Valid @RequestBody ProductReviewRequest request,
-            Authentication authentication) {
+    public ProductReviewResponse createReview(@PathVariable String productId, @Valid @RequestBody ProductReviewRequest request, Authentication authentication) {
         return reviewService.create(authentication.getName(), productId, request);
     }
 
     @PutMapping("/{reviewId}")
     @Operation(summary = "Update the current customer's review")
-    public ProductReviewResponse updateReview(
-            @PathVariable String reviewId,
-            @Valid @RequestBody ProductReviewRequest request,
-            Authentication authentication) {
+    public ProductReviewResponse updateReview(@PathVariable String reviewId, @Valid @RequestBody ProductReviewRequest request, Authentication authentication) {
         return reviewService.update(authentication.getName(), reviewId, request);
     }
 
     @DeleteMapping("/{reviewId}")
     @Operation(summary = "Delete the current customer's review")
-    public ResponseEntity<Void> deleteReview(
-            @PathVariable String reviewId,
-            Authentication authentication) {
+    public ResponseEntity<Void> deleteReview(@PathVariable String reviewId, Authentication authentication) {
         reviewService.delete(authentication.getName(), reviewId);
         return ResponseEntity.noContent().build();
     }

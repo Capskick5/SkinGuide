@@ -12,6 +12,7 @@ import mss.userservice.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import mss.userservice.service.IUserService;
 
 /**
  * Authenticated user endpoints. Requires a valid Bearer access token.
@@ -22,9 +23,9 @@ import org.springframework.web.bind.annotation.*;
 @SecurityRequirement(name = "bearerAuth")
 public class UserController {
 
-    private final UserService userService;
+    private final IUserService userService;
 
-    public UserController(UserService userService) {
+    public UserController(IUserService userService) {
         this.userService = userService;
     }
 
@@ -36,23 +37,19 @@ public class UserController {
 
     @PutMapping("/me")
     @Operation(summary = "Cập nhật hồ sơ (tên, hồ sơ da)")
-    public ResponseEntity<UserResponse> updateProfile(@AuthenticationPrincipal String userId,
-                                                       @Valid @RequestBody UpdateProfileRequest request) {
+    public ResponseEntity<UserResponse> updateProfile(@AuthenticationPrincipal String userId, @Valid @RequestBody UpdateProfileRequest request) {
         return ResponseEntity.ok(userService.updateProfile(userId, request));
     }
 
     @PutMapping("/me/delivery-address")
     @Operation(summary = "Lưu địa chỉ giao hàng mặc định")
-    public ResponseEntity<DeliveryAddress> updateDeliveryAddress(
-            @AuthenticationPrincipal String userId,
-            @Valid @RequestBody DeliveryAddress address) {
+    public ResponseEntity<DeliveryAddress> updateDeliveryAddress(@AuthenticationPrincipal String userId, @Valid @RequestBody DeliveryAddress address) {
         return ResponseEntity.ok(userService.updateDeliveryAddress(userId, address));
     }
 
     @PostMapping("/me/change-password")
     @Operation(summary = "Đổi mật khẩu")
-    public ResponseEntity<Void> changePassword(@AuthenticationPrincipal String userId,
-                                               @Valid @RequestBody ChangePasswordRequest request) {
+    public ResponseEntity<Void> changePassword(@AuthenticationPrincipal String userId, @Valid @RequestBody ChangePasswordRequest request) {
         userService.changePassword(userId, request);
         return ResponseEntity.noContent().build();
     }

@@ -19,9 +19,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
+import mss.orderservice.service.IOrderService;
+import mss.orderservice.service.IDashboardService;
+import mss.orderservice.security.IOrderAuthorizationService;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -29,18 +31,19 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class OrderController {
 
-    private final OrderService orderService;
-    private final DashboardService dashboardService;
-    private final OrderAuthorizationService authorizationService;
+    private final IOrderService orderService;
+
+    private final IDashboardService dashboardService;
+
+    private final IOrderAuthorizationService authorizationService;
+
     private final PaymentWebhookVerifier paymentWebhookVerifier;
+
     private final PaymentConfigurationValidator paymentConfigurationValidator;
 
     @PostMapping
     @Operation(summary = "Create a new order", description = "Creates an order and returns payment URL if applicable")
-    public ResponseEntity<OrderResponse> createOrder(
-            @Valid @RequestBody OrderRequest request,
-            @RequestHeader("Idempotency-Key") String idempotencyKey,
-            Authentication authentication) {
+    public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody OrderRequest request, @RequestHeader("Idempotency-Key") String idempotencyKey, Authentication authentication) {
         if (idempotencyKey.isBlank() || idempotencyKey.length() > 100) {
             return ResponseEntity.badRequest().build();
         }
@@ -50,10 +53,7 @@ public class OrderController {
 
     @PostMapping("/{id}/cancel")
     @Operation(summary = "Cancel an order", description = "Customer cancels their order before it is processed")
-    public ResponseEntity<?> cancelOrder(
-            @PathVariable String id,
-            @RequestBody Map<String, String> body,
-            Authentication authentication) {
+    public ResponseEntity<?> cancelOrder(@PathVariable String id, @RequestBody Map<String, String> body, Authentication authentication) {
         authorizationService.requireOrderAccess(id, authentication);
         String reason = body.get("cancelReason");
         return ResponseEntity.ok(orderService.cancelOrder(id, reason));
@@ -61,9 +61,7 @@ public class OrderController {
 
     @PostMapping("/{id}/payment/simulate-bank-transfer")
     @Operation(summary = "Simulate Bank Transfer Payment", description = "For development/testing. Simulates receiving money via bank transfer.")
-    public ResponseEntity<?> simulateBankTransfer(
-            @PathVariable String id,
-            Authentication authentication) {
+    public ResponseEntity<?> simulateBankTransfer(@PathVariable String id, Authentication authentication) {
         authorizationService.requireOrderAccess(id, authentication);
         PaymentProcessingResult result = orderService.simulateBankTransfer(id);
         return ResponseEntity.ok(result);
@@ -79,11 +77,7 @@ public class OrderController {
     @GetMapping("/payment/methods")
     @Operation(summary = "Get payment method availability")
     public ResponseEntity<?> getPaymentMethods() {
-        return ResponseEntity.ok(Map.of(
-                "COD", true,
-                "BANK_TRANSFER", true,
-                "MOMO", paymentConfigurationValidator.isMomoConfigured(),
-                "VNPAY", paymentConfigurationValidator.isVnpayConfigured()));
+        return ResponseEntity.ok(Map.of("COD", true, "BANK_TRANSFER", true, "MOMO", paymentConfigurationValidator.isMomoConfigured(), "VNPAY", paymentConfigurationValidator.isVnpayConfigured()));
     }
 
     @PostMapping("/payment/momo-return")
@@ -93,17 +87,14 @@ public class OrderController {
         PaymentProcessingResult result = processMomoNotification(requestBody);
         return ResponseEntity.ok(paymentReturnBody(orderCode, result));
     }
-    
+
     @GetMapping("/payment/vnpay-ipn")
     @Operation(summary = "VNPay IPN Callback", description = "Server-to-server callback for VNPay status")
     public ResponseEntity<?> vnpayIpn(@RequestParam Map<String, String> requestParams) {
         String orderId = requestParams.get("vnp_TxnRef");
         String responseCode = requestParams.get("vnp_ResponseCode");
         String transactionStatus = requestParams.get("vnp_TransactionStatus");
-        if (orderId == null
-                || responseCode == null
-                || transactionStatus == null
-                || !paymentWebhookVerifier.verifyVnpay(requestParams)) {
+        if (orderId == null || responseCode == null || transactionStatus == null || !paymentWebhookVerifier.verifyVnpay(requestParams)) {
             return ResponseEntity.ok(vnpayResponse("97", "Invalid signature", null));
         }
         Long amount = parseLong(requestParams.get("vnp_Amount"));
@@ -111,12 +102,7 @@ public class OrderController {
             return ResponseEntity.ok(vnpayResponse("04", "Invalid amount", null));
         }
         try {
-            PaymentProcessingResult result = orderService.processVnpayIpn(
-                    orderId,
-                    responseCode,
-                    transactionStatus,
-                    amount,
-                    requestParams.get("vnp_TransactionNo"));
+            PaymentProcessingResult result = orderService.processVnpayIpn(orderId, responseCode, transactionStatus, amount, requestParams.get("vnp_TransactionNo"));
             String rspCode = result.alreadyProcessed() ? "02" : "00";
             String message = result.alreadyProcessed() ? "Order already confirmed" : "Confirm Success";
             return ResponseEntity.ok(vnpayResponse(rspCode, message, result));
@@ -124,9 +110,7 @@ public class OrderController {
             if (exception.getStatusCode().value() == 404) {
                 return ResponseEntity.ok(vnpayResponse("01", "Order not found", null));
             }
-            if (exception.getStatusCode().value() == 400
-                    && exception.getReason() != null
-                    && exception.getReason().contains("Số tiền")) {
+            if (exception.getStatusCode().value() == 400 && exception.getReason() != null && exception.getReason().contains("Số tiền")) {
                 return ResponseEntity.ok(vnpayResponse("04", "Invalid amount", null));
             }
             if (exception.getStatusCode().value() == 409) {
@@ -141,34 +125,19 @@ public class OrderController {
         Integer resultCode = parseResultCode(requestBody.get("resultCode"));
         Long amount = parseLong(requestBody.get("amount"));
         if (orderId == null || resultCode == null || amount == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "orderId, resultCode và amount là bắt buộc");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orderId, resultCode và amount là bắt buộc");
         }
         if (!paymentWebhookVerifier.verifyMomo(requestBody)) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Chữ ký MoMo không hợp lệ");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Chữ ký MoMo không hợp lệ");
         }
-        return orderService.processMomoIpn(
-                orderId,
-                resultCode,
-                amount,
-                stringValue(requestBody.get("transId")));
+        return orderService.processMomoIpn(orderId, resultCode, amount, stringValue(requestBody.get("transId")));
     }
 
     private Map<String, Object> paymentReturnBody(String orderCode, PaymentProcessingResult result) {
-        return Map.of(
-                "orderCode", orderCode,
-                "paymentStatus", result.paymentStatus().name(),
-                "confirmed", result.paymentStatus() == Order.PaymentStatus.PAID
-                        || result.paymentStatus() == Order.PaymentStatus.REFUNDED);
+        return Map.of("orderCode", orderCode, "paymentStatus", result.paymentStatus().name(), "confirmed", result.paymentStatus() == Order.PaymentStatus.PAID || result.paymentStatus() == Order.PaymentStatus.REFUNDED);
     }
 
-    private Map<String, Object> vnpayResponse(
-            String rspCode,
-            String message,
-            PaymentProcessingResult result) {
+    private Map<String, Object> vnpayResponse(String rspCode, String message, PaymentProcessingResult result) {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("RspCode", rspCode);
         response.put("Message", message);
@@ -227,12 +196,7 @@ public class OrderController {
 
     @GetMapping("/user/{customerId}")
     @Operation(summary = "Get orders by customer", description = "Fetch all orders for a given customer id with pagination")
-    public ResponseEntity<?> getOrdersByCustomer(
-            @PathVariable String customerId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false, defaultValue = "ALL") String status,
-            Authentication authentication) {
+    public ResponseEntity<?> getOrdersByCustomer(@PathVariable String customerId, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size, @RequestParam(required = false, defaultValue = "ALL") String status, Authentication authentication) {
         authorizationService.requireSameCustomerOrAdmin(customerId, authentication);
         return ResponseEntity.ok(orderService.getOrdersByCustomerId(customerId, page, size, status));
     }
@@ -240,40 +204,33 @@ public class OrderController {
     @GetMapping
     @PreAuthorize("hasPermission('/api/orders', 'GET')")
     @Operation(summary = "Get all orders", description = "Admin endpoint to fetch all orders in the system with pagination and optional status filter")
-    public ResponseEntity<?> getAllOrders(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false, defaultValue = "ALL") String status) {
+    public ResponseEntity<?> getAllOrders(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size, @RequestParam(required = false, defaultValue = "ALL") String status) {
         return ResponseEntity.ok(orderService.getAllOrders(page, size, status));
     }
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasPermission('/api/orders/{id}/status', 'PUT')")
     @Operation(summary = "Update order status", description = "Admin endpoint to update the status of an order")
-    public ResponseEntity<?> updateOrderStatus(
-            @PathVariable String id,
-            @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> updateOrderStatus(@PathVariable String id, @RequestBody Map<String, String> body) {
         String newStatus = body.get("status");
         String cancelReason = body.get("cancelReason");
         String requiredNote = body.get("requiredNote");
-        
         Integer weight = parseInteger(body.get("weight"));
         Integer length = parseInteger(body.get("length"));
         Integer width = parseInteger(body.get("width"));
         Integer height = parseInteger(body.get("height"));
-        
         if (newStatus == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Status is required"));
         }
-        return ResponseEntity.ok(orderService.updateOrderStatus(
-                id, newStatus, cancelReason, weight, length, width, height, requiredNote));
+        return ResponseEntity.ok(orderService.updateOrderStatus(id, newStatus, cancelReason, weight, length, width, height, requiredNote));
     }
 
     private Integer parseInteger(String value) {
         if (value != null && !value.trim().isEmpty()) {
             try {
                 return Integer.parseInt(value);
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ignored) {
+            }
         }
         return null;
     }

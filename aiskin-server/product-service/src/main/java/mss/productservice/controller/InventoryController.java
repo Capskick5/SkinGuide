@@ -18,21 +18,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import mss.productservice.service.IInventoryService;
 
 @RestController
 @RequestMapping("/api/products/inventory")
 @RequiredArgsConstructor
 public class InventoryController {
 
-    private final InventoryService inventoryService;
+    private final IInventoryService inventoryService;
 
     @GetMapping("/movements")
     @PreAuthorize("hasPermission('/api/products/inventory/movements', 'GET')")
-    public ResponseEntity<ApiResponse<Page<InventoryMovementResponse>>> getMovements(
-            @RequestParam(required = false) String productId,
-            @RequestParam(required = false) String variantId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+    public ResponseEntity<ApiResponse<Page<InventoryMovementResponse>>> getMovements(@RequestParam(required = false) String productId, @RequestParam(required = false) String variantId, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(ApiResponse.ok(inventoryService.getMovements(productId, variantId, page, size)));
     }
 
@@ -58,8 +55,7 @@ public class InventoryController {
     }
 
     @PostMapping("/internal/process-return")
-    public ResponseEntity<ApiResponse<InventoryReservationResponse>> processReturn(
-            @Valid @RequestBody InventoryReturnRequest request) {
+    public ResponseEntity<ApiResponse<InventoryReservationResponse>> processReturn(@Valid @RequestBody InventoryReturnRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(inventoryService.processReturn(request)));
     }
 }

@@ -14,15 +14,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import mss.productservice.service.IProductService;
 
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
 public class ProductController {
 
-    private final ProductService productService;
+    private final IProductService productService;
 
     @PostMapping("/internal/sync-kafka")
     public ResponseEntity<ApiResponse<String>> syncKafka() {
@@ -41,27 +41,18 @@ public class ProductController {
     }
 
     @GetMapping("/search/advanced")
-    public ResponseEntity<ApiResponse<Page<ProductSummaryResponse>>> searchAdvanced(
-            @ModelAttribute ProductSearchRequest request,
-            Authentication authentication) {
-        return ResponseEntity.ok(ApiResponse.ok(
-                productService.searchAdvanced(request, canManageCatalog(authentication))));
+    public ResponseEntity<ApiResponse<Page<ProductSummaryResponse>>> searchAdvanced(@ModelAttribute ProductSearchRequest request, Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.ok(productService.searchAdvanced(request, canManageCatalog(authentication))));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ProductResponse>> getProductById(
-            @PathVariable String id,
-            Authentication authentication) {
-        return ResponseEntity.ok(ApiResponse.ok(
-                productService.getProductById(id, canManageCatalog(authentication))));
+    public ResponseEntity<ApiResponse<ProductResponse>> getProductById(@PathVariable String id, Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.ok(productService.getProductById(id, canManageCatalog(authentication))));
     }
 
     @GetMapping("/slug/{slug}")
-    public ResponseEntity<ApiResponse<ProductResponse>> getProductBySlug(
-            @PathVariable String slug,
-            Authentication authentication) {
-        return ResponseEntity.ok(ApiResponse.ok(
-                productService.getProductBySlug(slug, canManageCatalog(authentication))));
+    public ResponseEntity<ApiResponse<ProductResponse>> getProductBySlug(@PathVariable String slug, Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.ok(productService.getProductBySlug(slug, canManageCatalog(authentication))));
     }
 
     @GetMapping("/brand/{brandId}")
@@ -103,8 +94,7 @@ public class ProductController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasPermission('/api/products/{id}', 'PUT')")
-    public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(@PathVariable String id,
-                                                                       @Valid @RequestBody ProductRequest request) {
+    public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(@PathVariable String id, @Valid @RequestBody ProductRequest request) {
         return ResponseEntity.ok(ApiResponse.ok("Product updated", productService.updateProduct(id, request)));
     }
 
@@ -119,11 +109,6 @@ public class ProductController {
         if (authentication == null || !authentication.isAuthenticated()) {
             return false;
         }
-        return authentication.getAuthorities().stream()
-                .map(authority -> authority.getAuthority())
-                .anyMatch(authority -> authority.equals("ROLE_ADMIN")
-                        || authority.equals("ROLE_MANAGER")
-                        || authority.equals("POST:/api/products")
-                        || authority.equals("ANY:/api/products"));
+        return authentication.getAuthorities().stream().map(authority -> authority.getAuthority()).anyMatch(authority -> authority.equals("ROLE_ADMIN") || authority.equals("ROLE_MANAGER") || authority.equals("POST:/api/products") || authority.equals("ANY:/api/products"));
     }
 }

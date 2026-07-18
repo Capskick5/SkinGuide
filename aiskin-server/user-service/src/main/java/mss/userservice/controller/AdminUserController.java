@@ -4,13 +4,13 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import mss.userservice.dto.UserResponse;
-
 import mss.userservice.service.UserService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import mss.userservice.service.IUserService;
 
 /**
  * Admin-only user management. Requires ROLE_ADMIN.
@@ -21,9 +21,9 @@ import org.springframework.web.bind.annotation.*;
 @SecurityRequirement(name = "bearerAuth")
 public class AdminUserController {
 
-    private final UserService userService;
+    private final IUserService userService;
 
-    public AdminUserController(UserService userService) {
+    public AdminUserController(IUserService userService) {
         this.userService = userService;
     }
 
