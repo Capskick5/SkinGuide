@@ -33,39 +33,4 @@ public class RefreshTokenRequestTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for RefreshTokenRequest")
-    void testBoundary1() {
-        RefreshTokenRequest instance = Mockito.mock(RefreshTokenRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for RefreshTokenRequest")
-    void testBoundary2() {
-        RefreshTokenRequest instance = Mockito.mock(RefreshTokenRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for RefreshTokenRequest")
-    void testBoundary3() {
-        RefreshTokenRequest instance = Mockito.mock(RefreshTokenRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for RefreshTokenRequest")
-    void testBoundary4() {
-        RefreshTokenRequest instance = Mockito.mock(RefreshTokenRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for RefreshTokenRequest")
-    void testBoundary5() {
-        RefreshTokenRequest instance = Mockito.mock(RefreshTokenRequest.class);
-        assertNotNull(instance);
-    }
 }

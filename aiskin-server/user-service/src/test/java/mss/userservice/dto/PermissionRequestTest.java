@@ -33,39 +33,4 @@ public class PermissionRequestTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for PermissionRequest")
-    void testBoundary1() {
-        PermissionRequest instance = Mockito.mock(PermissionRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for PermissionRequest")
-    void testBoundary2() {
-        PermissionRequest instance = Mockito.mock(PermissionRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for PermissionRequest")
-    void testBoundary3() {
-        PermissionRequest instance = Mockito.mock(PermissionRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for PermissionRequest")
-    void testBoundary4() {
-        PermissionRequest instance = Mockito.mock(PermissionRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for PermissionRequest")
-    void testBoundary5() {
-        PermissionRequest instance = Mockito.mock(PermissionRequest.class);
-        assertNotNull(instance);
-    }
 }

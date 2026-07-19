@@ -33,39 +33,4 @@ public class OrderTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for Order")
-    void testBoundary1() {
-        Order instance = Mockito.mock(Order.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for Order")
-    void testBoundary2() {
-        Order instance = Mockito.mock(Order.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for Order")
-    void testBoundary3() {
-        Order instance = Mockito.mock(Order.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for Order")
-    void testBoundary4() {
-        Order instance = Mockito.mock(Order.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for Order")
-    void testBoundary5() {
-        Order instance = Mockito.mock(Order.class);
-        assertNotNull(instance);
-    }
 }

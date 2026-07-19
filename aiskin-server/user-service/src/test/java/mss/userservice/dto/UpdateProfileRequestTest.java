@@ -33,39 +33,4 @@ public class UpdateProfileRequestTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for UpdateProfileRequest")
-    void testBoundary1() {
-        UpdateProfileRequest instance = Mockito.mock(UpdateProfileRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for UpdateProfileRequest")
-    void testBoundary2() {
-        UpdateProfileRequest instance = Mockito.mock(UpdateProfileRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for UpdateProfileRequest")
-    void testBoundary3() {
-        UpdateProfileRequest instance = Mockito.mock(UpdateProfileRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for UpdateProfileRequest")
-    void testBoundary4() {
-        UpdateProfileRequest instance = Mockito.mock(UpdateProfileRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for UpdateProfileRequest")
-    void testBoundary5() {
-        UpdateProfileRequest instance = Mockito.mock(UpdateProfileRequest.class);
-        assertNotNull(instance);
-    }
 }

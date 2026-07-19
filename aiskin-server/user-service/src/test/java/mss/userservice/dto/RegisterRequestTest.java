@@ -33,39 +33,4 @@ public class RegisterRequestTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for RegisterRequest")
-    void testBoundary1() {
-        RegisterRequest instance = Mockito.mock(RegisterRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for RegisterRequest")
-    void testBoundary2() {
-        RegisterRequest instance = Mockito.mock(RegisterRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for RegisterRequest")
-    void testBoundary3() {
-        RegisterRequest instance = Mockito.mock(RegisterRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for RegisterRequest")
-    void testBoundary4() {
-        RegisterRequest instance = Mockito.mock(RegisterRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for RegisterRequest")
-    void testBoundary5() {
-        RegisterRequest instance = Mockito.mock(RegisterRequest.class);
-        assertNotNull(instance);
-    }
 }

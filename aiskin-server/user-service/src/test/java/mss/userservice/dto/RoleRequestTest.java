@@ -33,39 +33,4 @@ public class RoleRequestTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for RoleRequest")
-    void testBoundary1() {
-        RoleRequest instance = Mockito.mock(RoleRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for RoleRequest")
-    void testBoundary2() {
-        RoleRequest instance = Mockito.mock(RoleRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for RoleRequest")
-    void testBoundary3() {
-        RoleRequest instance = Mockito.mock(RoleRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for RoleRequest")
-    void testBoundary4() {
-        RoleRequest instance = Mockito.mock(RoleRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for RoleRequest")
-    void testBoundary5() {
-        RoleRequest instance = Mockito.mock(RoleRequest.class);
-        assertNotNull(instance);
-    }
 }

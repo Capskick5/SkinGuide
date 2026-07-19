@@ -33,39 +33,4 @@ public class EmailRequestTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for EmailRequest")
-    void testBoundary1() {
-        EmailRequest instance = Mockito.mock(EmailRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for EmailRequest")
-    void testBoundary2() {
-        EmailRequest instance = Mockito.mock(EmailRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for EmailRequest")
-    void testBoundary3() {
-        EmailRequest instance = Mockito.mock(EmailRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for EmailRequest")
-    void testBoundary4() {
-        EmailRequest instance = Mockito.mock(EmailRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for EmailRequest")
-    void testBoundary5() {
-        EmailRequest instance = Mockito.mock(EmailRequest.class);
-        assertNotNull(instance);
-    }
 }
