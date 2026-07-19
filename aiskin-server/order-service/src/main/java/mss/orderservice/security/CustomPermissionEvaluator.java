@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.orderservice.security;
 
 import org.springframework.security.access.PermissionEvaluator;
@@ -25,7 +29,7 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
 
         String targetResource = targetDomainObject.toString();
         String targetMethod = permission.toString().toUpperCase();
-        
+
         String requiredAuthority = targetMethod + ":" + targetResource;
 
         for (GrantedAuthority authority : authentication.getAuthorities()) {
@@ -33,7 +37,7 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
                 return true;
             }
         }
-        
+
         String wildcardAuthority = "ANY:" + targetResource;
         for (GrantedAuthority authority : authentication.getAuthorities()) {
             if (authority.getAuthority().equals(wildcardAuthority)) {
@@ -49,4 +53,3 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         return false;
     }
 }
-

@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.userservice.security;
 
 import mss.userservice.config.OtpProperties;

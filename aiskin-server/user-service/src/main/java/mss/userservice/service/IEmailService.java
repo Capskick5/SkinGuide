@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.userservice.service;
 
 import jakarta.annotation.PostConstruct;

@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.orderservice.model;
 
 import lombok.AllArgsConstructor;
@@ -26,9 +30,9 @@ public class ReturnOrder {
 
     @Indexed(unique = true)
     private String orderId; // Ref to Order.id
-    private String orderCode; 
-    
-    private String customerId; 
+    private String orderCode;
+
+    private String customerId;
     private String customerName;
 
     // Chi tiết đổi trả

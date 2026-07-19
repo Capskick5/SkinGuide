@@ -1,5 +1,8 @@
-package mss.userservice.dto;
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
 
+package mss.userservice.dto;
 
 import mss.userservice.model.SkinProfile;
 import mss.userservice.model.DeliveryAddress;

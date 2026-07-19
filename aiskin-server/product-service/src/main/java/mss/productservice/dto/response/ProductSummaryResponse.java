@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.productservice.dto.response;
 
 import lombok.AllArgsConstructor;
@@ -23,7 +27,7 @@ public class ProductSummaryResponse {
     private String categoryId;
     private String categoryName;
     private Boolean isActive;
-    
+
     // Minimal fields needed for client-side search indexing
     private List<String> targetConcerns;
     private List<String> targetSkinTypes;
@@ -33,7 +37,7 @@ public class ProductSummaryResponse {
     private Integer totalReservedQuantity;
     private Integer totalAvailableQuantity;
     private Boolean hasLowStock;
-    
+
     private Instant createdAt;
     private Instant updatedAt;
 }

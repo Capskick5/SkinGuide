@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.userservice.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;

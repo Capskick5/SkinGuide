@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.orderservice.repository;
 
 import mss.orderservice.model.Order;
@@ -21,7 +25,7 @@ public interface OrderRepository extends MongoRepository<Order, String> {
     Page<Order> findAllByOrderByCreatedAtDesc(Pageable pageable);
     Page<Order> findByStatusOrderByCreatedAtDesc(Order.OrderStatus status, Pageable pageable);
     Page<Order> findByCustomerIdAndStatusOrderByCreatedAtDesc(String customerId, Order.OrderStatus status, Pageable pageable);
-    
+
     Page<Order> findByStatusInOrderByCreatedAtDesc(List<Order.OrderStatus> statuses, Pageable pageable);
     Page<Order> findByCustomerIdAndStatusInOrderByCreatedAtDesc(String customerId, List<Order.OrderStatus> statuses, Pageable pageable);
 

@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.productservice.repository;
 
 import mss.productservice.model.InventoryMovement;
