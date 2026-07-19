@@ -33,39 +33,4 @@ public class SyncEndpointsRequestTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for SyncEndpointsRequest")
-    void testBoundary1() {
-        SyncEndpointsRequest instance = Mockito.mock(SyncEndpointsRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for SyncEndpointsRequest")
-    void testBoundary2() {
-        SyncEndpointsRequest instance = Mockito.mock(SyncEndpointsRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for SyncEndpointsRequest")
-    void testBoundary3() {
-        SyncEndpointsRequest instance = Mockito.mock(SyncEndpointsRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for SyncEndpointsRequest")
-    void testBoundary4() {
-        SyncEndpointsRequest instance = Mockito.mock(SyncEndpointsRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for SyncEndpointsRequest")
-    void testBoundary5() {
-        SyncEndpointsRequest instance = Mockito.mock(SyncEndpointsRequest.class);
-        assertNotNull(instance);
-    }
 }

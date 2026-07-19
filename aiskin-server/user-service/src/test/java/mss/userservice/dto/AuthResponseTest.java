@@ -33,39 +33,4 @@ public class AuthResponseTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for AuthResponse")
-    void testBoundary1() {
-        AuthResponse instance = Mockito.mock(AuthResponse.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for AuthResponse")
-    void testBoundary2() {
-        AuthResponse instance = Mockito.mock(AuthResponse.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for AuthResponse")
-    void testBoundary3() {
-        AuthResponse instance = Mockito.mock(AuthResponse.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for AuthResponse")
-    void testBoundary4() {
-        AuthResponse instance = Mockito.mock(AuthResponse.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for AuthResponse")
-    void testBoundary5() {
-        AuthResponse instance = Mockito.mock(AuthResponse.class);
-        assertNotNull(instance);
-    }
 }

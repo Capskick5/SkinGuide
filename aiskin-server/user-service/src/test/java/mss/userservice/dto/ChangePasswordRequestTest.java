@@ -33,39 +33,4 @@ public class ChangePasswordRequestTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for ChangePasswordRequest")
-    void testBoundary1() {
-        ChangePasswordRequest instance = Mockito.mock(ChangePasswordRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for ChangePasswordRequest")
-    void testBoundary2() {
-        ChangePasswordRequest instance = Mockito.mock(ChangePasswordRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for ChangePasswordRequest")
-    void testBoundary3() {
-        ChangePasswordRequest instance = Mockito.mock(ChangePasswordRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for ChangePasswordRequest")
-    void testBoundary4() {
-        ChangePasswordRequest instance = Mockito.mock(ChangePasswordRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for ChangePasswordRequest")
-    void testBoundary5() {
-        ChangePasswordRequest instance = Mockito.mock(ChangePasswordRequest.class);
-        assertNotNull(instance);
-    }
 }

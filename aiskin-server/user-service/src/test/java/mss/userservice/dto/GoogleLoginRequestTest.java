@@ -33,39 +33,4 @@ public class GoogleLoginRequestTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for GoogleLoginRequest")
-    void testBoundary1() {
-        GoogleLoginRequest instance = Mockito.mock(GoogleLoginRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for GoogleLoginRequest")
-    void testBoundary2() {
-        GoogleLoginRequest instance = Mockito.mock(GoogleLoginRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for GoogleLoginRequest")
-    void testBoundary3() {
-        GoogleLoginRequest instance = Mockito.mock(GoogleLoginRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for GoogleLoginRequest")
-    void testBoundary4() {
-        GoogleLoginRequest instance = Mockito.mock(GoogleLoginRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for GoogleLoginRequest")
-    void testBoundary5() {
-        GoogleLoginRequest instance = Mockito.mock(GoogleLoginRequest.class);
-        assertNotNull(instance);
-    }
 }

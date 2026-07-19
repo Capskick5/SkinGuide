@@ -33,39 +33,4 @@ public class MomoPaymentRequestTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for MomoPaymentRequest")
-    void testBoundary1() {
-        MomoPaymentRequest instance = Mockito.mock(MomoPaymentRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for MomoPaymentRequest")
-    void testBoundary2() {
-        MomoPaymentRequest instance = Mockito.mock(MomoPaymentRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for MomoPaymentRequest")
-    void testBoundary3() {
-        MomoPaymentRequest instance = Mockito.mock(MomoPaymentRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for MomoPaymentRequest")
-    void testBoundary4() {
-        MomoPaymentRequest instance = Mockito.mock(MomoPaymentRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for MomoPaymentRequest")
-    void testBoundary5() {
-        MomoPaymentRequest instance = Mockito.mock(MomoPaymentRequest.class);
-        assertNotNull(instance);
-    }
 }

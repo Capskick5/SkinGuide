@@ -33,39 +33,4 @@ public class BrandRequestTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for BrandRequest")
-    void testBoundary1() {
-        BrandRequest instance = Mockito.mock(BrandRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for BrandRequest")
-    void testBoundary2() {
-        BrandRequest instance = Mockito.mock(BrandRequest.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for BrandRequest")
-    void testBoundary3() {
-        BrandRequest instance = Mockito.mock(BrandRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for BrandRequest")
-    void testBoundary4() {
-        BrandRequest instance = Mockito.mock(BrandRequest.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for BrandRequest")
-    void testBoundary5() {
-        BrandRequest instance = Mockito.mock(BrandRequest.class);
-        assertNotNull(instance);
-    }
 }

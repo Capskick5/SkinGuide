@@ -33,39 +33,4 @@ public class UserTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for User")
-    void testBoundary1() {
-        User instance = Mockito.mock(User.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for User")
-    void testBoundary2() {
-        User instance = Mockito.mock(User.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for User")
-    void testBoundary3() {
-        User instance = Mockito.mock(User.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for User")
-    void testBoundary4() {
-        User instance = Mockito.mock(User.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for User")
-    void testBoundary5() {
-        User instance = Mockito.mock(User.class);
-        assertNotNull(instance);
-    }
 }

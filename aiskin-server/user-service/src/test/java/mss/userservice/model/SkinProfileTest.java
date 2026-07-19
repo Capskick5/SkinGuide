@@ -33,39 +33,4 @@ public class SkinProfileTest {
             assertNotNull(str, "ToString should not return null");
         }, "ToString should not throw exceptions on mock");
     }
-
-    @Test
-    @DisplayName("Additional mock test 1 for SkinProfile")
-    void testBoundary1() {
-        SkinProfile instance = Mockito.mock(SkinProfile.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 2 for SkinProfile")
-    void testBoundary2() {
-        SkinProfile instance = Mockito.mock(SkinProfile.class);
-        assertNotNull(instance);
-    }
-
-    @Test
-    @DisplayName("Additional mock test 3 for SkinProfile")
-    void testBoundary3() {
-        SkinProfile instance = Mockito.mock(SkinProfile.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 4 for SkinProfile")
-    void testBoundary4() {
-        SkinProfile instance = Mockito.mock(SkinProfile.class);
-        assertNotNull(instance);
-    }
-    
-    @Test
-    @DisplayName("Additional mock test 5 for SkinProfile")
-    void testBoundary5() {
-        SkinProfile instance = Mockito.mock(SkinProfile.class);
-        assertNotNull(instance);
-    }
 }
