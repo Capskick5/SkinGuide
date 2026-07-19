@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.orderservice.dto;
 
 import jakarta.validation.constraints.Min;

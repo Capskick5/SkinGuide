@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.userservice.model;
 
 import lombok.AllArgsConstructor;
@@ -19,17 +23,17 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @AllArgsConstructor
 @CompoundIndex(name = "resource_method_idx", def = "{'resource': 1, 'method': 1}", unique = true)
 public class Permission {
-    
+
     @Id
     private String id;
 
     private String name;
-    
+
     private String resource;
-    
+
     private String method;
-    
+
     private String service;
-    
+
     private String description;
 }

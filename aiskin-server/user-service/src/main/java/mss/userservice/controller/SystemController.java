@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.userservice.controller;
 
 import mss.userservice.dto.SyncEndpointsRequest.EndpointDto;
@@ -26,9 +30,9 @@ public class SystemController {
         List<EndpointDto> endpoints = new ArrayList<>();
         handlerMapping.getHandlerMethods().forEach((info, method) -> {
             if (info.getMethodsCondition().getMethods().isEmpty()) return;
-            
+
             String reqMethod = info.getMethodsCondition().getMethods().iterator().next().name();
-            
+
             if (info.getPatternValues() != null && !info.getPatternValues().isEmpty()) {
                 String path = info.getPatternValues().iterator().next();
                 endpoints.add(new EndpointDto(reqMethod, path));
