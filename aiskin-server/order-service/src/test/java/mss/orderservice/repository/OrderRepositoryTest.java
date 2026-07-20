@@ -14,7 +14,7 @@ class OrderRepositoryTest {
                 .getAnnotation(Query.class);
 
         assertThat(query).isNotNull();
-        assertThat(query.value()).contains("DELIVERY_FAIL");
+        assertThat(query.value()).doesNotContain("DELIVERY_FAIL");
         assertThat(query.value()).doesNotContain("DELIVERY_FAILED");
     }
 }

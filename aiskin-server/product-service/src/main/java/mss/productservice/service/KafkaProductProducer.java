@@ -21,9 +21,9 @@ public class KafkaProductProducer {
     private final ObjectMapper objectMapper;
     private static final String TOPIC = "product-sync-topic";
 
-    public KafkaProductProducer(KafkaTemplate<String, String> kafkaTemplate, ObjectMapper objectMapper) {
+    public KafkaProductProducer(KafkaTemplate<String, String> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
-        this.objectMapper = objectMapper;
+        this.objectMapper = new ObjectMapper();
     }
 
     @Async("productEventExecutor")
