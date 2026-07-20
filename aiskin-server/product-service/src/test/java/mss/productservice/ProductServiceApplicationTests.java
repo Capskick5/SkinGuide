@@ -9,9 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 		"KAFKA_BOOTSTRAP_SERVERS=localhost:9092",
 		"PRODUCT_SERVICE_PORT=0",
 		"UPLOAD_DIR=target/test-uploads",
-		"JWT_SECRET=dGVzdC1zZWNyZXQta2V5LXdpdGgtMzItYnl0ZXMhISEh",
-		"EUREKA_URI=http://localhost:8761/eureka/",
-		"eureka.client.enabled=false"
+		"JWT_SECRET=dGVzdC1zZWNyZXQta2V5LXdpdGgtMzItYnl0ZXMhISEh"
 })
 class ProductServiceApplicationTests {
 

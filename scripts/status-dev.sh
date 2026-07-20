@@ -15,7 +15,6 @@ check_url() {
 }
 
 check_url "Frontend" "http://127.0.0.1:5174"
-check_url "Discovery" "http://127.0.0.1:8761"
 check_url "Gateway products" "http://127.0.0.1:8080/api/products"
 check_url "User Swagger" "http://127.0.0.1:8081/v3/api-docs"
 check_url "Product Swagger" "http://127.0.0.1:8082/v3/api-docs"
