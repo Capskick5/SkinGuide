@@ -9,7 +9,6 @@ import mss.userservice.dto.UpdateProfileRequest;
 import mss.userservice.dto.UserResponse;
 import mss.userservice.exception.ApiException;
 import mss.userservice.model.User;
-import mss.userservice.model.DeliveryAddress;
 import mss.userservice.repository.UserRepository;
 import mss.userservice.repository.RoleRepository;
 import mss.userservice.security.RefreshTokenStore;
@@ -59,15 +58,6 @@ public class UserService implements IUserService {
             user.setSkinProfile(request.skinProfile());
         }
         return UserResponse.from(userRepository.save(user));
-    }
-
-    /**
-     * Save or replace the user's default checkout delivery address.
-     */
-    public DeliveryAddress updateDeliveryAddress(String userId, DeliveryAddress address) {
-        User user = loadUser(userId);
-        user.setDeliveryAddress(address);
-        return userRepository.save(user).getDeliveryAddress();
     }
 
     /**

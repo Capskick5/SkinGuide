@@ -2,7 +2,6 @@ package mss.userservice.service.impl;
 import mss.userservice.service.*;
 
 
-import mss.userservice.model.DeliveryAddress;
 import mss.userservice.model.User;
 import mss.userservice.repository.UserRepository;
 import mss.userservice.repository.RoleRepository;
@@ -24,38 +23,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class UserServiceTest {
-
-    @Test
-    void updateDeliveryAddressStoresAddressOnUser() {
-        UserRepository repository = mock(UserRepository.class);
-        UserService service = new UserService(
-                repository,
-                mock(RoleRepository.class),
-                mock(PasswordEncoder.class),
-                mock(RefreshTokenStore.class)
-        );
-        User user = User.builder().id("user-1").email("user@example.com").build();
-        DeliveryAddress address = new DeliveryAddress(
-                "Nguyễn Nhật Huy",
-                "0901234567",
-                "202",
-                "Hồ Chí Minh",
-                "1442",
-                "Quận 1",
-                "20101",
-                "Phường Bến Nghé",
-                "12 Nguyễn Huệ"
-        );
-
-        when(repository.findById("user-1")).thenReturn(Optional.of(user));
-        when(repository.save(user)).thenReturn(user);
-
-        DeliveryAddress result = service.updateDeliveryAddress("user-1", address);
-
-        assertEquals(address, result);
-        assertEquals(address, user.getDeliveryAddress());
-        verify(repository).save(user);
-    }
 
     @Test
     void capsAdminUserPageSize() {
