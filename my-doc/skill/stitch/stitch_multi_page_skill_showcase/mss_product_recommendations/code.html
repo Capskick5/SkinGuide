@@ -1,384 +1,384 @@
-<!DOCTYPE html>
-
-<html class="light" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>MSS - Product Recommendations</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            "colors": {
-                    "secondary-fixed": "#ffd8ea",
-                    "success": "#10B981",
-                    "outline": "#8b7079",
-                    "on-tertiary": "#ffffff",
-                    "on-surface-variant": "#574048",
-                    "primary-fixed-dim": "#ffb0cd",
-                    "on-error-container": "#93000a",
-                    "surface-bright": "#f8f9ff",
-                    "tertiary-fixed": "#ffd9e2",
-                    "inverse-on-surface": "#eaf1ff",
-                    "on-primary": "#ffffff",
-                    "on-tertiary-container": "#fffbff",
-                    "on-secondary-container": "#7c3d63",
-                    "background": "#f8f9ff",
-                    "surface-container": "#e6eeff",
-                    "surface-container-high": "#dee9fc",
-                    "primary-light": "#FCE7F3",
-                    "border-pink": "#FBCFE8",
-                    "inverse-surface": "#27313f",
-                    "surface": "#f8f9ff",
-                    "secondary": "#8a486f",
-                    "on-tertiary-fixed-variant": "#8e0048",
-                    "on-background": "#121c2a",
-                    "outline-variant": "#debec8",
-                    "on-surface": "#121c2a",
-                    "on-secondary-fixed": "#3a0329",
-                    "tertiary-fixed-dim": "#ffb1c7",
-                    "inverse-primary": "#ffb0cd",
-                    "primary-fixed": "#ffd9e4",
-                    "surface-dim": "#d0dbed",
-                    "primary-container": "#d23284",
-                    "on-primary-fixed-variant": "#8c0053",
-                    "primary": "#b10e6b",
-                    "error-container": "#ffdad6",
-                    "surface-container-lowest": "#ffffff",
-                    "error": "#EF4444",
-                    "secondary-fixed-dim": "#ffaeda",
-                    "warning": "#F59E0B",
-                    "tertiary": "#b5005d",
-                    "on-error": "#ffffff",
-                    "surface-container-highest": "#d9e3f6",
-                    "on-primary-container": "#fffbff",
-                    "on-tertiary-fixed": "#3f001c",
-                    "on-secondary": "#ffffff",
-                    "tertiary-container": "#da2676",
-                    "on-primary-fixed": "#3e0022",
-                    "surface-soft": "#FFF5F9",
-                    "surface-container-low": "#eff4ff",
-                    "on-secondary-fixed-variant": "#6f3157",
-                    "surface-tint": "#b4136d",
-                    "surface-variant": "#d9e3f6",
-                    "secondary-container": "#ffaeda"
-            },
-            "borderRadius": {
-                    "DEFAULT": "1rem",
-                    "lg": "2rem",
-                    "xl": "3rem",
-                    "full": "9999px"
-            },
-            "spacing": {
-                    "stack-gap": "16px",
-                    "margin-mobile": "16px",
-                    "container-max": "1200px",
-                    "gutter": "24px",
-                    "sidebar-width": "90px"
-            },
-            "fontFamily": {
-                    "display-hero": [
-                            "Inter"
-                    ],
-                    "body-md": [
-                            "Inter"
-                    ],
-                    "label-md": [
-                            "Inter"
-                    ],
-                    "body-lg": [
-                            "Inter"
-                    ],
-                    "caption": [
-                            "Inter"
-                    ],
-                    "headline-md": [
-                            "Inter"
-                    ],
-                    "headline-lg-mobile": [
-                            "Inter"
-                    ],
-                    "headline-lg": [
-                            "Inter"
-                    ]
-            },
-            "fontSize": {
-                    "display-hero": [
-                            "56px",
-                            {
-                                    "lineHeight": "64px",
-                                    "letterSpacing": "-0.02em",
-                                    "fontWeight": "700"
-                            }
-                    ],
-                    "body-md": [
-                            "16px",
-                            {
-                                    "lineHeight": "24px",
-                                    "fontWeight": "400"
-                            }
-                    ],
-                    "label-md": [
-                            "14px",
-                            {
-                                    "lineHeight": "20px",
-                                    "fontWeight": "500"
-                            }
-                    ],
-                    "body-lg": [
-                            "18px",
-                            {
-                                    "lineHeight": "28px",
-                                    "fontWeight": "400"
-                            }
-                    ],
-                    "caption": [
-                            "13px",
-                            {
-                                    "lineHeight": "18px",
-                                    "fontWeight": "400"
-                            }
-                    ],
-                    "headline-md": [
-                            "24px",
-                            {
-                                    "lineHeight": "32px",
-                                    "fontWeight": "600"
-                            }
-                    ],
-                    "headline-lg-mobile": [
-                            "28px",
-                            {
-                                    "lineHeight": "36px",
-                                    "fontWeight": "600"
-                            }
-                    ],
-                    "headline-lg": [
-                            "32px",
-                            {
-                                    "lineHeight": "40px",
-                                    "fontWeight": "600"
-                            }
-                    ]
-            }
-    },
-        },
-      }
-    </script>
-<style>
-        body {
-            background-color: theme('colors.background');
-            color: theme('colors.on-background');
-        }
-        .bg-soft-gradient {
-            background: linear-gradient(135deg, theme('colors.surface-soft'), theme('colors.surface-container-low'));
-        }
-        .pink-shadow {
-            box-shadow: 0 10px 40px -10px rgba(236, 72, 153, 0.08);
-        }
-        .btn-gradient {
-            background: linear-gradient(135deg, #F9A8D4, #EC4899);
-        }
-    </style>
-</head>
-<body class="flex min-h-screen bg-soft-gradient">
-<!-- SideNavBar -->
-<nav class="hidden md:flex flex-col items-center py-6 gap-stack-gap fixed left-0 top-0 h-full w-[90px] bg-surface-container-lowest border-r border-pink shadow-sm z-50">
-<div class="font-headline-md text-headline-md font-bold text-primary mb-8 cursor-pointer" title="MSS AI Skincare">MSS</div>
-<div class="flex flex-col gap-4 w-full px-2">
-<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">clinical_notes</span>
-<span class="font-caption text-[10px] font-medium">New Scan</span>
-</a>
-<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">dashboard</span>
-<span class="font-caption text-[10px] font-medium">Dashboard</span>
-</a>
-<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">face</span>
-<span class="font-caption text-[10px] font-medium">My Skin</span>
-</a>
-<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">calendar_today</span>
-<span class="font-caption text-[10px] font-medium">Routine</span>
-</a>
-<!-- Active Tab -->
-<a class="flex flex-col items-center justify-center py-3 bg-primary-light text-primary rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform" style="font-variation-settings: 'FILL' 1;">shopping_bag</span>
-<span class="font-caption text-[10px] font-medium">Products</span>
-</a>
-<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">history</span>
-<span class="font-caption text-[10px] font-medium">History</span>
-</a>
-<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">trending_up</span>
-<span class="font-caption text-[10px] font-medium">Progress</span>
-</a>
-<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">more_horiz</span>
-<span class="font-caption text-[10px] font-medium">More</span>
-</a>
-</div>
-</nav>
-<!-- TopNavBar -->
-<header class="fixed top-0 right-0 w-full md:w-[calc(100%-90px)] z-40 bg-surface-soft/80 backdrop-blur-md flex justify-end items-center px-gutter h-16 gap-4">
-<button class="btn-gradient text-on-primary font-label-md text-label-md px-4 py-2 rounded-full opacity-90 hover:opacity-100 transition-opacity">Upgrade</button>
-<button class="text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100">
-<span class="material-symbols-outlined">notifications</span>
-</button>
-<button class="text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100">
-<span class="material-symbols-outlined">settings</span>
-</button>
-<img alt="User profile" class="w-8 h-8 rounded-full border border-pink" data-alt="A small circular profile picture of a young woman smiling warmly. The background is a soft, blurred studio setting. The lighting is bright and even, highlighting her natural skin tones. The overall aesthetic is clean, professional, and inviting, matching a premium wellness application." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBt3pYx8QGC0gE48HjXbYA-TWZJvXNhQ7Hbq8bmUS_-vN0fUNQU9adTaBBEd2ZHNa7uv0Be0wda8X-EFv2trZeyW5ICW0dlyMOpRwqHxmkjtPF5MqYkl1c6ag5MW48riV0DJuXBlzhp_WPrPD9FtRsVkRlfkf3ltwULGEqoSwkH4BM6i3Br0ei9EFo1OUDg92S6Lt7Z3SHb-8dlHsgtZLaudXT7J1cgdkWKfn3dB_L3u08b2tLdn_tF4l3w9RKE-zsiCcQvUyivm24"/>
-</header>
-<!-- Main Content Canvas -->
-<main class="w-full md:ml-[90px] pt-24 pb-12 px-margin-mobile md:px-gutter flex justify-center">
-<div class="w-full max-w-container-max flex flex-col gap-8">
-<!-- Page Header -->
-<div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-<div>
-<h1 class="font-headline-lg text-headline-lg font-bold text-on-surface mb-2">Recommended Products</h1>
-<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">AI-curated selections based on your latest skin analysis. High match percentages indicate ingredients optimal for your current hydration and sensitivity levels.</p>
-</div>
-</div>
-<!-- Filter Chips -->
-<div class="flex flex-wrap gap-2">
-<button class="bg-primary text-on-primary font-label-md text-label-md px-4 py-1.5 rounded-full border border-primary transition-colors">All Recommendations</button>
-<button class="bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md px-4 py-1.5 rounded-full border border-outline-variant hover:bg-primary-light hover:text-primary hover:border-pink transition-colors">Cleansers</button>
-<button class="bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md px-4 py-1.5 rounded-full border border-outline-variant hover:bg-primary-light hover:text-primary hover:border-pink transition-colors">Serums</button>
-<button class="bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md px-4 py-1.5 rounded-full border border-outline-variant hover:bg-primary-light hover:text-primary hover:border-pink transition-colors">Moisturizers</button>
-<button class="bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md px-4 py-1.5 rounded-full border border-outline-variant hover:bg-primary-light hover:text-primary hover:border-pink transition-colors">Sunscreen</button>
-<button class="bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md px-4 py-1.5 rounded-full border border-outline-variant hover:bg-primary-light hover:text-primary hover:border-pink transition-colors ml-auto flex items-center gap-1">
-<span class="material-symbols-outlined text-[18px]">tune</span>
-                    Filters
-                </button>
-</div>
-<!-- Products Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-<!-- Product Card 1 -->
-<div class="bg-surface-container-lowest rounded-DEFAULT border border-pink pink-shadow overflow-hidden flex flex-col group cursor-pointer hover:-translate-y-1 transition-transform duration-300">
-<div class="relative h-48 bg-surface-soft p-4 flex items-center justify-center">
-<div class="absolute top-3 left-3 bg-success/10 text-success font-label-md text-label-md px-2.5 py-1 rounded-full flex items-center gap-1 backdrop-blur-sm">
-<span class="material-symbols-outlined text-[14px]">verified</span>
-                            98% Match
-                        </div>
-<button class="absolute top-3 right-3 w-8 h-8 rounded-full bg-surface-container-lowest/80 backdrop-blur-sm flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors border border-pink/50">
-<span class="material-symbols-outlined text-[18px]">favorite</span>
-</button>
-<img alt="Hydrating Serum" class="h-3/4 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" data-alt="A minimalist, frosted glass dropper bottle of facial serum resting on a pristine white marble surface. Soft, diffused natural light creates gentle reflections and a subtle pinkish-white background ambiance. The aesthetic is extremely clean, high-end, and clinical yet welcoming, fitting a premium skincare brand." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgOIvE5tIuWe4UXT9qhk1TL-nsFHxovc25Ep5kn6G47h6Vas5Z8IABVU_LtSdU53H68Cj6rwYPXLeYwD3v3V-vJ-_I8pYjCx0mCUATlz2tJ2EQWP1Q0G54FRw9NAUz-vdGzIe_7ES78KVXNAFEP0bM1zrwEOMTWke920sPe5Id53zNH5EqiLKhGjU9_X6dFX3EAV65k2NUWX7nbwwXVYiOIKWajpmldhJGFyNBzqc8cgBRoejuURD4ehP94L8NGHtjDS3g9iBbMr4"/>
-</div>
-<div class="p-5 flex flex-col flex-grow">
-<div class="font-caption text-caption text-on-surface-variant mb-1 uppercase tracking-wider">Aura Botanical</div>
-<h3 class="font-headline-md text-[18px] leading-tight font-semibold text-on-surface mb-2">Hyaluronic Acid Hydrating Serum</h3>
-<div class="flex flex-wrap gap-1.5 mb-4">
-<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Hyaluronic Acid</span>
-<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Ceramides</span>
-<span class="bg-surface-variant text-on-surface-variant font-caption text-[11px] px-2 py-0.5 rounded-full">+2</span>
-</div>
-<div class="mt-auto flex items-center justify-between">
-<span class="font-headline-md text-headline-md text-on-surface">$42.00</span>
-<button class="bg-surface text-primary border border-primary font-label-md text-label-md px-4 py-1.5 rounded-full hover:bg-primary-light transition-colors">Add to Cart</button>
-</div>
-</div>
-</div>
-<!-- Product Card 2 -->
-<div class="bg-surface-container-lowest rounded-DEFAULT border border-pink pink-shadow overflow-hidden flex flex-col group cursor-pointer hover:-translate-y-1 transition-transform duration-300">
-<div class="relative h-48 bg-surface-soft p-4 flex items-center justify-center">
-<div class="absolute top-3 left-3 bg-success/10 text-success font-label-md text-label-md px-2.5 py-1 rounded-full flex items-center gap-1 backdrop-blur-sm">
-<span class="material-symbols-outlined text-[14px]">verified</span>
-                            95% Match
-                        </div>
-<button class="absolute top-3 right-3 w-8 h-8 rounded-full bg-surface-container-lowest/80 backdrop-blur-sm flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors border border-pink/50">
-<span class="material-symbols-outlined text-[18px]">favorite</span>
-</button>
-<img alt="Gentle Cleanser" class="h-3/4 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" data-alt="A sleek, white pump bottle of facial cleanser standing upright against a soft, barely-there pink background. A subtle, natural shadow grounds the object. The lighting is studio-quality, emphasizing the smooth, matte texture of the packaging. The mood is pure, simple, and dermatologist-recommended." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyQSSO_EagF-s0W82b7OJXdObOg5g-U0-YHrFpWq1mxMoTDsciyr7xrmbdwuovbgepPTUXMSMG_uN6774wXdeLYYLAIlnuWo_AXiJK7UpBDGhYJ0Z3X3-xNAmiX6zg11n3Sh6WFV1oxPlnPvXJTIiLz5GCTBPJFRqUuF27_dSlOhAY_801pvVrrY0CzrFbMCP9ys6SrCrfwzZSPdfuRp8bBdUwWY1jXjmLO75NNGc3E2rv2zNG7nHyPEmnLPolnsqCom_5K0mqYb4"/>
-</div>
-<div class="p-5 flex flex-col flex-grow">
-<div class="font-caption text-caption text-on-surface-variant mb-1 uppercase tracking-wider">DermaCare</div>
-<h3 class="font-headline-md text-[18px] leading-tight font-semibold text-on-surface mb-2">Ultra-Gentle Foaming Cleanser</h3>
-<div class="flex flex-wrap gap-1.5 mb-4">
-<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Niacinamide</span>
-<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Glycerin</span>
-</div>
-<div class="mt-auto flex items-center justify-between">
-<span class="font-headline-md text-headline-md text-on-surface">$24.00</span>
-<button class="bg-surface text-primary border border-primary font-label-md text-label-md px-4 py-1.5 rounded-full hover:bg-primary-light transition-colors">Add to Cart</button>
-</div>
-</div>
-</div>
-<!-- Product Card 3 -->
-<div class="bg-surface-container-lowest rounded-DEFAULT border border-pink pink-shadow overflow-hidden flex flex-col group cursor-pointer hover:-translate-y-1 transition-transform duration-300">
-<div class="relative h-48 bg-surface-soft p-4 flex items-center justify-center">
-<div class="absolute top-3 left-3 bg-primary/10 text-primary font-label-md text-label-md px-2.5 py-1 rounded-full flex items-center gap-1 backdrop-blur-sm">
-<span class="material-symbols-outlined text-[14px]">auto_awesome</span>
-                            89% Match
-                        </div>
-<button class="absolute top-3 right-3 w-8 h-8 rounded-full bg-surface-container-lowest/80 backdrop-blur-sm flex items-center justify-center text-primary transition-colors border border-pink/50">
-<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">favorite</span>
-</button>
-<img alt="Repair Cream" class="h-3/4 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" data-alt="A luxurious, heavy glass jar of face cream with a silver lid, resting on a clean, light surface. The cream inside looks rich and smooth. Soft, warm lighting highlights the premium quality of the product against a minimalist, pale backdrop. The image conveys deep hydration and clinical efficacy." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDt01dRT-CobK3HbsLT27_6B5t4gq4JbaJ7s0-nM15XpVIxYFWlmxp41doGEGpf8JBK3BVmE4rxhWWbEftLCRHSht1Lmt60QycP3Hd-ZeOjCSWqLiCVslV8tVfEIDdSd9HMQoGde3oPEF3BZ9rqswt7N7orWDdcseVGDPteil9tnyOwCgM3qjSzqI2fVIuVy5_xqkgI8bXhZ5baOUXzgnx5ss-ZyrlJHtwE6QTeZYJUgdg4sBtT8pCttFUT8JBY0c45gcha6PkEh0E"/>
-</div>
-<div class="p-5 flex flex-col flex-grow">
-<div class="font-caption text-caption text-on-surface-variant mb-1 uppercase tracking-wider">Lumina Skin</div>
-<h3 class="font-headline-md text-[18px] leading-tight font-semibold text-on-surface mb-2">Barrier Repair Night Cream</h3>
-<div class="flex flex-wrap gap-1.5 mb-4">
-<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Peptides</span>
-<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Squalane</span>
-<span class="bg-surface-variant text-on-surface-variant font-caption text-[11px] px-2 py-0.5 rounded-full">+1</span>
-</div>
-<div class="mt-auto flex items-center justify-between">
-<span class="font-headline-md text-headline-md text-on-surface">$58.00</span>
-<button class="bg-surface text-primary border border-primary font-label-md text-label-md px-4 py-1.5 rounded-full hover:bg-primary-light transition-colors">Add to Cart</button>
-</div>
-</div>
-</div>
-<!-- Product Card 4 -->
-<div class="bg-surface-container-lowest rounded-DEFAULT border border-pink pink-shadow overflow-hidden flex flex-col group cursor-pointer hover:-translate-y-1 transition-transform duration-300">
-<div class="relative h-48 bg-surface-soft p-4 flex items-center justify-center">
-<div class="absolute top-3 left-3 bg-primary/10 text-primary font-label-md text-label-md px-2.5 py-1 rounded-full flex items-center gap-1 backdrop-blur-sm">
-<span class="material-symbols-outlined text-[14px]">auto_awesome</span>
-                            85% Match
-                        </div>
-<button class="absolute top-3 right-3 w-8 h-8 rounded-full bg-surface-container-lowest/80 backdrop-blur-sm flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors border border-pink/50">
-<span class="material-symbols-outlined text-[18px]">favorite</span>
-</button>
-<img alt="Mineral Sunscreen" class="h-3/4 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" data-alt="A modern, matte-finish tube of sunscreen positioned diagonally against a soft, bright background. The lighting is crisp and clear, suggesting a sunny yet protected environment. The overall design is minimal, focusing entirely on the sleek form of the product tube." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCInpjIR-ELNXXmabETrosdxq17L8wfNtQ3QiPgvnv6W7Oo3tHjHw98ZV2hPN-_cBrbDk6bz_17oYcx4r65ctQBTXYw-9cas00MiX2Xk_vfMrwnG8x1tPgb126Gh2N9_Jlhs6U4hngnlX3mRGMLAOIRUzsOmBfnrfjGWOJN-g-o4ZVrPzPSbBcof-5uO82UKLseL_Ypds6HxiXVtxRcOtFUD7E8FPI6eLFm8UsAZyCN-1tLrnOOS4ZWoJO6tPkL_Apyp2b3CpBRIWo"/>
-</div>
-<div class="p-5 flex flex-col flex-grow">
-<div class="font-caption text-caption text-on-surface-variant mb-1 uppercase tracking-wider">Sol Protect</div>
-<h3 class="font-headline-md text-[18px] leading-tight font-semibold text-on-surface mb-2">Sheer Mineral Sunscreen SPF 50</h3>
-<div class="flex flex-wrap gap-1.5 mb-4">
-<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Zinc Oxide</span>
-<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Vitamin E</span>
-</div>
-<div class="mt-auto flex items-center justify-between">
-<span class="font-headline-md text-headline-md text-on-surface">$32.00</span>
-<button class="bg-surface text-primary border border-primary font-label-md text-label-md px-4 py-1.5 rounded-full hover:bg-primary-light transition-colors">Add to Cart</button>
-</div>
-</div>
-</div>
-</div>
-</div>
-</main>
-<!-- BottomNavBar (Mobile) -->
-<nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-lowest border-t border-pink shadow-sm z-50 flex justify-around items-center h-16 px-2">
-<a class="flex flex-col items-center justify-center w-full h-full text-on-surface-variant hover:text-primary transition-colors" href="#">
-<span class="material-symbols-outlined text-[24px]">dashboard</span>
-</a>
-<a class="flex flex-col items-center justify-center w-full h-full text-on-surface-variant hover:text-primary transition-colors" href="#">
-<span class="material-symbols-outlined text-[24px]">face</span>
-</a>
-<a class="flex flex-col items-center justify-center w-full h-full text-primary" href="#">
-<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">shopping_bag</span>
-<div class="w-1 h-1 bg-primary rounded-full mt-1"></div>
-</a>
-<a class="flex flex-col items-center justify-center w-full h-full text-on-surface-variant hover:text-primary transition-colors" href="#">
-<span class="material-symbols-outlined text-[24px]">more_horiz</span>
-</a>
-</nav>
-</body></html>
+<!DOCTYPE html> <!-- format -->
+ <!-- format -->
+<html class="light" lang="en"><head> <!-- format -->
+<meta charset="utf-8"/> <!-- format -->
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/> <!-- format -->
+<title>MSS - Product Recommendations</title> <!-- format -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script> <!-- format -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/> <!-- format -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/> <!-- format -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/> <!-- format -->
+<script id="tailwind-config"> <!-- format -->
+      tailwind.config = { <!-- format -->
+        darkMode: "class", <!-- format -->
+        theme: { <!-- format -->
+          extend: { <!-- format -->
+            "colors": { <!-- format -->
+                    "secondary-fixed": "#ffd8ea", <!-- format -->
+                    "success": "#10B981", <!-- format -->
+                    "outline": "#8b7079", <!-- format -->
+                    "on-tertiary": "#ffffff", <!-- format -->
+                    "on-surface-variant": "#574048", <!-- format -->
+                    "primary-fixed-dim": "#ffb0cd", <!-- format -->
+                    "on-error-container": "#93000a", <!-- format -->
+                    "surface-bright": "#f8f9ff", <!-- format -->
+                    "tertiary-fixed": "#ffd9e2", <!-- format -->
+                    "inverse-on-surface": "#eaf1ff", <!-- format -->
+                    "on-primary": "#ffffff", <!-- format -->
+                    "on-tertiary-container": "#fffbff", <!-- format -->
+                    "on-secondary-container": "#7c3d63", <!-- format -->
+                    "background": "#f8f9ff", <!-- format -->
+                    "surface-container": "#e6eeff", <!-- format -->
+                    "surface-container-high": "#dee9fc", <!-- format -->
+                    "primary-light": "#FCE7F3", <!-- format -->
+                    "border-pink": "#FBCFE8", <!-- format -->
+                    "inverse-surface": "#27313f", <!-- format -->
+                    "surface": "#f8f9ff", <!-- format -->
+                    "secondary": "#8a486f", <!-- format -->
+                    "on-tertiary-fixed-variant": "#8e0048", <!-- format -->
+                    "on-background": "#121c2a", <!-- format -->
+                    "outline-variant": "#debec8", <!-- format -->
+                    "on-surface": "#121c2a", <!-- format -->
+                    "on-secondary-fixed": "#3a0329", <!-- format -->
+                    "tertiary-fixed-dim": "#ffb1c7", <!-- format -->
+                    "inverse-primary": "#ffb0cd", <!-- format -->
+                    "primary-fixed": "#ffd9e4", <!-- format -->
+                    "surface-dim": "#d0dbed", <!-- format -->
+                    "primary-container": "#d23284", <!-- format -->
+                    "on-primary-fixed-variant": "#8c0053", <!-- format -->
+                    "primary": "#b10e6b", <!-- format -->
+                    "error-container": "#ffdad6", <!-- format -->
+                    "surface-container-lowest": "#ffffff", <!-- format -->
+                    "error": "#EF4444", <!-- format -->
+                    "secondary-fixed-dim": "#ffaeda", <!-- format -->
+                    "warning": "#F59E0B", <!-- format -->
+                    "tertiary": "#b5005d", <!-- format -->
+                    "on-error": "#ffffff", <!-- format -->
+                    "surface-container-highest": "#d9e3f6", <!-- format -->
+                    "on-primary-container": "#fffbff", <!-- format -->
+                    "on-tertiary-fixed": "#3f001c", <!-- format -->
+                    "on-secondary": "#ffffff", <!-- format -->
+                    "tertiary-container": "#da2676", <!-- format -->
+                    "on-primary-fixed": "#3e0022", <!-- format -->
+                    "surface-soft": "#FFF5F9", <!-- format -->
+                    "surface-container-low": "#eff4ff", <!-- format -->
+                    "on-secondary-fixed-variant": "#6f3157", <!-- format -->
+                    "surface-tint": "#b4136d", <!-- format -->
+                    "surface-variant": "#d9e3f6", <!-- format -->
+                    "secondary-container": "#ffaeda" <!-- format -->
+            }, <!-- format -->
+            "borderRadius": { <!-- format -->
+                    "DEFAULT": "1rem", <!-- format -->
+                    "lg": "2rem", <!-- format -->
+                    "xl": "3rem", <!-- format -->
+                    "full": "9999px" <!-- format -->
+            }, <!-- format -->
+            "spacing": { <!-- format -->
+                    "stack-gap": "16px", <!-- format -->
+                    "margin-mobile": "16px", <!-- format -->
+                    "container-max": "1200px", <!-- format -->
+                    "gutter": "24px", <!-- format -->
+                    "sidebar-width": "90px" <!-- format -->
+            }, <!-- format -->
+            "fontFamily": { <!-- format -->
+                    "display-hero": [ <!-- format -->
+                            "Inter" <!-- format -->
+                    ], <!-- format -->
+                    "body-md": [ <!-- format -->
+                            "Inter" <!-- format -->
+                    ], <!-- format -->
+                    "label-md": [ <!-- format -->
+                            "Inter" <!-- format -->
+                    ], <!-- format -->
+                    "body-lg": [ <!-- format -->
+                            "Inter" <!-- format -->
+                    ], <!-- format -->
+                    "caption": [ <!-- format -->
+                            "Inter" <!-- format -->
+                    ], <!-- format -->
+                    "headline-md": [ <!-- format -->
+                            "Inter" <!-- format -->
+                    ], <!-- format -->
+                    "headline-lg-mobile": [ <!-- format -->
+                            "Inter" <!-- format -->
+                    ], <!-- format -->
+                    "headline-lg": [ <!-- format -->
+                            "Inter" <!-- format -->
+                    ] <!-- format -->
+            }, <!-- format -->
+            "fontSize": { <!-- format -->
+                    "display-hero": [ <!-- format -->
+                            "56px", <!-- format -->
+                            { <!-- format -->
+                                    "lineHeight": "64px", <!-- format -->
+                                    "letterSpacing": "-0.02em", <!-- format -->
+                                    "fontWeight": "700" <!-- format -->
+                            } <!-- format -->
+                    ], <!-- format -->
+                    "body-md": [ <!-- format -->
+                            "16px", <!-- format -->
+                            { <!-- format -->
+                                    "lineHeight": "24px", <!-- format -->
+                                    "fontWeight": "400" <!-- format -->
+                            } <!-- format -->
+                    ], <!-- format -->
+                    "label-md": [ <!-- format -->
+                            "14px", <!-- format -->
+                            { <!-- format -->
+                                    "lineHeight": "20px", <!-- format -->
+                                    "fontWeight": "500" <!-- format -->
+                            } <!-- format -->
+                    ], <!-- format -->
+                    "body-lg": [ <!-- format -->
+                            "18px", <!-- format -->
+                            { <!-- format -->
+                                    "lineHeight": "28px", <!-- format -->
+                                    "fontWeight": "400" <!-- format -->
+                            } <!-- format -->
+                    ], <!-- format -->
+                    "caption": [ <!-- format -->
+                            "13px", <!-- format -->
+                            { <!-- format -->
+                                    "lineHeight": "18px", <!-- format -->
+                                    "fontWeight": "400" <!-- format -->
+                            } <!-- format -->
+                    ], <!-- format -->
+                    "headline-md": [ <!-- format -->
+                            "24px", <!-- format -->
+                            { <!-- format -->
+                                    "lineHeight": "32px", <!-- format -->
+                                    "fontWeight": "600" <!-- format -->
+                            } <!-- format -->
+                    ], <!-- format -->
+                    "headline-lg-mobile": [ <!-- format -->
+                            "28px", <!-- format -->
+                            { <!-- format -->
+                                    "lineHeight": "36px", <!-- format -->
+                                    "fontWeight": "600" <!-- format -->
+                            } <!-- format -->
+                    ], <!-- format -->
+                    "headline-lg": [ <!-- format -->
+                            "32px", <!-- format -->
+                            { <!-- format -->
+                                    "lineHeight": "40px", <!-- format -->
+                                    "fontWeight": "600" <!-- format -->
+                            } <!-- format -->
+                    ] <!-- format -->
+            } <!-- format -->
+    }, <!-- format -->
+        }, <!-- format -->
+      } <!-- format -->
+    </script> <!-- format -->
+<style> <!-- format -->
+        body { <!-- format -->
+            background-color: theme('colors.background'); <!-- format -->
+            color: theme('colors.on-background'); <!-- format -->
+        } <!-- format -->
+        .bg-soft-gradient { <!-- format -->
+            background: linear-gradient(135deg, theme('colors.surface-soft'), theme('colors.surface-container-low')); <!-- format -->
+        } <!-- format -->
+        .pink-shadow { <!-- format -->
+            box-shadow: 0 10px 40px -10px rgba(236, 72, 153, 0.08); <!-- format -->
+        } <!-- format -->
+        .btn-gradient { <!-- format -->
+            background: linear-gradient(135deg, #F9A8D4, #EC4899); <!-- format -->
+        } <!-- format -->
+    </style> <!-- format -->
+</head> <!-- format -->
+<body class="flex min-h-screen bg-soft-gradient"> <!-- format -->
+<!-- SideNavBar --> <!-- format -->
+<nav class="hidden md:flex flex-col items-center py-6 gap-stack-gap fixed left-0 top-0 h-full w-[90px] bg-surface-container-lowest border-r border-pink shadow-sm z-50"> <!-- format -->
+<div class="font-headline-md text-headline-md font-bold text-primary mb-8 cursor-pointer" title="MSS AI Skincare">MSS</div> <!-- format -->
+<div class="flex flex-col gap-4 w-full px-2"> <!-- format -->
+<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">clinical_notes</span> <!-- format -->
+<span class="font-caption text-[10px] font-medium">New Scan</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">dashboard</span> <!-- format -->
+<span class="font-caption text-[10px] font-medium">Dashboard</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">face</span> <!-- format -->
+<span class="font-caption text-[10px] font-medium">My Skin</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">calendar_today</span> <!-- format -->
+<span class="font-caption text-[10px] font-medium">Routine</span> <!-- format -->
+</a> <!-- format -->
+<!-- Active Tab --> <!-- format -->
+<a class="flex flex-col items-center justify-center py-3 bg-primary-light text-primary rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform" style="font-variation-settings: 'FILL' 1;">shopping_bag</span> <!-- format -->
+<span class="font-caption text-[10px] font-medium">Products</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">history</span> <!-- format -->
+<span class="font-caption text-[10px] font-medium">History</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">trending_up</span> <!-- format -->
+<span class="font-caption text-[10px] font-medium">Progress</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center py-3 text-on-surface-variant hover:bg-primary-light/50 transition-colors rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-active:scale-90 transition-transform">more_horiz</span> <!-- format -->
+<span class="font-caption text-[10px] font-medium">More</span> <!-- format -->
+</a> <!-- format -->
+</div> <!-- format -->
+</nav> <!-- format -->
+<!-- TopNavBar --> <!-- format -->
+<header class="fixed top-0 right-0 w-full md:w-[calc(100%-90px)] z-40 bg-surface-soft/80 backdrop-blur-md flex justify-end items-center px-gutter h-16 gap-4"> <!-- format -->
+<button class="btn-gradient text-on-primary font-label-md text-label-md px-4 py-2 rounded-full opacity-90 hover:opacity-100 transition-opacity">Upgrade</button> <!-- format -->
+<button class="text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100"> <!-- format -->
+<span class="material-symbols-outlined">notifications</span> <!-- format -->
+</button> <!-- format -->
+<button class="text-on-surface-variant hover:text-primary transition-colors opacity-80 hover:opacity-100"> <!-- format -->
+<span class="material-symbols-outlined">settings</span> <!-- format -->
+</button> <!-- format -->
+<img alt="User profile" class="w-8 h-8 rounded-full border border-pink" data-alt="A small circular profile picture of a young woman smiling warmly. The background is a soft, blurred studio setting. The lighting is bright and even, highlighting her natural skin tones. The overall aesthetic is clean, professional, and inviting, matching a premium wellness application." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBt3pYx8QGC0gE48HjXbYA-TWZJvXNhQ7Hbq8bmUS_-vN0fUNQU9adTaBBEd2ZHNa7uv0Be0wda8X-EFv2trZeyW5ICW0dlyMOpRwqHxmkjtPF5MqYkl1c6ag5MW48riV0DJuXBlzhp_WPrPD9FtRsVkRlfkf3ltwULGEqoSwkH4BM6i3Br0ei9EFo1OUDg92S6Lt7Z3SHb-8dlHsgtZLaudXT7J1cgdkWKfn3dB_L3u08b2tLdn_tF4l3w9RKE-zsiCcQvUyivm24"/> <!-- format -->
+</header> <!-- format -->
+<!-- Main Content Canvas --> <!-- format -->
+<main class="w-full md:ml-[90px] pt-24 pb-12 px-margin-mobile md:px-gutter flex justify-center"> <!-- format -->
+<div class="w-full max-w-container-max flex flex-col gap-8"> <!-- format -->
+<!-- Page Header --> <!-- format -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4"> <!-- format -->
+<div> <!-- format -->
+<h1 class="font-headline-lg text-headline-lg font-bold text-on-surface mb-2">Recommended Products</h1> <!-- format -->
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">AI-curated selections based on your latest skin analysis. High match percentages indicate ingredients optimal for your current hydration and sensitivity levels.</p> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+<!-- Filter Chips --> <!-- format -->
+<div class="flex flex-wrap gap-2"> <!-- format -->
+<button class="bg-primary text-on-primary font-label-md text-label-md px-4 py-1.5 rounded-full border border-primary transition-colors">All Recommendations</button> <!-- format -->
+<button class="bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md px-4 py-1.5 rounded-full border border-outline-variant hover:bg-primary-light hover:text-primary hover:border-pink transition-colors">Cleansers</button> <!-- format -->
+<button class="bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md px-4 py-1.5 rounded-full border border-outline-variant hover:bg-primary-light hover:text-primary hover:border-pink transition-colors">Serums</button> <!-- format -->
+<button class="bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md px-4 py-1.5 rounded-full border border-outline-variant hover:bg-primary-light hover:text-primary hover:border-pink transition-colors">Moisturizers</button> <!-- format -->
+<button class="bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md px-4 py-1.5 rounded-full border border-outline-variant hover:bg-primary-light hover:text-primary hover:border-pink transition-colors">Sunscreen</button> <!-- format -->
+<button class="bg-surface-container-lowest text-on-surface-variant font-label-md text-label-md px-4 py-1.5 rounded-full border border-outline-variant hover:bg-primary-light hover:text-primary hover:border-pink transition-colors ml-auto flex items-center gap-1"> <!-- format -->
+<span class="material-symbols-outlined text-[18px]">tune</span> <!-- format -->
+                    Filters <!-- format -->
+                </button> <!-- format -->
+</div> <!-- format -->
+<!-- Products Grid --> <!-- format -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"> <!-- format -->
+<!-- Product Card 1 --> <!-- format -->
+<div class="bg-surface-container-lowest rounded-DEFAULT border border-pink pink-shadow overflow-hidden flex flex-col group cursor-pointer hover:-translate-y-1 transition-transform duration-300"> <!-- format -->
+<div class="relative h-48 bg-surface-soft p-4 flex items-center justify-center"> <!-- format -->
+<div class="absolute top-3 left-3 bg-success/10 text-success font-label-md text-label-md px-2.5 py-1 rounded-full flex items-center gap-1 backdrop-blur-sm"> <!-- format -->
+<span class="material-symbols-outlined text-[14px]">verified</span> <!-- format -->
+                            98% Match <!-- format -->
+                        </div> <!-- format -->
+<button class="absolute top-3 right-3 w-8 h-8 rounded-full bg-surface-container-lowest/80 backdrop-blur-sm flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors border border-pink/50"> <!-- format -->
+<span class="material-symbols-outlined text-[18px]">favorite</span> <!-- format -->
+</button> <!-- format -->
+<img alt="Hydrating Serum" class="h-3/4 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" data-alt="A minimalist, frosted glass dropper bottle of facial serum resting on a pristine white marble surface. Soft, diffused natural light creates gentle reflections and a subtle pinkish-white background ambiance. The aesthetic is extremely clean, high-end, and clinical yet welcoming, fitting a premium skincare brand." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgOIvE5tIuWe4UXT9qhk1TL-nsFHxovc25Ep5kn6G47h6Vas5Z8IABVU_LtSdU53H68Cj6rwYPXLeYwD3v3V-vJ-_I8pYjCx0mCUATlz2tJ2EQWP1Q0G54FRw9NAUz-vdGzIe_7ES78KVXNAFEP0bM1zrwEOMTWke920sPe5Id53zNH5EqiLKhGjU9_X6dFX3EAV65k2NUWX7nbwwXVYiOIKWajpmldhJGFyNBzqc8cgBRoejuURD4ehP94L8NGHtjDS3g9iBbMr4"/> <!-- format -->
+</div> <!-- format -->
+<div class="p-5 flex flex-col flex-grow"> <!-- format -->
+<div class="font-caption text-caption text-on-surface-variant mb-1 uppercase tracking-wider">Aura Botanical</div> <!-- format -->
+<h3 class="font-headline-md text-[18px] leading-tight font-semibold text-on-surface mb-2">Hyaluronic Acid Hydrating Serum</h3> <!-- format -->
+<div class="flex flex-wrap gap-1.5 mb-4"> <!-- format -->
+<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Hyaluronic Acid</span> <!-- format -->
+<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Ceramides</span> <!-- format -->
+<span class="bg-surface-variant text-on-surface-variant font-caption text-[11px] px-2 py-0.5 rounded-full">+2</span> <!-- format -->
+</div> <!-- format -->
+<div class="mt-auto flex items-center justify-between"> <!-- format -->
+<span class="font-headline-md text-headline-md text-on-surface">$42.00</span> <!-- format -->
+<button class="bg-surface text-primary border border-primary font-label-md text-label-md px-4 py-1.5 rounded-full hover:bg-primary-light transition-colors">Add to Cart</button> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+<!-- Product Card 2 --> <!-- format -->
+<div class="bg-surface-container-lowest rounded-DEFAULT border border-pink pink-shadow overflow-hidden flex flex-col group cursor-pointer hover:-translate-y-1 transition-transform duration-300"> <!-- format -->
+<div class="relative h-48 bg-surface-soft p-4 flex items-center justify-center"> <!-- format -->
+<div class="absolute top-3 left-3 bg-success/10 text-success font-label-md text-label-md px-2.5 py-1 rounded-full flex items-center gap-1 backdrop-blur-sm"> <!-- format -->
+<span class="material-symbols-outlined text-[14px]">verified</span> <!-- format -->
+                            95% Match <!-- format -->
+                        </div> <!-- format -->
+<button class="absolute top-3 right-3 w-8 h-8 rounded-full bg-surface-container-lowest/80 backdrop-blur-sm flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors border border-pink/50"> <!-- format -->
+<span class="material-symbols-outlined text-[18px]">favorite</span> <!-- format -->
+</button> <!-- format -->
+<img alt="Gentle Cleanser" class="h-3/4 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" data-alt="A sleek, white pump bottle of facial cleanser standing upright against a soft, barely-there pink background. A subtle, natural shadow grounds the object. The lighting is studio-quality, emphasizing the smooth, matte texture of the packaging. The mood is pure, simple, and dermatologist-recommended." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyQSSO_EagF-s0W82b7OJXdObOg5g-U0-YHrFpWq1mxMoTDsciyr7xrmbdwuovbgepPTUXMSMG_uN6774wXdeLYYLAIlnuWo_AXiJK7UpBDGhYJ0Z3X3-xNAmiX6zg11n3Sh6WFV1oxPlnPvXJTIiLz5GCTBPJFRqUuF27_dSlOhAY_801pvVrrY0CzrFbMCP9ys6SrCrfwzZSPdfuRp8bBdUwWY1jXjmLO75NNGc3E2rv2zNG7nHyPEmnLPolnsqCom_5K0mqYb4"/> <!-- format -->
+</div> <!-- format -->
+<div class="p-5 flex flex-col flex-grow"> <!-- format -->
+<div class="font-caption text-caption text-on-surface-variant mb-1 uppercase tracking-wider">DermaCare</div> <!-- format -->
+<h3 class="font-headline-md text-[18px] leading-tight font-semibold text-on-surface mb-2">Ultra-Gentle Foaming Cleanser</h3> <!-- format -->
+<div class="flex flex-wrap gap-1.5 mb-4"> <!-- format -->
+<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Niacinamide</span> <!-- format -->
+<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Glycerin</span> <!-- format -->
+</div> <!-- format -->
+<div class="mt-auto flex items-center justify-between"> <!-- format -->
+<span class="font-headline-md text-headline-md text-on-surface">$24.00</span> <!-- format -->
+<button class="bg-surface text-primary border border-primary font-label-md text-label-md px-4 py-1.5 rounded-full hover:bg-primary-light transition-colors">Add to Cart</button> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+<!-- Product Card 3 --> <!-- format -->
+<div class="bg-surface-container-lowest rounded-DEFAULT border border-pink pink-shadow overflow-hidden flex flex-col group cursor-pointer hover:-translate-y-1 transition-transform duration-300"> <!-- format -->
+<div class="relative h-48 bg-surface-soft p-4 flex items-center justify-center"> <!-- format -->
+<div class="absolute top-3 left-3 bg-primary/10 text-primary font-label-md text-label-md px-2.5 py-1 rounded-full flex items-center gap-1 backdrop-blur-sm"> <!-- format -->
+<span class="material-symbols-outlined text-[14px]">auto_awesome</span> <!-- format -->
+                            89% Match <!-- format -->
+                        </div> <!-- format -->
+<button class="absolute top-3 right-3 w-8 h-8 rounded-full bg-surface-container-lowest/80 backdrop-blur-sm flex items-center justify-center text-primary transition-colors border border-pink/50"> <!-- format -->
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">favorite</span> <!-- format -->
+</button> <!-- format -->
+<img alt="Repair Cream" class="h-3/4 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" data-alt="A luxurious, heavy glass jar of face cream with a silver lid, resting on a clean, light surface. The cream inside looks rich and smooth. Soft, warm lighting highlights the premium quality of the product against a minimalist, pale backdrop. The image conveys deep hydration and clinical efficacy." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDt01dRT-CobK3HbsLT27_6B5t4gq4JbaJ7s0-nM15XpVIxYFWlmxp41doGEGpf8JBK3BVmE4rxhWWbEftLCRHSht1Lmt60QycP3Hd-ZeOjCSWqLiCVslV8tVfEIDdSd9HMQoGde3oPEF3BZ9rqswt7N7orWDdcseVGDPteil9tnyOwCgM3qjSzqI2fVIuVy5_xqkgI8bXhZ5baOUXzgnx5ss-ZyrlJHtwE6QTeZYJUgdg4sBtT8pCttFUT8JBY0c45gcha6PkEh0E"/> <!-- format -->
+</div> <!-- format -->
+<div class="p-5 flex flex-col flex-grow"> <!-- format -->
+<div class="font-caption text-caption text-on-surface-variant mb-1 uppercase tracking-wider">Lumina Skin</div> <!-- format -->
+<h3 class="font-headline-md text-[18px] leading-tight font-semibold text-on-surface mb-2">Barrier Repair Night Cream</h3> <!-- format -->
+<div class="flex flex-wrap gap-1.5 mb-4"> <!-- format -->
+<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Peptides</span> <!-- format -->
+<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Squalane</span> <!-- format -->
+<span class="bg-surface-variant text-on-surface-variant font-caption text-[11px] px-2 py-0.5 rounded-full">+1</span> <!-- format -->
+</div> <!-- format -->
+<div class="mt-auto flex items-center justify-between"> <!-- format -->
+<span class="font-headline-md text-headline-md text-on-surface">$58.00</span> <!-- format -->
+<button class="bg-surface text-primary border border-primary font-label-md text-label-md px-4 py-1.5 rounded-full hover:bg-primary-light transition-colors">Add to Cart</button> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+<!-- Product Card 4 --> <!-- format -->
+<div class="bg-surface-container-lowest rounded-DEFAULT border border-pink pink-shadow overflow-hidden flex flex-col group cursor-pointer hover:-translate-y-1 transition-transform duration-300"> <!-- format -->
+<div class="relative h-48 bg-surface-soft p-4 flex items-center justify-center"> <!-- format -->
+<div class="absolute top-3 left-3 bg-primary/10 text-primary font-label-md text-label-md px-2.5 py-1 rounded-full flex items-center gap-1 backdrop-blur-sm"> <!-- format -->
+<span class="material-symbols-outlined text-[14px]">auto_awesome</span> <!-- format -->
+                            85% Match <!-- format -->
+                        </div> <!-- format -->
+<button class="absolute top-3 right-3 w-8 h-8 rounded-full bg-surface-container-lowest/80 backdrop-blur-sm flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors border border-pink/50"> <!-- format -->
+<span class="material-symbols-outlined text-[18px]">favorite</span> <!-- format -->
+</button> <!-- format -->
+<img alt="Mineral Sunscreen" class="h-3/4 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" data-alt="A modern, matte-finish tube of sunscreen positioned diagonally against a soft, bright background. The lighting is crisp and clear, suggesting a sunny yet protected environment. The overall design is minimal, focusing entirely on the sleek form of the product tube." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCInpjIR-ELNXXmabETrosdxq17L8wfNtQ3QiPgvnv6W7Oo3tHjHw98ZV2hPN-_cBrbDk6bz_17oYcx4r65ctQBTXYw-9cas00MiX2Xk_vfMrwnG8x1tPgb126Gh2N9_Jlhs6U4hngnlX3mRGMLAOIRUzsOmBfnrfjGWOJN-g-o4ZVrPzPSbBcof-5uO82UKLseL_Ypds6HxiXVtxRcOtFUD7E8FPI6eLFm8UsAZyCN-1tLrnOOS4ZWoJO6tPkL_Apyp2b3CpBRIWo"/> <!-- format -->
+</div> <!-- format -->
+<div class="p-5 flex flex-col flex-grow"> <!-- format -->
+<div class="font-caption text-caption text-on-surface-variant mb-1 uppercase tracking-wider">Sol Protect</div> <!-- format -->
+<h3 class="font-headline-md text-[18px] leading-tight font-semibold text-on-surface mb-2">Sheer Mineral Sunscreen SPF 50</h3> <!-- format -->
+<div class="flex flex-wrap gap-1.5 mb-4"> <!-- format -->
+<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Zinc Oxide</span> <!-- format -->
+<span class="bg-primary-light text-tertiary font-caption text-[11px] px-2 py-0.5 rounded-full">Vitamin E</span> <!-- format -->
+</div> <!-- format -->
+<div class="mt-auto flex items-center justify-between"> <!-- format -->
+<span class="font-headline-md text-headline-md text-on-surface">$32.00</span> <!-- format -->
+<button class="bg-surface text-primary border border-primary font-label-md text-label-md px-4 py-1.5 rounded-full hover:bg-primary-light transition-colors">Add to Cart</button> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</main> <!-- format -->
+<!-- BottomNavBar (Mobile) --> <!-- format -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-lowest border-t border-pink shadow-sm z-50 flex justify-around items-center h-16 px-2"> <!-- format -->
+<a class="flex flex-col items-center justify-center w-full h-full text-on-surface-variant hover:text-primary transition-colors" href="#"> <!-- format -->
+<span class="material-symbols-outlined text-[24px]">dashboard</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center w-full h-full text-on-surface-variant hover:text-primary transition-colors" href="#"> <!-- format -->
+<span class="material-symbols-outlined text-[24px]">face</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center w-full h-full text-primary" href="#"> <!-- format -->
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">shopping_bag</span> <!-- format -->
+<div class="w-1 h-1 bg-primary rounded-full mt-1"></div> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center w-full h-full text-on-surface-variant hover:text-primary transition-colors" href="#"> <!-- format -->
+<span class="material-symbols-outlined text-[24px]">more_horiz</span> <!-- format -->
+</a> <!-- format -->
+</nav> <!-- format -->
+</body></html> <!-- format -->
