@@ -35,6 +35,8 @@ class OrderServiceTest {
 
     private final IGhnService ghnService = mock(GhnService.class);
 
+    private final IVoucherService voucherService = mock(IVoucherService.class);
+
     private IOrderService service;
 
     private MockRestServiceServer inventoryServer;
@@ -203,7 +205,7 @@ class OrderServiceTest {
         MomoConfig momoConfig = new MomoConfig();
         VnpayConfig vnpayConfig = new VnpayConfig();
         return new OrderService(orderRepository, momoConfig, vnpayConfig, ghnService,
-                new PaymentConfigurationValidator(momoConfig, vnpayConfig), restTemplate,
+                new PaymentConfigurationValidator(momoConfig, vnpayConfig), voucherService, restTemplate,
                 "http://product-service", "internal-token", bankTransferSimulationEnabled);
     }
 
