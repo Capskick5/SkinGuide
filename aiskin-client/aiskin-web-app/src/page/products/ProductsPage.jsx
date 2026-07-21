@@ -4,9 +4,10 @@ import Icon from '@/components/common/Icon'
 import { productApi } from '@/api/productApi'
 import ProductCard from './components/ProductCard'
 import { makeSearchBlob, mapById, normalize, toArray, toProductCard } from './productUtils'
-import { translateCategory } from './translator'
+import { translateCategory, translateTag } from './translator'
 
 const CATEGORY_ALL = 'all'
+const FILTER_ALL = 'all'
 const PAGE_SIZE = 12
 
 const SEARCH_FIELDS = [
@@ -26,6 +27,11 @@ const SORT_OPTIONS = [
   { value: 'price-asc', label: 'Giá thấp đến cao' },
   { value: 'price-desc', label: 'Giá cao đến thấp' },
 ]
+
+// Khớp giá trị lưu trong Product.targetSkinTypes / Product.targetConcerns (tiếng Anh),
+// nhãn hiển thị dùng lại translateTag để nhất quán với cách gắn thẻ sản phẩm.
+const SKIN_TYPE_VALUES = ['Combination', 'Oily', 'Dry', 'Normal', 'Sensitive']
+const CONCERN_VALUES = ['Dryness', 'Pigmentation', 'Pores', 'Acne', 'Wrinkles']
 
 function getVisiblePages(currentPage, totalPages) {
   if (totalPages <= 7) {
@@ -68,7 +74,10 @@ async function loadWithFallback(primaryRequest, fallbackRequest) {
   }
 }
 
-function toPagedResult(items, { query, searchField, categoryId, isActive, sortBy, page, size }) {
+function toPagedResult(
+  items,
+  { query, searchField, categoryId, isActive, sortBy, minPrice, maxPrice, brandId, skinType, concern, inStockOnly, page, size },
+) {
   const normalizedQuery = normalize(query)
   const normalizedField = searchField || 'all'
   const filtered = items.filter((product) => {
@@ -82,6 +91,25 @@ function toPagedResult(items, { query, searchField, categoryId, isActive, sortBy
       return false
     }
     if (categoryId && product.categoryId !== categoryId) {
+      return false
+    }
+    if (brandId && product.brandId !== brandId) {
+      return false
+    }
+    if (skinType && !(product.targetSkinTypes || []).includes(skinType)) {
+      return false
+    }
+    if (concern && !(product.targetConcerns || []).includes(concern)) {
+      return false
+    }
+    const price = Number(product.price) || 0
+    if (minPrice !== '' && minPrice !== null && minPrice !== undefined && price < Number(minPrice)) {
+      return false
+    }
+    if (maxPrice !== '' && maxPrice !== null && maxPrice !== undefined && price > Number(maxPrice)) {
+      return false
+    }
+    if (inStockOnly && Number(product.totalAvailableQuantity) <= 0) {
       return false
     }
     if (!normalizedQuery) {
@@ -195,6 +223,16 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // Bộ lọc nâng cao: giá, thương hiệu, loại da, mối quan tâm, còn hàng
+  const [brandFilter, setBrandFilter] = useState(FILTER_ALL)
+  const [skinTypeFilter, setSkinTypeFilter] = useState(FILTER_ALL)
+  const [concernFilter, setConcernFilter] = useState(FILTER_ALL)
+  const [inStockOnly, setInStockOnly] = useState(false)
+  const [minPriceInput, setMinPriceInput] = useState('')
+  const [maxPriceInput, setMaxPriceInput] = useState('')
+  const [debouncedMinPrice, setDebouncedMinPrice] = useState('')
+  const [debouncedMaxPrice, setDebouncedMaxPrice] = useState('')
+
   // 1. Chỉ load danh mục và thương hiệu 1 lần lúc đầu
   useEffect(() => {
     let alive = true
@@ -222,6 +260,15 @@ export default function ProductsPage() {
     return () => clearTimeout(timer)
   }, [query])
 
+  // 2b. Debounce khoảng giá (tránh gọi API liên tục khi gõ số)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedMinPrice(minPriceInput)
+      setDebouncedMaxPrice(maxPriceInput)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [minPriceInput, maxPriceInput])
+
   // 3. Load sản phẩm theo phân trang/bộ lọc từ API server
   useEffect(() => {
     let alive = true
@@ -235,6 +282,12 @@ export default function ProductsPage() {
           categoryId: categoryFilter === CATEGORY_ALL ? '' : categoryFilter,
           isActive: true, // Client chỉ thấy active
           sortBy,
+          minPrice: debouncedMinPrice === '' ? '' : Number(debouncedMinPrice),
+          maxPrice: debouncedMaxPrice === '' ? '' : Number(debouncedMaxPrice),
+          brandId: brandFilter === FILTER_ALL ? '' : brandFilter,
+          skinType: skinTypeFilter === FILTER_ALL ? '' : skinTypeFilter,
+          concern: concernFilter === FILTER_ALL ? '' : concernFilter,
+          inStockOnly: inStockOnly ? true : '',
           page,
           size: PAGE_SIZE,
         }
@@ -255,7 +308,19 @@ export default function ProductsPage() {
       }
     })()
     return () => { alive = false }
-  }, [debouncedQuery, searchField, categoryFilter, sortBy, page])
+  }, [
+    debouncedQuery,
+    searchField,
+    categoryFilter,
+    sortBy,
+    page,
+    debouncedMinPrice,
+    debouncedMaxPrice,
+    brandFilter,
+    skinTypeFilter,
+    concernFilter,
+    inStockOnly,
+  ])
 
   const brandMap = useMemo(() => mapById(brands), [brands])
   const categoryMap = useMemo(() => mapById(categories), [categories])
@@ -360,6 +425,97 @@ export default function ProductsPage() {
               {item.name}
             </button>
           ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 rounded-xl border border-border-pink bg-surface-container-lowest px-4 py-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="col-span-2 flex items-center gap-2 lg:col-span-1">
+            <input
+              type="number"
+              min="0"
+              inputMode="numeric"
+              value={minPriceInput}
+              onChange={(e) => {
+                setPage(1)
+                setMinPriceInput(e.target.value)
+              }}
+              placeholder="Giá từ"
+              className="h-11 w-full min-w-0 rounded-xl border border-border-pink bg-white px-3 text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+            />
+            <span className="text-on-surface-variant">-</span>
+            <input
+              type="number"
+              min="0"
+              inputMode="numeric"
+              value={maxPriceInput}
+              onChange={(e) => {
+                setPage(1)
+                setMaxPriceInput(e.target.value)
+              }}
+              placeholder="Giá đến"
+              className="h-11 w-full min-w-0 rounded-xl border border-border-pink bg-white px-3 text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+            />
+          </div>
+
+          <select
+            value={brandFilter}
+            onChange={(e) => {
+              setPage(1)
+              setBrandFilter(e.target.value)
+            }}
+            className="h-11 px-3 rounded-xl border border-border-pink bg-white text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+          >
+            <option value={FILTER_ALL}>Tất cả thương hiệu</option>
+            {brands.map((brand) => (
+              <option key={brand.id} value={brand.id}>
+                {brand.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={skinTypeFilter}
+            onChange={(e) => {
+              setPage(1)
+              setSkinTypeFilter(e.target.value)
+            }}
+            className="h-11 px-3 rounded-xl border border-border-pink bg-white text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+          >
+            <option value={FILTER_ALL}>Tất cả loại da</option>
+            {SKIN_TYPE_VALUES.map((value) => (
+              <option key={value} value={value}>
+                {translateTag(value)}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={concernFilter}
+            onChange={(e) => {
+              setPage(1)
+              setConcernFilter(e.target.value)
+            }}
+            className="h-11 px-3 rounded-xl border border-border-pink bg-white text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+          >
+            <option value={FILTER_ALL}>Tất cả mối quan tâm</option>
+            {CONCERN_VALUES.map((value) => (
+              <option key={value} value={value}>
+                {translateTag(value)}
+              </option>
+            ))}
+          </select>
+
+          <label className="flex h-11 items-center gap-2 rounded-xl border border-border-pink bg-white px-3 text-body-md text-on-surface-variant">
+            <input
+              type="checkbox"
+              checked={inStockOnly}
+              onChange={(e) => {
+                setPage(1)
+                setInStockOnly(e.target.checked)
+              }}
+              className="h-4 w-4 rounded border-border-pink text-primary focus:ring-primary/30"
+            />
+            Chỉ hiện còn hàng
+          </label>
         </div>
       </div>
 

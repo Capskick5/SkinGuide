@@ -26,14 +26,6 @@ spring:
 server:
   port: ${USER_SERVICE_PORT}
 
-
-  client:
-    service-url:
-      defaultZone: ${EUREKA_URI}
-  instance:
-    hostname: ${EUREKA_INSTANCE_HOSTNAME:127.0.0.1}
-    prefer-ip-address: false
-
 # JWT / Auth configuration
 app:
   jwt:

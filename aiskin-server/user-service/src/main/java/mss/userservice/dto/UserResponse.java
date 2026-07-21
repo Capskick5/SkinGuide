@@ -5,10 +5,11 @@
 package mss.userservice.dto;
 
 import mss.userservice.model.SkinProfile;
-import mss.userservice.model.DeliveryAddress;
+import mss.userservice.model.Address;
 import mss.userservice.model.User;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -23,7 +24,7 @@ public record UserResponse(
         boolean active,
         boolean emailVerified,
         SkinProfile skinProfile,
-        DeliveryAddress deliveryAddress,
+        List<Address> addresses,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -36,7 +37,7 @@ public record UserResponse(
                 user.isActive(),
                 user.isEmailVerified(),
                 user.getSkinProfile(),
-                user.getDeliveryAddress(),
+                user.getAddresses() == null ? List.of() : user.getAddresses(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );

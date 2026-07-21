@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import httpClient from '@/api/httpClient'
 import { message } from 'antd'
+import { QRCodeSVG } from 'qrcode.react'
 
 function money(value) {
   if (!value && value !== 0) return '—'
@@ -15,6 +16,7 @@ export default function BankTransferPage() {
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [simulating, setSimulating] = useState(false)
+  const simulationEnabled = import.meta.env.VITE_BANK_TRANSFER_SIMULATION_ENABLED === 'true'
 
   useEffect(() => {
     async function loadOrder() {
@@ -28,7 +30,7 @@ export default function BankTransferPage() {
           message.success('Đơn hàng đã được thanh toán')
           navigate(`/orders/${data.id}`)
         }
-      } catch (err) {
+      } catch {
         message.error('Không tìm thấy đơn hàng')
         navigate('/orders')
       } finally {
@@ -68,8 +70,7 @@ export default function BankTransferPage() {
 
   if (!order) return null
 
-  // Generate a mock QR code image URL (you can use quickchart.io or similar if you want a real image, here we just show an icon/placeholder)
-  const qrUrl = `https://quickchart.io/qr?text=PAYMENT:${id}&size=200`
+  const qrValue = `PAYMENT:${order.orderCode}`
 
   return (
     <div className="mx-auto max-w-3xl py-8">
@@ -124,7 +125,7 @@ export default function BankTransferPage() {
           <div className="flex flex-col items-center justify-center rounded-xl border border-border-pink bg-white p-6 shadow-sm">
             <p className="font-bold text-on-surface mb-4">Quét mã QR để thanh toán nhanh</p>
             <div className="h-48 w-48 rounded-xl border border-gray-100 p-2 shadow-sm">
-              <img src={qrUrl} alt="QR Code" className="h-full w-full object-contain" />
+              <QRCodeSVG value={qrValue} title={`QR thanh toán đơn ${order.orderCode}`} className="h-full w-full" />
             </div>
             <p className="mt-4 text-sm text-center text-on-surface-variant">
               Sử dụng ứng dụng ngân hàng hoặc ví điện tử để quét mã
@@ -136,15 +137,21 @@ export default function BankTransferPage() {
           <Link to={`/orders/${order.id}`} className="font-semibold text-primary hover:underline">
             Xem chi tiết đơn hàng
           </Link>
-          <button 
-            type="button" 
-            onClick={handleSimulatePayment} 
-            disabled={simulating}
-            className="flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-          >
-            <Icon name={simulating ? 'hourglass_empty' : 'check_circle'} className={simulating ? 'animate-spin text-xl' : 'text-xl'} />
-            {simulating ? 'Đang xác nhận...' : 'Tôi đã chuyển khoản'}
-          </button>
+          {simulationEnabled ? (
+            <button
+              type="button"
+              onClick={handleSimulatePayment}
+              disabled={simulating}
+              className="flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+            >
+              <Icon name={simulating ? 'hourglass_empty' : 'check_circle'} className={simulating ? 'animate-spin text-xl' : 'text-xl'} />
+              {simulating ? 'Đang xác nhận...' : 'Xác nhận thanh toán thử nghiệm'}
+            </button>
+          ) : (
+            <p className="max-w-sm text-right text-sm text-on-surface-variant">
+              Trạng thái đơn hàng sẽ tự cập nhật sau khi hệ thống xác nhận giao dịch.
+            </p>
+          )}
         </div>
       </div>
     </div>

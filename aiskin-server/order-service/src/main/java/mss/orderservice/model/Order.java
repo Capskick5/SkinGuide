@@ -53,6 +53,17 @@ public class Order {
     private BigDecimal totalAmount;
     private BigDecimal shippingFee;
 
+    // Voucher (tùy chọn). discountAmount đã được trừ vào totalAmount lúc tạo đơn.
+    private String voucherCode;
+
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    // Đảm bảo không release/hoàn lượt dùng voucher hai lần khi nhiều luồng hủy đơn có thể trùng nhau
+    // (vd: releaseInventoryIfNeeded được gọi lại nhiều nơi cho cùng một transition CANCELLED/RETURNED).
+    @Builder.Default
+    private Boolean voucherUsageReleased = false;
+
     // Shipping
     private String trackingCode; // Mã vận đơn GHN
 

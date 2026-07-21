@@ -1,15 +1,17 @@
 // Project: SkinGuide - MSS301
-// Author: NguyenTanXuan
 // Service Component
 
-package mss.userservice.model;
+package mss.userservice.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-/** Default delivery address embedded in the user's MongoDB document. */
-public record DeliveryAddress(
+/**
+ * Payload for POST/PUT /api/users/me/addresses (authenticated).
+ */
+public record AddressRequest(
+        String label,
         @NotBlank @Size(max = 100) String customerName,
         @NotBlank @Pattern(regexp = "^[0-9+() .-]{8,20}$") String customerPhone,
         @NotBlank String provinceCode,

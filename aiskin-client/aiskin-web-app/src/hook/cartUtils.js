@@ -14,8 +14,9 @@ export function cappedQuantity(item, requestedQuantity) {
   const requested = Math.max(1, Number(requestedQuantity) || 1)
   if (item.trackInventory === false) return requested
 
+  if (item.availableQuantity === null || item.availableQuantity === undefined) return requested
   const available = Number(item.availableQuantity)
-  return Number.isFinite(available) && available > 0
-    ? Math.min(requested, available)
+  return Number.isFinite(available)
+    ? Math.min(requested, Math.max(0, available))
     : requested
 }

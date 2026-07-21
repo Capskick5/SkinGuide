@@ -17,20 +17,14 @@ server:
     include-message: never
 
 app:
+  features:
+    bank-transfer-simulation-enabled: ${BANK_TRANSFER_SIMULATION_ENABLED:false}
   jwt:
     secret: ${JWT_SECRET}
     issuer: aiskin-user-service
   http:
     connect-timeout: ${HTTP_CONNECT_TIMEOUT:5s}
     read-timeout: ${HTTP_READ_TIMEOUT:15s}
-
-
-  client:
-    service-url:
-      defaultZone: ${EUREKA_URI}
-  instance:
-    hostname: ${EUREKA_INSTANCE_HOSTNAME:127.0.0.1}
-    prefer-ip-address: false
 
 logging:
   level:
