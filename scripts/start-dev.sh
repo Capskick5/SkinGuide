@@ -50,19 +50,6 @@ start_process() {
   echo "Started $name (PID $(cat "$pid_file"))."
 }
 
-start_process discovery "$SERVER_DIR/discovery-server" bash ./mvnw spring-boot:run
-
-for attempt in {1..30}; do
-  if curl -fsS http://127.0.0.1:8761 >/dev/null 2>&1; then
-    break
-  fi
-  if [[ "$attempt" -eq 30 ]]; then
-    echo "Discovery server did not become ready. Check $LOG_DIR/discovery.log"
-    exit 1
-  fi
-  sleep 1
-done
-
 start_process user "$SERVER_DIR/user-service" bash ./mvnw spring-boot:run
 start_process product "$SERVER_DIR/product-service" bash ./mvnw spring-boot:run
 start_process order "$SERVER_DIR/order-service" bash ./mvnw spring-boot:run
@@ -72,7 +59,7 @@ start_process recommendation "$SERVER_DIR/recommendation-service" "$SERVER_DIR/r
 start_process frontend "$ROOT_DIR/aiskin-client/aiskin-web-app" npm run dev -- --host 127.0.0.1 --port 5174
 
 ready=false
-for attempt in {1..30}; do
+for attempt in {1..90}; do
   if SMOKE_ATTEMPTS=1 "$ROOT_DIR/scripts/smoke-test.sh" >/dev/null 2>&1; then
     ready=true
     break

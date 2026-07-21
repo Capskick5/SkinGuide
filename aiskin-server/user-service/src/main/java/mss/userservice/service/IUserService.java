@@ -9,7 +9,6 @@ import mss.userservice.dto.UpdateProfileRequest;
 import mss.userservice.dto.UserResponse;
 import mss.userservice.exception.ApiException;
 import mss.userservice.model.User;
-import mss.userservice.model.DeliveryAddress;
 import mss.userservice.repository.UserRepository;
 import mss.userservice.repository.RoleRepository;
 import mss.userservice.security.RefreshTokenStore;
@@ -24,8 +23,6 @@ public interface IUserService {
     UserResponse getById(String userId);
 
     UserResponse updateProfile(String userId, UpdateProfileRequest request);
-
-    DeliveryAddress updateDeliveryAddress(String userId, DeliveryAddress address);
 
     void changePassword(String userId, ChangePasswordRequest request);
 

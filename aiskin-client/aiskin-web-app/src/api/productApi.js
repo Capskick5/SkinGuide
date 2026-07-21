@@ -46,7 +46,21 @@ export const productApi = {
     return request(`/products/search?keyword=${encodeURIComponent(keyword)}`, { auth: false })
   },
   async searchAdvancedProducts(
-    { query = '', searchField = 'all', categoryId = '', isActive = '', sortBy = '', page = 1, size = 12 },
+    {
+      query = '',
+      searchField = 'all',
+      categoryId = '',
+      isActive = '',
+      sortBy = '',
+      minPrice = '',
+      maxPrice = '',
+      brandId = '',
+      skinType = '',
+      concern = '',
+      inStockOnly = '',
+      page = 1,
+      size = 12,
+    },
     { auth = false } = {},
   ) {
     const params = new URLSearchParams()
@@ -55,6 +69,12 @@ export const productApi = {
     if (categoryId) params.append('categoryId', categoryId)
     if (isActive !== '') params.append('isActive', isActive)
     if (sortBy) params.append('sortBy', sortBy)
+    if (minPrice !== '' && minPrice !== null && minPrice !== undefined) params.append('minPrice', minPrice)
+    if (maxPrice !== '' && maxPrice !== null && maxPrice !== undefined) params.append('maxPrice', maxPrice)
+    if (brandId) params.append('brandId', brandId)
+    if (skinType) params.append('skinType', skinType)
+    if (concern) params.append('concern', concern)
+    if (inStockOnly !== '' && inStockOnly !== null && inStockOnly !== undefined) params.append('inStockOnly', inStockOnly)
     params.append('page', page)
     params.append('size', size)
     return request(`/products/search/advanced?${params.toString()}`, { auth })

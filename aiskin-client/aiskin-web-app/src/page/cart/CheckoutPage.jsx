@@ -5,9 +5,9 @@ import Icon from '@/components/common/Icon'
 import { useCart } from '@/hook/useCart'
 import { useAuth } from '@/hook/useAuth'
 import httpClient from '@/api/httpClient'
-import { authApi } from '@/api/authApi'
+import { addressApi } from '@/api/addressApi'
+import { voucherApi } from '@/api/voucherApi'
 import { resolveImageUrl } from '@/page/products/productUtils'
-import { getSavedDeliveryAddress, saveDeliveryAddress } from './deliveryAddressStorage'
 
 function money(value) {
   if (!value && value !== 0) return '-'
@@ -88,42 +88,64 @@ function SelectField({ icon, label, value, onChange, placeholder, options, disab
   )
 }
 
-function SavedAddressCard({ address, savingAddress, onChangeAddress, onNext }) {
-  const fullAddress = [address.addressDetail, address.ward, address.district, address.city].filter(Boolean).join(', ')
-
+/** Sổ địa chỉ: chọn 1 địa chỉ có sẵn hoặc chuyển sang form thêm mới. */
+function AddressListPicker({ addresses, selectedId, onSelect, savingAddress, onUseSelected, onAddNew }) {
   return (
-    <div className="space-y-5">
-      <div className="rounded-lg border border-primary/30 bg-primary-light/40 p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="mb-3 flex items-center gap-2 font-bold text-on-surface">
-              <Icon name="location_on" className="text-xl text-primary" />
-              Địa chỉ giao hàng đã lưu
-            </p>
-            <p className="font-semibold text-on-surface">{address.customerName}</p>
-            <p className="mt-1 text-sm text-on-surface-variant">{address.customerPhone}</p>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">{fullAddress}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onChangeAddress}
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-primary bg-white px-4 text-sm font-semibold text-primary transition hover:bg-primary-light"
-          >
-            <Icon name="edit_location_alt" className="text-lg" />
-            Thay đổi địa chỉ
-          </button>
-        </div>
+    <div className="space-y-4">
+      <div className="space-y-3">
+        {addresses.map((address) => {
+          const active = address.id === selectedId
+          const fullAddress = [address.addressDetail, address.ward, address.district, address.city].filter(Boolean).join(', ')
+          return (
+            <button
+              key={address.id}
+              type="button"
+              onClick={() => onSelect(address.id)}
+              className={[
+                'flex w-full items-start gap-3 rounded-lg border-2 p-4 text-left transition-all',
+                active ? 'border-primary bg-primary-light/40' : 'border-border-pink bg-white hover:border-primary/40',
+              ].join(' ')}
+            >
+              <Icon name={active ? 'radio_button_checked' : 'radio_button_unchecked'} className="mt-0.5 shrink-0 text-xl text-primary" />
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-center gap-2 font-bold text-on-surface">
+                  {address.label || 'Địa chỉ giao hàng'}
+                  {address.isDefault ? (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">Mặc định</span>
+                  ) : null}
+                </span>
+                <span className="mt-1 block text-sm font-semibold text-on-surface">{address.customerName} · {address.customerPhone}</span>
+                <span className="mt-1 block text-sm leading-6 text-on-surface-variant">{fullAddress}</span>
+              </span>
+            </button>
+          )
+        })}
       </div>
 
-      <button type="button" onClick={onNext} disabled={savingAddress} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary font-bold text-white transition hover:bg-tertiary disabled:cursor-not-allowed disabled:opacity-60">
-        {savingAddress ? 'Đang đồng bộ địa chỉ...' : 'Giao đến địa chỉ này'}
-        <Icon name={savingAddress ? 'hourglass_empty' : 'arrow_forward'} className={savingAddress ? 'animate-spin text-xl' : 'text-xl'} />
-      </button>
+      <div className="grid grid-cols-[1fr_2fr] gap-3">
+        <button
+          type="button"
+          onClick={onAddNew}
+          className="flex h-12 items-center justify-center gap-2 rounded-lg border border-primary bg-white px-2 text-sm font-semibold text-primary transition hover:bg-primary-light"
+        >
+          <Icon name="add_location_alt" className="text-lg" />
+          Thêm mới
+        </button>
+        <button
+          type="button"
+          onClick={onUseSelected}
+          disabled={!selectedId || savingAddress}
+          className="flex h-12 items-center justify-center gap-2 rounded-lg bg-primary font-bold text-white transition hover:bg-tertiary disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {savingAddress ? 'Đang xử lý...' : 'Giao đến địa chỉ này'}
+          <Icon name={savingAddress ? 'hourglass_empty' : 'arrow_forward'} className={savingAddress ? 'animate-spin text-xl' : 'text-xl'} />
+        </button>
+      </div>
     </div>
   )
 }
 
-function AddressStep({ formData, savedAddress, isEditing, savingAddress, onChange, onEdit, onCancelEdit, onNext }) {
+function AddressForm({ formData, savingAddress, onChange, onCancel, onNext, showLabelField }) {
   const [provinces, setProvinces] = useState([])
   const [districts, setDistricts] = useState([])
   const [wards, setWards] = useState([])
@@ -194,27 +216,6 @@ function AddressStep({ formData, savedAddress, isEditing, savingAddress, onChang
     return () => { cancelled = true }
   }, [addressReloadKey, formData.districtCode])
   
-  useEffect(() => {
-    if (!formData.districtCode || !formData.wardCode) return
-    let cancelled = false
-    async function calcFee() {
-      try {
-        const res = await httpClient.post('/ghn/fee', {
-            to_district_id: Number(formData.districtCode),
-            to_ward_code: String(formData.wardCode),
-            weight: 500, // Mặc định 500g
-        })
-        if (!cancelled && res?.total) {
-            emit('shippingFee', res.total)
-        }
-      } catch (err) {
-        console.error('Không tính được phí ship', err)
-      }
-    }
-    calcFee()
-    return () => { cancelled = true }
-  }, [emit, formData.districtCode, formData.wardCode])
-
   function handleProvinceChange(event) {
     const code = event.target.value
     setAddressValidationError('')
@@ -250,10 +251,6 @@ function AddressStep({ formData, savedAddress, isEditing, savingAddress, onChang
     emit('ward', ward?.name || '')
   }
 
-  if (savedAddress && !isEditing) {
-    return <SavedAddressCard address={savedAddress} savingAddress={savingAddress} onChangeAddress={onEdit} onNext={onNext} />
-  }
-
   return (
     <form
       onSubmit={(event) => {
@@ -266,19 +263,24 @@ function AddressStep({ formData, savedAddress, isEditing, savingAddress, onChang
       }}
       className="space-y-5"
     >
-      {savedAddress ? (
+      {onCancel ? (
         <div className="flex items-center justify-between rounded-lg border border-border-pink bg-surface-soft px-4 py-3">
           <span className="flex items-center gap-2 text-sm font-semibold text-on-surface">
             <Icon name="edit_location_alt" className="text-lg text-primary" />
-            Cập nhật địa chỉ giao hàng
+            Thêm địa chỉ mới
           </span>
-          <button type="button" onClick={onCancelEdit} className="text-sm font-semibold text-on-surface-variant transition hover:text-primary">
+          <button type="button" onClick={onCancel} className="text-sm font-semibold text-on-surface-variant transition hover:text-primary">
             Hủy
           </button>
         </div>
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {showLabelField ? (
+          <div className="sm:col-span-2">
+            <TextField icon="label" label="Nhãn địa chỉ" name="label" value={formData.label || ''} onChange={onChange} placeholder="Nhà, Công ty..." required={false} />
+          </div>
+        ) : null}
         <div className="sm:col-span-2">
           <TextField icon="person" label="Người nhận" name="customerName" value={formData.customerName} onChange={onChange} placeholder="Nguyễn Nhật Huy" />
         </div>
@@ -346,7 +348,7 @@ function AddressStep({ formData, savedAddress, isEditing, savingAddress, onChang
       ) : null}
 
       <button type="submit" disabled={savingAddress} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary font-bold text-white transition hover:bg-tertiary disabled:cursor-not-allowed disabled:opacity-60">
-        {savingAddress ? 'Đang lưu địa chỉ...' : savedAddress ? 'Lưu thay đổi & Tiếp tục' : 'Lưu địa chỉ & Tiếp tục'}
+        {savingAddress ? 'Đang lưu địa chỉ...' : 'Lưu địa chỉ & Tiếp tục'}
         <Icon name={savingAddress ? 'hourglass_empty' : 'arrow_forward'} className={savingAddress ? 'animate-spin text-xl' : 'text-xl'} />
       </button>
     </form>
@@ -430,7 +432,48 @@ function PaymentMethodStep({ selectedMethod, availability, onSelect, onBack, onN
   )
 }
 
-function ConfirmStep({ formData, items, paymentMethod, onBack, onConfirm, loading }) {
+function VoucherBox({ voucherCode, onVoucherCodeChange, onApply, onRemove, appliedVoucher, checking, error }) {
+  return (
+    <div className="rounded-lg border border-border-pink bg-white p-4">
+      <p className="mb-3 flex items-center gap-2 font-bold text-on-surface">
+        <Icon name="local_offer" className="text-primary" />
+        Mã giảm giá
+      </p>
+      {appliedVoucher ? (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm text-green-700">
+          <span className="flex items-center gap-2">
+            <Icon name="check_circle" className="text-lg" />
+            Áp dụng mã <strong>{appliedVoucher.code}</strong> — giảm {money(appliedVoucher.discountAmount)}
+          </span>
+          <button type="button" onClick={onRemove} className="shrink-0 text-xs font-semibold text-on-surface-variant underline hover:text-primary">
+            Bỏ mã
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="text"
+            value={voucherCode}
+            onChange={(event) => onVoucherCodeChange(event.target.value.toUpperCase())}
+            placeholder="Nhập mã giảm giá"
+            className="h-11 flex-1 rounded-lg border border-border-pink bg-white px-3 text-body-md uppercase text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+          />
+          <button
+            type="button"
+            onClick={onApply}
+            disabled={checking || !voucherCode.trim()}
+            className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-primary bg-white px-4 text-sm font-semibold text-primary transition hover:bg-primary-light disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {checking ? 'Đang kiểm tra...' : 'Áp dụng'}
+          </button>
+        </div>
+      )}
+      {error ? <p className="mt-2 text-sm font-medium text-red-600">{error}</p> : null}
+    </div>
+  )
+}
+
+function ConfirmStep({ formData, items, paymentMethod, onBack, onConfirm, loading, voucherCode, onVoucherCodeChange, onApplyVoucher, onRemoveVoucher, appliedVoucher, voucherChecking, voucherError }) {
   const fullAddress = [formData.addressDetail, formData.ward, formData.district, formData.city].filter(Boolean).join(', ')
 
   return (
@@ -455,6 +498,16 @@ function ConfirmStep({ formData, items, paymentMethod, onBack, onConfirm, loadin
           {paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản ngân hàng' : 'Thanh toán khi nhận hàng (COD)'}
         </p>
       </div>
+
+      <VoucherBox
+        voucherCode={voucherCode}
+        onVoucherCodeChange={onVoucherCodeChange}
+        onApply={onApplyVoucher}
+        onRemove={onRemoveVoucher}
+        appliedVoucher={appliedVoucher}
+        checking={voucherChecking}
+        error={voucherError}
+      />
 
       <div className="overflow-hidden rounded-lg border border-border-pink bg-white">
         <div className="border-b border-border-pink bg-primary-light px-4 py-3 font-bold text-on-surface">
@@ -493,8 +546,8 @@ function ConfirmStep({ formData, items, paymentMethod, onBack, onConfirm, loadin
   )
 }
 
-function OrderSummary({ items, totalPrice, shippingFee = 0 }) {
-  const finalPrice = totalPrice + shippingFee
+function OrderSummary({ items, totalPrice, shippingFee = 0, discountAmount = 0 }) {
+  const finalPrice = Math.max(0, totalPrice + shippingFee - discountAmount)
   return (
     <aside className="sticky top-4 rounded-lg border border-border-pink bg-white">
       <div className="border-b border-border-pink px-4 py-3">
@@ -525,6 +578,12 @@ function OrderSummary({ items, totalPrice, shippingFee = 0 }) {
           <span>Vận chuyển</span>
           <span className="font-semibold text-on-surface">{shippingFee > 0 ? money(shippingFee) : '-'}</span>
         </div>
+        {discountAmount > 0 ? (
+          <div className="flex justify-between text-sm text-green-700">
+            <span>Giảm giá</span>
+            <span className="font-semibold">-{money(discountAmount)}</span>
+          </div>
+        ) : null}
         <div className="flex justify-between border-t border-border-pink pt-3 text-lg font-bold text-on-surface">
           <span>Tổng cộng</span>
           <span className="text-primary">{money(finalPrice)}</span>
@@ -537,17 +596,25 @@ function OrderSummary({ items, totalPrice, shippingFee = 0 }) {
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart()
   const { user } = useAuth()
+  const isLoggedIn = !!user?.id
   const navigate = useNavigate()
   const { message } = AntApp.useApp()
   const idempotencyKeyRef = useRef(crypto.randomUUID())
-  const initialSavedAddress = user?.deliveryAddress || getSavedDeliveryAddress(user?.id)
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [savingAddress, setSavingAddress] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('COD')
   const [paymentAvailability, setPaymentAvailability] = useState({ COD: true, MOMO: false, VNPAY: false })
-  const [savedAddress, setSavedAddress] = useState(initialSavedAddress)
-  const [isEditingAddress, setIsEditingAddress] = useState(!initialSavedAddress)
+  // Mã giảm giá (tùy chọn). appliedVoucher chỉ được set sau khi backend xác nhận hợp lệ qua /vouchers/validate.
+  const [voucherCodeInput, setVoucherCodeInput] = useState('')
+  const [appliedVoucher, setAppliedVoucher] = useState(null)
+  const [voucherChecking, setVoucherChecking] = useState(false)
+  const [voucherError, setVoucherError] = useState('')
+  // Sổ địa chỉ (chỉ áp dụng cho người dùng đã đăng nhập).
+  const [addressBook, setAddressBook] = useState([])
+  const [addressBookMode, setAddressBookMode] = useState(isLoggedIn ? null : 'form') // 'list' | 'form' | null (đang tải)
+  const [addressBookLoading, setAddressBookLoading] = useState(isLoggedIn)
+  const [selectedAddressId, setSelectedAddressId] = useState(null)
   const [formData, setFormData] = useState({
     customerName: user?.fullName || '',
     customerPhone: user?.phone || '',
@@ -558,9 +625,9 @@ export default function CheckoutPage() {
     wardCode: '',
     ward: '',
     addressDetail: '',
+    label: '',
     note: '',
     shippingFee: 0,
-    ...initialSavedAddress,
   })
 
   useEffect(() => {
@@ -579,32 +646,132 @@ export default function CheckoutPage() {
     setFormData((current) => ({ ...current, [event.target.name]: event.target.value }))
   }, [])
 
-  async function handleAddressNext() {
-    const address = saveDeliveryAddress(user?.id, formData)
-    if (address) {
-      setSavedAddress(address)
-      setIsEditingAddress(false)
+  // Nạp sổ địa chỉ từ server khi đã đăng nhập; nếu chưa có địa chỉ nào thì mở luôn form thêm mới.
+  useEffect(() => {
+    // Khách chưa đăng nhập: addressBookMode đã được khởi tạo là 'form', không có sổ địa chỉ để tải.
+    if (!isLoggedIn) return
+    let cancelled = false
+    async function load() {
+      setAddressBookLoading(true)
+      try {
+        const list = await addressApi.list()
+        if (cancelled) return
+        const safeList = list || []
+        setAddressBook(safeList)
+        if (safeList.length > 0) {
+          const defaultAddress = safeList.find((address) => address.isDefault) || safeList[0]
+          setSelectedAddressId(defaultAddress.id)
+          setFormData((current) => ({ ...current, ...defaultAddress }))
+          setAddressBookMode('list')
+        } else {
+          setAddressBookMode('form')
+        }
+      } catch (error) {
+        console.error('Không tải được sổ địa chỉ', error)
+        if (!cancelled) setAddressBookMode('form')
+      } finally {
+        if (!cancelled) setAddressBookLoading(false)
+      }
     }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [isLoggedIn])
+
+  // Tính phí ship GHN ngay khi có đủ mã quận/phường, bất kể địa chỉ đến từ đâu (form mới hay chọn trong sổ).
+  useEffect(() => {
+    if (!formData.districtCode || !formData.wardCode) return
+    let cancelled = false
+    async function calcFee() {
+      try {
+        const res = await httpClient.post('/ghn/fee', {
+          to_district_id: Number(formData.districtCode),
+          to_ward_code: String(formData.wardCode),
+          weight: 500, // Mặc định 500g
+        })
+        if (!cancelled && res?.total) {
+          handleChange({ target: { name: 'shippingFee', value: res.total } })
+        }
+      } catch (err) {
+        console.error('Không tính được phí ship', err)
+      }
+    }
+    calcFee()
+    return () => {
+      cancelled = true
+    }
+  }, [handleChange, formData.districtCode, formData.wardCode])
+
+  /** Người dùng chọn 1 địa chỉ có sẵn trong sổ rồi bấm "Giao đến địa chỉ này". */
+  function handleUseSelectedAddress() {
+    const address = addressBook.find((item) => item.id === selectedAddressId)
+    if (address) {
+      setFormData((current) => ({ ...current, ...address }))
+    }
+    setStep(2)
+  }
+
+  /** Thêm địa chỉ mới vào sổ (người dùng đã đăng nhập) rồi dùng luôn địa chỉ đó để giao hàng. */
+  async function handleCreateAddress() {
     setSavingAddress(true)
     try {
-      const persistedAddress = await authApi.updateDeliveryAddress(address || formData)
-      saveDeliveryAddress(user?.id, persistedAddress)
-      setSavedAddress(persistedAddress)
-      setIsEditingAddress(false)
+      const payload = {
+        label: formData.label || '',
+        customerName: formData.customerName,
+        customerPhone: formData.customerPhone,
+        provinceCode: formData.provinceCode,
+        city: formData.city,
+        districtCode: formData.districtCode,
+        district: formData.district,
+        wardCode: formData.wardCode,
+        ward: formData.ward,
+        addressDetail: formData.addressDetail,
+      }
+      const list = await addressApi.create(payload)
+      setAddressBook(list)
+      const created = list[list.length - 1]
+      if (created) {
+        setSelectedAddressId(created.id)
+        setFormData((current) => ({ ...current, ...created }))
+      }
+      setAddressBookMode('list')
+      setStep(2)
     } catch (err) {
-      console.error('Không lưu được địa chỉ lên tài khoản', err)
-      message.warning('Địa chỉ đã được lưu trên thiết bị này nhưng chưa đồng bộ được với tài khoản.')
+      console.error('Không lưu được địa chỉ vào sổ địa chỉ', err)
+      message.error(err?.message || 'Không lưu được địa chỉ. Vui lòng thử lại.')
     } finally {
       setSavingAddress(false)
-      setStep(2)
     }
   }
 
-  function handleCancelAddressEdit() {
-    if (savedAddress) {
-      setFormData((current) => ({ ...current, ...savedAddress }))
-      setIsEditingAddress(false)
+  /** Khách chưa đăng nhập: không có sổ địa chỉ, chỉ cần điền form rồi tiếp tục. */
+  function handleGuestAddressNext() {
+    setStep(2)
+  }
+
+  /** Gọi backend xem trước mã giảm giá dựa trên subtotal hàng (không tính ship). */
+  async function handleApplyVoucher() {
+    const code = voucherCodeInput.trim().toUpperCase()
+    if (!code) return
+    setVoucherChecking(true)
+    setVoucherError('')
+    try {
+      const result = await voucherApi.validate(code, totalPrice)
+      setAppliedVoucher({ code: result.code || code, discountAmount: Number(result.discountAmount) || 0 })
+      setVoucherCodeInput('')
+    } catch (err) {
+      setAppliedVoucher(null)
+      setVoucherError(err?.message || 'Mã giảm giá không hợp lệ.')
+    } finally {
+      setVoucherChecking(false)
     }
+  }
+
+  function handleRemoveVoucher() {
+    setAppliedVoucher(null)
+    setVoucherCodeInput('')
+    setVoucherError('')
   }
 
   async function handlePlaceOrder() {
@@ -621,6 +788,7 @@ export default function CheckoutPage() {
         shippingFee: formData.shippingFee,
         customerNote: formData.note,
         paymentMethod,
+        voucherCode: appliedVoucher?.code || undefined,
         items: items.map((item) => ({
           productId: item.id,
           variantId: item.variantId || null,
@@ -688,16 +856,30 @@ export default function CheckoutPage() {
           {step <= 3 && <Stepper currentStep={step} />}
           <section className="rounded-lg border border-border-pink bg-white p-5 shadow-[0_4px_24px_rgba(255,107,158,0.06)]">
             {step === 1 ? (
-              <AddressStep
-                formData={formData}
-                savedAddress={savedAddress}
-                isEditing={isEditingAddress}
-                savingAddress={savingAddress}
-                onChange={handleChange}
-                onEdit={() => setIsEditingAddress(true)}
-                onCancelEdit={handleCancelAddressEdit}
-                onNext={handleAddressNext}
-              />
+              isLoggedIn && addressBookLoading ? (
+                <div className="flex items-center justify-center gap-2 py-10 text-on-surface-variant">
+                  <Icon name="hourglass_empty" className="animate-spin text-xl" />
+                  Đang tải sổ địa chỉ...
+                </div>
+              ) : isLoggedIn && addressBookMode === 'list' ? (
+                <AddressListPicker
+                  addresses={addressBook}
+                  selectedId={selectedAddressId}
+                  onSelect={setSelectedAddressId}
+                  savingAddress={savingAddress}
+                  onUseSelected={handleUseSelectedAddress}
+                  onAddNew={() => setAddressBookMode('form')}
+                />
+              ) : (
+                <AddressForm
+                  formData={formData}
+                  savingAddress={savingAddress}
+                  onChange={handleChange}
+                  onCancel={isLoggedIn && addressBook.length > 0 ? () => setAddressBookMode('list') : null}
+                  onNext={isLoggedIn ? handleCreateAddress : handleGuestAddressNext}
+                  showLabelField={isLoggedIn}
+                />
+              )
             ) : null}
             {step === 2 ? (
               <PaymentMethodStep
@@ -708,11 +890,34 @@ export default function CheckoutPage() {
                 onNext={() => setStep(3)}
               />
             ) : null}
-            {step === 3 ? <ConfirmStep formData={formData} items={items} paymentMethod={paymentMethod} onBack={() => setStep(2)} onConfirm={handlePlaceOrder} loading={loading} /> : null}
+            {step === 3 ? (
+              <ConfirmStep
+                formData={formData}
+                items={items}
+                paymentMethod={paymentMethod}
+                onBack={() => setStep(2)}
+                onConfirm={handlePlaceOrder}
+                loading={loading}
+                voucherCode={voucherCodeInput}
+                onVoucherCodeChange={setVoucherCodeInput}
+                onApplyVoucher={handleApplyVoucher}
+                onRemoveVoucher={handleRemoveVoucher}
+                appliedVoucher={appliedVoucher}
+                voucherChecking={voucherChecking}
+                voucherError={voucherError}
+              />
+            ) : null}
           </section>
         </main>
 
-        {step <= 3 && <OrderSummary items={items} totalPrice={totalPrice} shippingFee={formData.shippingFee} />}
+        {step <= 3 && (
+          <OrderSummary
+            items={items}
+            totalPrice={totalPrice}
+            shippingFee={formData.shippingFee}
+            discountAmount={appliedVoucher?.discountAmount || 0}
+          />
+        )}
       </div>
     </div>
   )

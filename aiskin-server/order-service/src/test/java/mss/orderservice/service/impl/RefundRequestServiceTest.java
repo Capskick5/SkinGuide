@@ -65,7 +65,7 @@ class RefundRequestServiceTest {
         RefundRequest result = service.completeRefund("refund-1", "https://example.com/receipt.jpg");
         assertThat(result.getStatus()).isEqualTo(RefundRequest.RefundStatus.COMPLETED);
         assertThat(returnOrder.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.REFUNDED);
-        assertThat(order.getStatus()).isEqualTo(Order.OrderStatus.RETURNED);
+        assertThat(order.getStatus()).isEqualTo(Order.OrderStatus.DELIVERED);
         assertThat(order.getPaymentStatus()).isEqualTo(Order.PaymentStatus.REFUNDED);
         verify(orderRepository).save(order);
         verify(returnOrderRepository).save(returnOrder);

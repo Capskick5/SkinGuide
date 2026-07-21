@@ -39,7 +39,11 @@ function QtyStepper({ value, onMinus, onPlus, canIncrease }) {
 function CartRow({ item, onRemove, onUpdateQty }) {
   const imageSrc = resolveImageUrl(item.imageUrl || item.images?.[0])
   const lineTotal = (item.price || 0) * item.qty
-  const hasStockLimit = item.trackInventory !== false && Number(item.availableQuantity) > 0
+  const hasKnownStock = item.availableQuantity !== null
+    && item.availableQuantity !== undefined
+    && Number.isFinite(Number(item.availableQuantity))
+  const hasStockLimit = item.trackInventory !== false && hasKnownStock
+  const unavailable = hasStockLimit && Number(item.availableQuantity) <= 0
   const canIncrease = !hasStockLimit || item.qty < Number(item.availableQuantity)
 
   return (
@@ -57,6 +61,12 @@ function CartRow({ item, onRemove, onUpdateQty }) {
         <div className="min-w-0">
           <p className="text-xs font-black uppercase text-secondary">{item.brand || 'AiSkin shop'}</p>
           <h3 className="mt-1 line-clamp-2 text-sm font-bold text-on-surface md:text-base">{item.name}</h3>
+          {unavailable ? (
+            <p className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-error">
+              <Icon name="error" className="text-base" />
+              Sản phẩm hiện đã hết hàng
+            </p>
+          ) : null}
           <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
             {item.slug ? (
               <Link to={`/products/${item.slug}`} className="inline-flex items-center gap-1 text-secondary hover:text-primary">
@@ -102,7 +112,7 @@ function CartRow({ item, onRemove, onUpdateQty }) {
   )
 }
 
-function InvoiceSummary({ totalCount, totalPrice, onCheckout }) {
+function InvoiceSummary({ totalCount, totalPrice, onCheckout, checkoutDisabled }) {
   return (
     <aside className="sticky top-6 h-fit border-t-4 border-secondary bg-white shadow-[0_20px_60px_rgba(23,32,38,0.08)]">
       <div className="border-b border-outline-variant px-5 py-4">
@@ -132,7 +142,8 @@ function InvoiceSummary({ totalCount, totalPrice, onCheckout }) {
         <button
           type="button"
           onClick={onCheckout}
-          className="mt-2 flex h-14 w-full items-center justify-center gap-2 rounded-md bg-[#ff5a00] text-base font-black text-white shadow-[0_14px_28px_rgba(255,90,0,0.24)] transition-transform hover:scale-[1.01] hover:bg-[#f04f00]"
+          disabled={checkoutDisabled}
+          className="mt-2 flex h-14 w-full items-center justify-center gap-2 rounded-md bg-[#ff5a00] text-base font-black text-white shadow-[0_14px_28px_rgba(255,90,0,0.24)] transition-transform hover:scale-[1.01] hover:bg-[#f04f00] disabled:cursor-not-allowed disabled:bg-outline disabled:shadow-none disabled:hover:scale-100"
         >
           <Icon name="shopping_cart_checkout" filled />
           Tiến hành đặt hàng
@@ -159,6 +170,12 @@ function InvoiceSummary({ totalCount, totalPrice, onCheckout }) {
 export default function CartPage() {
   const { items, totalCount, totalPrice, removeItem, updateQty, clearCart } = useCart()
   const navigate = useNavigate()
+  const hasUnavailableItems = items.some((item) => (
+    item.trackInventory !== false
+    && item.availableQuantity !== null
+    && item.availableQuantity !== undefined
+    && Number(item.availableQuantity) <= 0
+  ))
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -234,6 +251,7 @@ export default function CartPage() {
             totalCount={totalCount}
             totalPrice={totalPrice}
             onCheckout={() => navigate(PATHS.CHECKOUT)}
+            checkoutDisabled={hasUnavailableItems}
           />
         </div>
       )}

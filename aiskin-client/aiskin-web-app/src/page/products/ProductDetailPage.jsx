@@ -35,20 +35,27 @@ export default function ProductDetailPage() {
   const [addedToCart, setAddedToCart] = useState(false)
   const [showFullDescription, setShowFullDescription] = useState(false)
   const [showAllIngredients, setShowAllIngredients] = useState(false)
+  const [selectedVariantId, setSelectedVariantId] = useState('')
   const activeVariants = (product?.variants || []).filter((variant) => variant.isActive !== false)
   // Tính tổng số lượng từ các biến thể hoặc lấy trực tiếp từ product
-  const availableQuantity = product?.totalAvailableQuantity ?? product?.totalOnHandQuantity ?? activeVariants.reduce(
+  const totalAvailableQuantity = product?.totalAvailableQuantity ?? product?.totalOnHandQuantity ?? activeVariants.reduce(
     (sum, v) => sum + Math.max(0, Number(v.availableQuantity || v.onHandQuantity || 0)), 0
   )
   
-  const sellableVariant = activeVariants.find((variant) => (
-    variant.trackInventory === false || Number(variant.availableQuantity || variant.onHandQuantity || availableQuantity) > 0
-  )) || activeVariants[0]
+  const selectedVariant = activeVariants.find((variant) => variant.id === selectedVariantId)
+    || activeVariants.find((variant) => (
+      variant.trackInventory === false
+      || Number(variant.availableQuantity ?? variant.onHandQuantity ?? 0) > 0
+    ))
+    || activeVariants[0]
+  const availableQuantity = selectedVariant
+    ? Math.max(0, Number(selectedVariant.availableQuantity ?? selectedVariant.onHandQuantity ?? 0))
+    : Math.max(0, Number(totalAvailableQuantity || 0))
   
-  const tracksInventory = sellableVariant?.trackInventory !== false
+  const tracksInventory = selectedVariant?.trackInventory !== false
   const outOfStock = tracksInventory && availableQuantity <= 0
   const inCart = items.some((item) => (
-    item.id === product?.id && item.variantId === sellableVariant?.id
+    item.id === product?.id && item.variantId === selectedVariant?.id
   ))
 
   function handleAddToCart() {
@@ -60,15 +67,15 @@ export default function ProductDetailPage() {
     addItem({
       id: product.id,
       name: product.name,
-      price: sellableVariant?.price || product.price,
-      imageUrl: sellableVariant?.imageUrl || product.imageUrl || product.images?.[0],
+      price: selectedVariant?.price || product.price,
+      imageUrl: selectedVariant?.imageUrl || product.imageUrl || product.images?.[0],
       slug: product.slug,
-      variantId: sellableVariant?.id,
-      variantName: sellableVariant?.name,
-      sku: sellableVariant?.sku,
-      unit: sellableVariant?.unit,
-      availableQuantity: sellableVariant?.availableQuantity ?? availableQuantity,
-      trackInventory: sellableVariant?.trackInventory,
+      variantId: selectedVariant?.id,
+      variantName: selectedVariant?.name,
+      sku: selectedVariant?.sku,
+      unit: selectedVariant?.unit,
+      availableQuantity,
+      trackInventory: selectedVariant?.trackInventory,
     })
     setAddedToCart(true)
     setTimeout(() => setAddedToCart(false), 2000)
@@ -93,6 +100,12 @@ export default function ProductDetailPage() {
         if (!alive) return
 
         setProduct(productRes)
+        const initialVariants = (productRes?.variants || []).filter((variant) => variant.isActive !== false)
+        const initialVariant = initialVariants.find((variant) => (
+          variant.trackInventory === false
+          || Number(variant.availableQuantity ?? variant.onHandQuantity ?? 0) > 0
+        )) || initialVariants[0]
+        setSelectedVariantId(initialVariant?.id || '')
         setBrands(toArray(brandRes))
         setCategories(toArray(categoryRes))
       } catch (err) {
@@ -112,7 +125,7 @@ export default function ProductDetailPage() {
   const brandMap = useMemo(() => mapById(brands), [brands])
   const categoryMap = useMemo(() => mapById(categories), [categories])
 
-  const imageSrc = resolveImageUrl(product?.imageUrl || product?.images?.[0])
+  const imageSrc = resolveImageUrl(selectedVariant?.imageUrl || product?.imageUrl || product?.images?.[0])
   const brandName = product?.brandName || brandMap.get(product?.brandId)?.name || 'Không rõ thương hiệu'
   const rawCategoryName = product?.categoryName || categoryMap.get(product?.categoryId)?.name || 'Không rõ danh mục'
   const categoryName = translateCategory(rawCategoryName)
@@ -222,15 +235,34 @@ export default function ProductDetailPage() {
 
                 <div className="shrink-0 rounded-lg border border-border-pink bg-surface-container-lowest px-4 py-3 min-w-[180px]">
                   <p className="text-caption text-on-surface-variant">Giá</p>
-                  <p className="text-title-lg text-on-surface font-semibold">{money(product.price)}</p>
+                  <p className="text-title-lg text-on-surface font-semibold">{money(selectedVariant?.price || product.price)}</p>
                 </div>
               </div>
+              {activeVariants.length > 1 ? (
+                <div className="mt-4 max-w-sm">
+                  <label htmlFor="product-variant" className="mb-1.5 block text-caption font-semibold text-on-surface-variant">
+                    Chọn phiên bản
+                  </label>
+                  <select
+                    id="product-variant"
+                    value={selectedVariant?.id || ''}
+                    onChange={(event) => setSelectedVariantId(event.target.value)}
+                    className="h-11 w-full rounded-lg border border-border-pink bg-white px-3 text-body-md text-on-surface outline-none focus:border-primary"
+                  >
+                    {activeVariants.map((variant) => {
+                      const stock = Math.max(0, Number(variant.availableQuantity ?? variant.onHandQuantity ?? 0))
+                      const stockLabel = variant.trackInventory === false ? 'Đang bán' : stock > 0 ? `Còn ${stock}` : 'Hết hàng'
+                      return <option key={variant.id} value={variant.id}>{variant.name} - {stockLabel}</option>
+                    })}
+                  </select>
+                </div>
+              ) : null}
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 {tracksInventory ? (
                   <div className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${outOfStock ? 'border-error/20 bg-error/5 text-error' : 'border-success/20 bg-success/5 text-success'}`}>
                     <Icon name={outOfStock ? 'remove_shopping_cart' : 'inventory_2'} className="text-lg" />
                     {outOfStock ? 'Hết hàng' : `Còn ${availableQuantity} sản phẩm`}
-                    {sellableVariant?.name ? <span className="font-normal opacity-80">· {sellableVariant.name}</span> : null}
+                    {selectedVariant?.name ? <span className="font-normal opacity-80">· {selectedVariant.name}</span> : null}
                   </div>
                 ) : null}
               </div>
