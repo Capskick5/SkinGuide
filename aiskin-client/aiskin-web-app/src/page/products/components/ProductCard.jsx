@@ -21,7 +21,6 @@ export default function ProductCard({
   const { addItem } = useCart()
   const { message } = AntApp.useApp()
   const activeVariants = variants.filter((variant) => variant.isActive !== false)
-  const hasUntrackedInventory = variants.length > 0 ? activeVariants.some((variant) => variant.trackInventory === false) : false
   
   // Tính availableQuantity từ product property hoặc từ variant reduce
   const availableQuantity = totalAvailableQuantity ?? totalOnHandQuantity ?? (variants.length > 0 ? activeVariants.reduce(
@@ -32,7 +31,7 @@ export default function ProductCard({
   const sellableVariant = variants.length > 0 
     ? (variants.find((variant) => (
         variant.isActive !== false
-        && (variant.trackInventory === false || Number(variant.availableQuantity || variant.onHandQuantity || availableQuantity) > 0)
+        && (variant.trackInventory === false || Number(variant.availableQuantity ?? variant.onHandQuantity ?? 0) > 0)
       )) || activeVariants[0])
     : {
         id: null,
@@ -42,6 +41,11 @@ export default function ProductCard({
         availableQuantity: availableQuantity,
         trackInventory: true
       }
+  const sellableAvailableQuantity = sellableVariant
+    ? Math.max(0, Number(sellableVariant.availableQuantity ?? sellableVariant.onHandQuantity ?? availableQuantity ?? 0))
+    : 0
+  const hasUntrackedInventory = sellableVariant?.trackInventory === false
+  const isSellable = Boolean(sellableVariant) && (hasUntrackedInventory || sellableAvailableQuantity > 0)
 
   function handleQuickAdd() {
     if (!id || !sellableVariant) return
@@ -49,14 +53,14 @@ export default function ProductCard({
     addItem({
       id,
       name,
-      price: sellableVariant.price || priceValue || 0,
+      price: sellableVariant.price ?? priceValue ?? 0,
       imageUrl: sellableVariant.imageUrl || imageUrl,
       slug,
       variantId: sellableVariant.id,
       variantName: sellableVariant.name,
       sku: sellableVariant?.sku,
       unit: sellableVariant?.unit,
-      availableQuantity: sellableVariant?.availableQuantity ?? availableQuantity,
+      availableQuantity: sellableAvailableQuantity,
       trackInventory: sellableVariant?.trackInventory,
     })
     message.success(`Đã thêm ${name} vào giỏ hàng`)
@@ -70,8 +74,8 @@ export default function ProductCard({
         ) : (
           <Icon name="science" className="text-5xl text-primary/50" />
         )}
-        <span className={`absolute right-3 top-3 rounded-md px-2.5 py-1 text-caption font-semibold ${sellableVariant && (hasUntrackedInventory || availableQuantity > 0) ? 'bg-[#e5f5ed] text-[#256247]' : 'bg-[#fde8e8] text-[#a33a3a]'}`}>
-          {sellableVariant && (hasUntrackedInventory || availableQuantity > 0) ? 'Còn hàng' : 'Hết hàng'}
+        <span className={`absolute right-3 top-3 rounded-md px-2.5 py-1 text-caption font-semibold ${isSellable ? 'bg-[#e5f5ed] text-[#256247]' : 'bg-[#fde8e8] text-[#a33a3a]'}`}>
+          {isSellable ? 'Còn hàng' : 'Hết hàng'}
         </span>
       </div>
 
@@ -102,7 +106,7 @@ export default function ProductCard({
           <span className="text-body-lg font-semibold text-on-surface">{price}</span>
           {sellableVariant ? (
             <span className="text-right text-caption text-on-surface-variant">
-              {hasUntrackedInventory ? 'Đang bán' : `Kho: ${availableQuantity}`}
+              {hasUntrackedInventory ? 'Đang bán' : `Kho: ${sellableAvailableQuantity}`}
             </span>
           ) : null}
         </div>
@@ -117,8 +121,8 @@ export default function ProductCard({
           <button
             type="button"
             onClick={handleQuickAdd}
-            disabled={!id || !sellableVariant || (!hasUntrackedInventory && availableQuantity <= 0)}
-            title={sellableVariant && (hasUntrackedInventory || availableQuantity > 0) ? 'Thêm nhanh vào giỏ hàng' : 'Sản phẩm đang hết hàng'}
+            disabled={!id || !isSellable}
+            title={isSellable ? 'Thêm nhanh vào giỏ hàng' : 'Sản phẩm đang hết hàng'}
             className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/30 bg-primary-light text-primary transition-all hover:bg-primary hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="add_shopping_cart" className="text-xl" />

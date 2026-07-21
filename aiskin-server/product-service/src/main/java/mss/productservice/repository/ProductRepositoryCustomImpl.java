@@ -14,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import com.mongodb.client.model.ReplaceOptions;
@@ -66,16 +67,27 @@ public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
             }
         }
         product.setUpdatedAt(Instant.now());
+        Long currentVersion = product.getVersion();
+        product.setVersion(currentVersion == null ? 0L : currentVersion + 1L);
         Document replacement = new Document();
         mongoTemplate.getConverter().write(product, replacement);
         replacement.put("_id", storedId);
 
+        Document versionedFilter = new Document("_id", storedId);
+        if (currentVersion == null) {
+            versionedFilter.append("$or", List.of(
+                    new Document("version", new Document("$exists", false)),
+                    new Document("version", null)));
+        } else {
+            versionedFilter.append("version", currentVersion);
+        }
         var result = collection.replaceOne(
-                new Document("_id", storedId),
+                versionedFilter,
                 replacement,
                 new ReplaceOptions().upsert(false));
         if (result.getMatchedCount() != 1) {
-            throw new IllegalStateException("Product no longer exists: " + product.getId());
+            throw new OptimisticLockingFailureException(
+                    "Product was updated by another inventory operation: " + product.getId());
         }
         return product;
     }

@@ -71,7 +71,9 @@ public class OrderService implements IOrderService {
 
     private final String internalServiceToken;
 
-    public OrderService(OrderRepository orderRepository, MomoConfig momoConfig, VnpayConfig vnpayConfig, IGhnService ghnService, PaymentConfigurationValidator paymentConfigurationValidator, RestTemplate restTemplate, @Value("${product-service.base-url}") String productServiceBaseUrl, @Value("${product-service.internal-token}") String internalServiceToken) {
+    private final boolean bankTransferSimulationEnabled;
+
+    public OrderService(OrderRepository orderRepository, MomoConfig momoConfig, VnpayConfig vnpayConfig, IGhnService ghnService, PaymentConfigurationValidator paymentConfigurationValidator, RestTemplate restTemplate, @Value("${product-service.base-url}") String productServiceBaseUrl, @Value("${product-service.internal-token}") String internalServiceToken, @Value("${app.features.bank-transfer-simulation-enabled:false}") boolean bankTransferSimulationEnabled) {
         this.orderRepository = orderRepository;
         this.momoConfig = momoConfig;
         this.vnpayConfig = vnpayConfig;
@@ -80,6 +82,7 @@ public class OrderService implements IOrderService {
         this.restTemplate = restTemplate;
         this.productServiceBaseUrl = productServiceBaseUrl;
         this.internalServiceToken = internalServiceToken;
+        this.bankTransferSimulationEnabled = bankTransferSimulationEnabled;
     }
 
     public OrderResponse createOrder(OrderRequest request, String idempotencyKey) {
@@ -356,6 +359,9 @@ public class OrderService implements IOrderService {
     }
 
     public PaymentProcessingResult simulateBankTransfer(String orderCode) {
+        if (!bankTransferSimulationEnabled) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bank transfer simulation is disabled");
+        }
         Order order = orderRepository.findByOrderCode(orderCode).orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng"));
         if (order.getPaymentMethod() != Order.PaymentMethod.BANK_TRANSFER) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng không sử dụng hình thức chuyển khoản");
@@ -399,7 +405,11 @@ public class OrderService implements IOrderService {
     }
 
     private void rejectLatePayment(Order order) {
-        if (order.getStatus() == Order.OrderStatus.CANCELLED || !Boolean.TRUE.equals(order.getInventoryReserved())) {
+        boolean reservationExpired = order.getReservationExpiresAt() != null
+                && !order.getReservationExpiresAt().isAfter(LocalDateTime.now());
+        if (order.getStatus() == Order.OrderStatus.CANCELLED
+                || !Boolean.TRUE.equals(order.getInventoryReserved())
+                || reservationExpired) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng đã hết hạn hoặc đã hủy");
         }
     }
