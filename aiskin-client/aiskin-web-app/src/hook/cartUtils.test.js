@@ -17,5 +17,7 @@ test('legacy cart item receives a stable default line id', () => {
 
 test('tracked inventory caps cart quantity', () => {
   assert.equal(cappedQuantity({ availableQuantity: 3 }, 10), 3)
+  assert.equal(cappedQuantity({ trackInventory: true, availableQuantity: 0 }, 1), 0)
   assert.equal(cappedQuantity({ trackInventory: false, availableQuantity: 0 }, 10), 10)
+  assert.equal(cappedQuantity({}, 4), 4)
 })

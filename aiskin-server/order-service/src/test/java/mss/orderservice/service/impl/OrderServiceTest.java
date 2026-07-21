@@ -44,7 +44,7 @@ class OrderServiceTest {
         RestTemplate restTemplate = new RestTemplate();
         MomoConfig momoConfig = new MomoConfig();
         VnpayConfig vnpayConfig = new VnpayConfig();
-        service = new OrderService(orderRepository, momoConfig, vnpayConfig, ghnService, new PaymentConfigurationValidator(momoConfig, vnpayConfig), restTemplate, "http://product-service", "internal-token");
+        service = createService(restTemplate, false);
         inventoryServer = MockRestServiceServer.bindTo(restTemplate).build();
         when(ghnService.calculateFee(3695, "90753", 500, 2)).thenReturn(Map.of("total", 30_000));
     }
@@ -94,6 +94,29 @@ class OrderServiceTest {
     void rejectsPaymentCallbackForUnknownOrder() {
         when(orderRepository.findByOrderCode("ORD-MISSING")).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.processVnpayIpn("ORD-MISSING", "00", "00", 13_000_000, "TXN-1")).isInstanceOf(org.springframework.web.server.ResponseStatusException.class).hasMessageContaining("Không tìm thấy đơn thanh toán");
+    }
+
+    @Test
+    void rejectsBankTransferSimulationWhenFeatureIsDisabled() {
+        assertThatThrownBy(() -> service.simulateBankTransfer("ORD-ONLINE"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("simulation is disabled");
+        verify(orderRepository, times(0)).findByOrderCode(any());
+    }
+
+    @Test
+    void confirmsBankTransferSimulationWhenFeatureIsEnabled() {
+        RestTemplate restTemplate = new RestTemplate();
+        service = createService(restTemplate, true);
+        Order order = onlineOrder(Order.PaymentMethod.BANK_TRANSFER);
+        when(orderRepository.findByOrderCode("ORD-ONLINE")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var result = service.simulateBankTransfer("ORD-ONLINE");
+
+        assertThat(result.paymentStatus()).isEqualTo(Order.PaymentStatus.PAID);
+        assertThat(order.getPaymentTransactionId()).startsWith("SIMULATED-");
+        verify(orderRepository).save(order);
     }
 
     @Test
@@ -161,6 +184,27 @@ class OrderServiceTest {
 
     private Order onlineOrder(Order.PaymentMethod paymentMethod) {
         return Order.builder().orderCode("ORD-ONLINE").customerId("user-1").status(Order.OrderStatus.PENDING).paymentMethod(paymentMethod).paymentStatus(Order.PaymentStatus.UNPAID).inventoryReserved(true).inventoryCommitted(false).reservationExpiresAt(LocalDateTime.now().plusMinutes(15)).totalAmount(BigDecimal.valueOf(130_000)).items(List.of()).build();
+    }
+
+    @Test
+    void rejectsSuccessfulCallbackAfterReservationExpired() {
+        Order order = onlineOrder(Order.PaymentMethod.VNPAY);
+        order.setReservationExpiresAt(LocalDateTime.now().minusSeconds(1));
+        when(orderRepository.findByOrderCode("ORD-ONLINE")).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> service.processVnpayIpn(
+                "ORD-ONLINE", "00", "00", 13_000_000, "VNP-TXN-LATE"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("hết hạn");
+        verify(orderRepository, times(0)).save(any());
+    }
+
+    private IOrderService createService(RestTemplate restTemplate, boolean bankTransferSimulationEnabled) {
+        MomoConfig momoConfig = new MomoConfig();
+        VnpayConfig vnpayConfig = new VnpayConfig();
+        return new OrderService(orderRepository, momoConfig, vnpayConfig, ghnService,
+                new PaymentConfigurationValidator(momoConfig, vnpayConfig), restTemplate,
+                "http://product-service", "internal-token", bankTransferSimulationEnabled);
     }
 
     private void expectInventory(String action) {

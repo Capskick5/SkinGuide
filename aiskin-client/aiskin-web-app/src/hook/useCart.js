@@ -49,9 +49,10 @@ export function useCart() {
     if (idx >= 0) {
       next = current.map((i, index) =>
         index === idx ? { ...i, qty: cappedQuantity(i, i.qty + qty) } : i,
-      )
+      ).filter((item) => item.qty > 0)
     } else {
-      next = [...current, { ...normalizedProduct, qty: cappedQuantity(normalizedProduct, qty) }]
+      const capped = cappedQuantity(normalizedProduct, qty)
+      next = capped > 0 ? [...current, { ...normalizedProduct, qty: capped }] : current
     }
     writeCart(next)
     setItems(next)
@@ -69,9 +70,10 @@ export function useCart() {
       if (idx >= 0) {
         current = current.map((i, index) =>
           index === idx ? { ...i, qty: cappedQuantity(i, i.qty + qty) } : i,
-        )
+        ).filter((item) => item.qty > 0)
       } else {
-        current = [...current, { ...normalizedProduct, qty: cappedQuantity(normalizedProduct, qty) }]
+        const capped = cappedQuantity(normalizedProduct, qty)
+        if (capped > 0) current = [...current, { ...normalizedProduct, qty: capped }]
       }
     })
     writeCart(current)
@@ -96,7 +98,7 @@ export function useCart() {
     }
     const next = readCart().map((item) => (
       item.lineId === lineId ? { ...item, qty: cappedQuantity(item, qty) } : item
-    ))
+    )).filter((item) => item.qty > 0)
     writeCart(next)
     setItems(next)
   }, [])

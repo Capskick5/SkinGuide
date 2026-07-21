@@ -15,6 +15,7 @@ import mss.orderservice.repository.RefundRequestRepository;
 import mss.orderservice.repository.ReturnOrderRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.Locale;
@@ -61,6 +62,7 @@ public class RefundRequestService implements IRefundRequestService {
         return refundRequestRepository.save(refundRequest);
     }
 
+    @Transactional
     public RefundRequest completeRefund(String id, String receiptUrl) {
         RefundRequest request = refundRequestRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu hoàn tiền"));
         if (request.getStatus() == RefundRequest.RefundStatus.COMPLETED) {

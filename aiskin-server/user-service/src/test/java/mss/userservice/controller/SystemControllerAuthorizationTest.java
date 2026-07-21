@@ -8,12 +8,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SystemControllerAuthorizationTest {
 
     @Test
-    void endpointInventoryRequiresAdminRole() throws NoSuchMethodException {
+    void endpointInventoryRequiresSystemEndpointPermission() throws NoSuchMethodException {
         PreAuthorize authorization = SystemController.class
                 .getDeclaredMethod("getEndpoints")
                 .getAnnotation(PreAuthorize.class);
 
         assertThat(authorization).isNotNull();
-        assertThat(authorization.value()).isEqualTo("hasRole('ADMIN')");
+        assertThat(authorization.value())
+                .isEqualTo("hasPermission('/api/users/system/endpoints', 'GET')");
     }
 }

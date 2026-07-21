@@ -78,8 +78,30 @@ class ProductRepositoryCustomImplTest {
         ArgumentCaptor<Document> filter = ArgumentCaptor.forClass(Document.class);
         verify(collection).replaceOne(filter.capture(), any(Document.class), any());
         assertThat(filter.getValue().get("_id")).isInstanceOf(org.bson.types.ObjectId.class);
+        assertThat(filter.getValue()).containsKey("$or");
         assertThat(saved).isSameAs(product);
+        assertThat(saved.getVersion()).isZero();
         assertThat(saved.getUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    void updatesExistingProductOnlyWhenVersionMatches() {
+        MongoTemplate mongoTemplate = mock(MongoTemplate.class);
+        MongoCollection<Document> collection = mockCollection(mongoTemplate);
+        MongoConverter converter = mock(MongoConverter.class);
+        UpdateResult updateResult = mock(UpdateResult.class);
+        Product product = Product.builder().id("product-1").version(4L).build();
+        when(mongoTemplate.getConverter()).thenReturn(converter);
+        when(collection.replaceOne(any(Document.class), any(Document.class), any()))
+                .thenReturn(updateResult);
+        when(updateResult.getMatchedCount()).thenReturn(1L);
+
+        Product saved = new ProductRepositoryCustomImpl(mongoTemplate).saveFlexible(product);
+
+        ArgumentCaptor<Document> filter = ArgumentCaptor.forClass(Document.class);
+        verify(collection).replaceOne(filter.capture(), any(Document.class), any());
+        assertThat(filter.getValue()).containsEntry("version", 4L);
+        assertThat(saved.getVersion()).isEqualTo(5L);
     }
 
     @Test
