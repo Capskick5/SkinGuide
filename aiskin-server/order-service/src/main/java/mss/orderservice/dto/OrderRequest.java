@@ -38,4 +38,7 @@ public class OrderRequest {
     private List<OrderItemRequest> items;
     @NotNull(message = "Phương thức thanh toán là bắt buộc")
     private PaymentMethod paymentMethod;
+
+    // Mã giảm giá (tùy chọn). Backend luôn kiểm chứng lại giá trị giảm, không tin số tiền client tự tính.
+    private String voucherCode;
 }
