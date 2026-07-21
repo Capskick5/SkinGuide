@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.productservice.config;
 
 import mss.productservice.security.CustomPermissionEvaluator;

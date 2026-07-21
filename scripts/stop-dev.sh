@@ -20,7 +20,7 @@ stop_process() {
   echo "Stopped $name."
 }
 
-for name in frontend recommendation ai-scan gateway order product user discovery; do
+for name in frontend recommendation ai-scan gateway order product user; do
   stop_process "$name"
 done
 
@@ -31,7 +31,7 @@ pkill -TERM -f "$ROOT_DIR/aiskin-client/aiskin-web-app.*vite" 2>/dev/null || tru
 
 stop_repo_listeners() {
   local port pid cwd
-  for port in 5000 5001 5174 8080 8081 8082 8083 8761; do
+  for port in 5000 5001 5174 8080 8081 8082 8083; do
     for pid in $(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true); do
       cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
       if [[ "$cwd" == "$ROOT_DIR"* ]]; then

@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.productservice.repository;
 
 import lombok.RequiredArgsConstructor;
@@ -7,9 +11,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.MongoExpression;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import com.mongodb.client.model.ReplaceOptions;
@@ -27,6 +33,17 @@ import java.time.Instant;
 public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
 
     private static final int MAX_PAGE_SIZE = 100;
+
+    // Tổng số lượng còn bán được = sum(onHandQuantity - reservedQuantity) trên toàn bộ variants/inventoryLevels.
+    // Mirror chính xác cách totalAvailable() ở ProductService tính toán (không lọc theo variant.isActive)
+    // để "inStockOnly" nhất quán với số liệu tồn kho hiển thị cho người dùng.
+    private static final String IN_STOCK_EXPR = "{ '$gt': [ { '$sum': { '$map': { "
+            + "'input': { '$ifNull': ['$variants', []] }, 'as': 'v', "
+            + "'in': { '$sum': { '$map': { "
+            + "'input': { '$ifNull': ['$$v.inventoryLevels', []] }, 'as': 'lvl', "
+            + "'in': { '$subtract': [ { '$ifNull': ['$$lvl.onHandQuantity', 0] }, { '$ifNull': ['$$lvl.reservedQuantity', 0] } ] } "
+            + "} } } "
+            + "} } }, 0 ] }";
 
     private final MongoTemplate mongoTemplate;
 
@@ -62,16 +79,27 @@ public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
             }
         }
         product.setUpdatedAt(Instant.now());
+        Long currentVersion = product.getVersion();
+        product.setVersion(currentVersion == null ? 0L : currentVersion + 1L);
         Document replacement = new Document();
         mongoTemplate.getConverter().write(product, replacement);
         replacement.put("_id", storedId);
 
+        Document versionedFilter = new Document("_id", storedId);
+        if (currentVersion == null) {
+            versionedFilter.append("$or", List.of(
+                    new Document("version", new Document("$exists", false)),
+                    new Document("version", null)));
+        } else {
+            versionedFilter.append("version", currentVersion);
+        }
         var result = collection.replaceOne(
-                new Document("_id", storedId),
+                versionedFilter,
                 replacement,
                 new ReplaceOptions().upsert(false));
         if (result.getMatchedCount() != 1) {
-            throw new IllegalStateException("Product no longer exists: " + product.getId());
+            throw new OptimisticLockingFailureException(
+                    "Product was updated by another inventory operation: " + product.getId());
         }
         return product;
     }
@@ -99,6 +127,38 @@ public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
         // 2. Filter by categoryId
         if (StringUtils.hasText(request.getCategoryId()) && !"all".equals(request.getCategoryId())) {
             andCriteriaList.add(Criteria.where("categoryId").is(request.getCategoryId()));
+        }
+
+        // 2a. Filter by brandId (độc lập với categoryId)
+        if (StringUtils.hasText(request.getBrandId()) && !"all".equals(request.getBrandId())) {
+            andCriteriaList.add(Criteria.where("brandId").is(request.getBrandId()));
+        }
+
+        // 2b. Filter by skinType (Product.targetSkinTypes là mảng, .is() khớp phần tử chứa trong mảng)
+        if (StringUtils.hasText(request.getSkinType()) && !"all".equals(request.getSkinType())) {
+            andCriteriaList.add(Criteria.where("targetSkinTypes").is(request.getSkinType()));
+        }
+
+        // 2c. Filter by concern (Product.targetConcerns là mảng)
+        if (StringUtils.hasText(request.getConcern()) && !"all".equals(request.getConcern())) {
+            andCriteriaList.add(Criteria.where("targetConcerns").is(request.getConcern()));
+        }
+
+        // 2d. Filter by price range - Product.price là field giá gốc (cũng dùng cho sortBy price-asc/price-desc)
+        if (request.getMinPrice() != null || request.getMaxPrice() != null) {
+            Criteria priceCriteria = Criteria.where("price");
+            if (request.getMinPrice() != null) {
+                priceCriteria = priceCriteria.gte(request.getMinPrice());
+            }
+            if (request.getMaxPrice() != null) {
+                priceCriteria = priceCriteria.lte(request.getMaxPrice());
+            }
+            andCriteriaList.add(priceCriteria);
+        }
+
+        // 2e. Filter by inStockOnly - chỉ trả sản phẩm có tổng số lượng còn bán được > 0
+        if (Boolean.TRUE.equals(request.getInStockOnly())) {
+            andCriteriaList.add(Criteria.expr(MongoExpression.create(IN_STOCK_EXPR)));
         }
 
         // 3. Search query

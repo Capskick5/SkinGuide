@@ -35,6 +35,11 @@ cp aiskin-server/.env.example aiskin-server/.env
 ./scripts/start-dev.sh
 ```
 
+> ⚠️ **Sau khi `git pull` mà có file bị di chuyển/đổi package** (ví dụ đợt refactor gom class vào `impl/`), các `.class` cũ còn sót trong `target/` có thể gây `ConflictingBeanDefinitionException` khiến service không khởi động. Chạy build sạch một lần trước khi `start-dev.sh`:
+> ```bash
+> cd aiskin-server && for s in user-service product-service order-service api-gateway; do (cd $s && ./mvnw clean compile -DskipTests); done; cd ..
+> ```
+
 Mở terminal khác để kiểm tra:
 
 ```bash

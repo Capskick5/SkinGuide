@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.productservice.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,9 +33,9 @@ public class SystemController {
         List<Map<String, String>> endpoints = new ArrayList<>();
         handlerMapping.getHandlerMethods().forEach((info, method) -> {
             if (info.getMethodsCondition().getMethods().isEmpty()) return;
-            
+
             String reqMethod = info.getMethodsCondition().getMethods().iterator().next().name();
-            
+
             if (info.getPatternValues() != null && !info.getPatternValues().isEmpty()) {
                 String path = info.getPatternValues().iterator().next();
                 Map<String, String> ep = new HashMap<>();

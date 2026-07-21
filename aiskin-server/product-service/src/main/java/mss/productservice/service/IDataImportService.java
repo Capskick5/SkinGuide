@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.productservice.service;
 
 import mss.productservice.model.*;
@@ -9,7 +13,7 @@ import java.util.Optional;
 import mss.productservice.util.SlugUtil;
 
 public interface IDataImportService {
-    
+
     public record ImportResult(int imported, int skipped, int total) {}
 
     ImportResult importProducts(List<Product> products);

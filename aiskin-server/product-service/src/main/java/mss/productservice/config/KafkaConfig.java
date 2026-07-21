@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.productservice.config;
 
 import org.apache.kafka.clients.producer.ProducerConfig;

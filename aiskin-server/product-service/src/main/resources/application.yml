@@ -23,14 +23,6 @@ app:
     secret: ${JWT_SECRET}
     issuer: aiskin-user-service
 
-
-  client:
-    service-url:
-      defaultZone: ${EUREKA_URI}
-  instance:
-    hostname: ${EUREKA_INSTANCE_HOSTNAME:127.0.0.1}
-    prefer-ip-address: false
-
 logging:
   level:
     mss.productservice: DEBUG

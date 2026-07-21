@@ -46,12 +46,15 @@ run_frontend_checks() {
     cd "$CLIENT_DIR"
     npm run lint
     npm run build
+    if compgen -G "src/**/*.test.js" >/dev/null 2>&1 || compgen -G "src/hook/*.test.js" >/dev/null 2>&1; then
+      node --test 'src/**/*.test.js'
+    fi
   )
 }
 
 step "Committed secret scan" "$ROOT_DIR/scripts/check-secrets.sh"
 
-for service in discovery-server api-gateway user-service product-service order-service; do
+for service in api-gateway user-service product-service order-service; do
   step "Java tests: $service" run_maven_tests "$service"
 done
 

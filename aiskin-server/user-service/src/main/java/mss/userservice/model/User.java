@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.userservice.model;
 
 import lombok.AllArgsConstructor;
@@ -12,7 +16,9 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -55,8 +61,9 @@ public class User {
     /** Embedded skin profile (nullable until first set). */
     private SkinProfile skinProfile;
 
-    /** Default checkout delivery address (nullable until first order). */
-    private DeliveryAddress deliveryAddress;
+    /** Sổ địa chỉ giao hàng (nhiều địa chỉ, một địa chỉ mặc định tại một thời điểm). */
+    @Builder.Default
+    private List<Address> addresses = new ArrayList<>();
 
     @CreatedDate
     private Instant createdAt;

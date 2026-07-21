@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.orderservice.config;
 
 import mss.orderservice.security.CustomPermissionEvaluator;
@@ -18,4 +22,3 @@ public class MethodSecurityConfig {
         return expressionHandler;
     }
 }
-

@@ -1,386 +1,386 @@
-<!DOCTYPE html>
-
-<html class="light" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>MSS Skincare Routine</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "colors": {
-                        "secondary-fixed": "#ffd8ea",
-                        "success": "#10B981",
-                        "outline": "#8b7079",
-                        "on-tertiary": "#ffffff",
-                        "on-surface-variant": "#574048",
-                        "primary-fixed-dim": "#ffb0cd",
-                        "on-error-container": "#93000a",
-                        "surface-bright": "#f8f9ff",
-                        "tertiary-fixed": "#ffd9e2",
-                        "inverse-on-surface": "#eaf1ff",
-                        "on-primary": "#ffffff",
-                        "on-tertiary-container": "#fffbff",
-                        "on-secondary-container": "#7c3d63",
-                        "background": "#f8f9ff",
-                        "surface-container": "#e6eeff",
-                        "surface-container-high": "#dee9fc",
-                        "primary-light": "#FCE7F3",
-                        "border-pink": "#FBCFE8",
-                        "inverse-surface": "#27313f",
-                        "surface": "#f8f9ff",
-                        "secondary": "#8a486f",
-                        "on-tertiary-fixed-variant": "#8e0048",
-                        "on-background": "#121c2a",
-                        "outline-variant": "#debec8",
-                        "on-surface": "#121c2a",
-                        "on-secondary-fixed": "#3a0329",
-                        "tertiary-fixed-dim": "#ffb1c7",
-                        "inverse-primary": "#ffb0cd",
-                        "primary-fixed": "#ffd9e4",
-                        "surface-dim": "#d0dbed",
-                        "primary-container": "#d23284",
-                        "on-primary-fixed-variant": "#8c0053",
-                        "primary": "#b10e6b",
-                        "error-container": "#ffdad6",
-                        "surface-container-lowest": "#ffffff",
-                        "error": "#EF4444",
-                        "secondary-fixed-dim": "#ffaeda",
-                        "warning": "#F59E0B",
-                        "tertiary": "#b5005d",
-                        "on-error": "#ffffff",
-                        "surface-container-highest": "#d9e3f6",
-                        "on-primary-container": "#fffbff",
-                        "on-tertiary-fixed": "#3f001c",
-                        "on-secondary": "#ffffff",
-                        "tertiary-container": "#da2676",
-                        "on-primary-fixed": "#3e0022",
-                        "surface-soft": "#FFF5F9",
-                        "surface-container-low": "#eff4ff",
-                        "on-secondary-fixed-variant": "#6f3157",
-                        "surface-tint": "#b4136d",
-                        "surface-variant": "#d9e3f6",
-                        "secondary-container": "#ffaeda"
-                    },
-                    "borderRadius": {
-                        "DEFAULT": "1rem",
-                        "lg": "2rem",
-                        "xl": "3rem",
-                        "full": "9999px"
-                    },
-                    "spacing": {
-                        "stack-gap": "16px",
-                        "margin-mobile": "16px",
-                        "container-max": "1200px",
-                        "gutter": "24px",
-                        "sidebar-width": "90px"
-                    },
-                    "fontFamily": {
-                        "display-hero": ["Inter"],
-                        "body-md": ["Inter"],
-                        "label-md": ["Inter"],
-                        "body-lg": ["Inter"],
-                        "caption": ["Inter"],
-                        "headline-md": ["Inter"],
-                        "headline-lg-mobile": ["Inter"],
-                        "headline-lg": ["Inter"]
-                    },
-                    "fontSize": {
-                        "display-hero": ["56px", { "lineHeight": "64px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
-                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
-                        "label-md": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
-                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
-                        "caption": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
-                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
-                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
-                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
-                    }
-                }
-            }
-        }
-    </script>
-<style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8f9ff; }
-        .ambient-shadow { box-shadow: 0 10px 40px -10px rgba(236, 72, 153, 0.08); }
-        .pink-gradient-text { background: linear-gradient(135deg, #F9A8D4, #EC4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .timeline-connector { width: 2px; background-color: #FBCFE8; position: absolute; left: 24px; top: 40px; bottom: -20px; z-index: 0; }
-        .last-item .timeline-connector { display: none; }
-    </style>
-</head>
-<body class="bg-background text-on-background min-h-screen flex selection:bg-primary-light selection:text-primary">
-<!-- SideNavBar -->
-<nav class="hidden md:flex bg-surface-container-lowest dark:bg-inverse-surface border-r border-pink dark:border-outline-variant shadow-sm fixed left-0 top-0 h-full w-[90px] flex-col items-center py-6 gap-stack-gap z-50">
-<div class="mb-8 flex flex-col items-center">
-<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">MSS</span>
-<span class="font-caption text-caption text-on-surface-variant text-[10px]">AI Skincare</span>
-</div>
-<div class="flex flex-col w-full px-2 gap-4">
-<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">clinical_notes</span>
-<span class="font-caption text-caption text-[11px] text-center">New Scan</span>
-</a>
-<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">dashboard</span>
-<span class="font-caption text-caption text-[11px] text-center">Dashboard</span>
-</a>
-<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">face</span>
-<span class="font-caption text-caption text-[11px] text-center">My Skin</span>
-</a>
-<!-- Active Tab -->
-<a class="flex flex-col items-center justify-center p-2 bg-primary-light dark:bg-secondary-container text-primary dark:text-on-secondary-container rounded-full scale-95 active:scale-90 transition-transform" href="#">
-<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
-<span class="font-caption text-caption text-[11px] text-center font-semibold">Routine</span>
-</a>
-<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">shopping_bag</span>
-<span class="font-caption text-caption text-[11px] text-center">Products</span>
-</a>
-<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">history</span>
-<span class="font-caption text-caption text-[11px] text-center">History</span>
-</a>
-<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">trending_up</span>
-<span class="font-caption text-caption text-[11px] text-center">Progress</span>
-</a>
-<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#">
-<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">more_horiz</span>
-<span class="font-caption text-caption text-[11px] text-center">More</span>
-</a>
-</div>
-<div class="mt-auto pb-4">
-<button class="bg-gradient-to-br from-[#F9A8D4] to-[#EC4899] text-white px-3 py-1.5 rounded-full font-label-md text-label-md shadow-sm hover:opacity-90 transition-opacity">
-                Upgrade
-            </button>
-</div>
-</nav>
-<!-- TopNavBar -->
-<header class="hidden md:flex bg-surface-soft/80 dark:bg-background/80 backdrop-blur-md fixed top-0 right-0 w-[calc(100%-90px)] z-40 justify-end items-center px-gutter h-16 gap-4">
-<button class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors opacity-80 hover:opacity-100 p-2 rounded-full hover:bg-surface-variant/50">
-<span class="material-symbols-outlined">notifications</span>
-</button>
-<button class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors opacity-80 hover:opacity-100 p-2 rounded-full hover:bg-surface-variant/50">
-<span class="material-symbols-outlined">settings</span>
-</button>
-<div class="w-8 h-8 rounded-full overflow-hidden border border-border-pink ml-2 cursor-pointer">
-<img alt="User profile" class="w-full h-full object-cover" data-alt="A close-up portrait of a woman with radiant, healthy skin, looking relaxed and confident. The lighting is soft and natural, emphasizing a modern, clean, and wellness-focused aesthetic. The background is a very light, neutral tone, consistent with a high-end skincare or AI wellness app profile picture. The overall mood is serene, professional, and lightly touched with a rose-water pink tonal warmth." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgsP2_f0dfYhGL3I7qRaw2nQc66QrAZKdgPhMfZyCl3tuHfiLnHxEdH_WEdmWZt07bRzrdnHqFovHXgyLX6xJSYg2hOLYNbGX6tlSfcNKzypBmiA-7IlqV6Ly5R5NwJ_GtyPsqZXUBGZtMd17TYVN8evtnCCiaB7OjKyJ8NnWSlnO94DY7gIOugcBkvWD8ZNSEDZhcyxCXBMyaU5Qo0i82igFr7qf6ivDxn4p_x-N5AUJYkWZMDshzGlhHFEUxSoedABfGCzXdMZg"/>
-</div>
-</header>
-<!-- Main Content Area -->
-<main class="w-full md:ml-[90px] pt-20 md:pt-24 px-4 md:px-gutter pb-24 max-w-container-max mx-auto">
-<!-- Header & Toggle -->
-<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
-<div>
-<h1 class="font-headline-lg text-headline-lg md:text-headline-lg font-semibold text-on-background">Your Personalized Routine</h1>
-<p class="font-body-md text-body-md text-on-surface-variant mt-1">AI-optimized for Hydration and Barrier Repair</p>
-</div>
-<div class="bg-surface-container-lowest border border-border-pink p-1 rounded-full flex shadow-sm">
-<button class="px-6 py-2 rounded-full bg-primary-light text-primary font-label-md text-label-md font-semibold transition-all">
-                    Morning
-                </button>
-<button class="px-6 py-2 rounded-full text-on-surface-variant font-label-md text-label-md hover:bg-surface-variant/50 transition-all">
-                    Evening
-                </button>
-</div>
-</div>
-<!-- Layout Grid -->
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-<!-- Timeline Column -->
-<div class="lg:col-span-8">
-<div class="bg-surface-container-lowest rounded-DEFAULT border border-border-pink p-6 md:p-8 ambient-shadow">
-<h2 class="font-headline-md text-headline-md mb-6 text-on-background flex items-center gap-2">
-<span class="material-symbols-outlined text-primary">light_mode</span>
-                        Morning Steps
-                    </h2>
-<div class="relative pl-2">
-<!-- Step 1 -->
-<div class="relative pb-10">
-<div class="timeline-connector"></div>
-<div class="flex items-start gap-6 relative z-10">
-<div class="w-12 h-12 rounded-full bg-gradient-to-br from-[#F9A8D4] to-[#EC4899] text-white flex items-center justify-center font-headline-md text-headline-md flex-shrink-0 shadow-sm border-2 border-white">
-                                    1
-                                </div>
-<div class="flex-1 bg-surface-soft rounded-lg border border-border-pink p-5 hover:border-primary-container transition-colors group cursor-pointer">
-<div class="flex justify-between items-start mb-2">
-<h3 class="font-label-md text-label-md font-semibold text-on-background text-lg group-hover:text-primary transition-colors">Gentle Cleanser</h3>
-<span class="font-caption text-caption px-2 py-1 bg-white rounded-full border border-border-pink text-primary">Prep</span>
-</div>
-<p class="font-body-md text-body-md text-on-surface-variant mb-4">Remove overnight impurities without stripping the skin barrier.</p>
-<div class="flex items-center gap-3 p-3 bg-white rounded-md border border-outline-variant/30">
-<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center text-primary overflow-hidden">
-<span class="material-symbols-outlined">water_drop</span>
-</div>
-<div>
-<p class="font-label-md text-label-md font-medium text-on-background">Hydrating Gel Cleanser</p>
-<p class="font-caption text-caption text-on-surface-variant">Recommended Product</p>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- Step 2 -->
-<div class="relative pb-10">
-<div class="timeline-connector"></div>
-<div class="flex items-start gap-6 relative z-10">
-<div class="w-12 h-12 rounded-full bg-primary-light text-primary flex items-center justify-center font-headline-md text-headline-md flex-shrink-0 shadow-sm border-2 border-white">
-                                    2
-                                </div>
-<div class="flex-1 bg-surface-soft rounded-lg border border-border-pink p-5 hover:border-primary-container transition-colors group cursor-pointer">
-<div class="flex justify-between items-start mb-2">
-<h3 class="font-label-md text-label-md font-semibold text-on-background text-lg group-hover:text-primary transition-colors">Antioxidant Serum</h3>
-<span class="font-caption text-caption px-2 py-1 bg-white rounded-full border border-border-pink text-primary">Treat</span>
-</div>
-<p class="font-body-md text-body-md text-on-surface-variant mb-4">Protect against environmental damage and free radicals.</p>
-<div class="flex items-center gap-3 p-3 bg-white rounded-md border border-outline-variant/30">
-<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center text-primary overflow-hidden">
-<span class="material-symbols-outlined">science</span>
-</div>
-<div>
-<p class="font-label-md text-label-md font-medium text-on-background">Vitamin C 15%</p>
-<p class="font-caption text-caption text-on-surface-variant">Recommended Product</p>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- Step 3 -->
-<div class="relative pb-10">
-<div class="timeline-connector"></div>
-<div class="flex items-start gap-6 relative z-10">
-<div class="w-12 h-12 rounded-full bg-primary-light text-primary flex items-center justify-center font-headline-md text-headline-md flex-shrink-0 shadow-sm border-2 border-white">
-                                    3
-                                </div>
-<div class="flex-1 bg-surface-soft rounded-lg border border-border-pink p-5 hover:border-primary-container transition-colors group cursor-pointer">
-<div class="flex justify-between items-start mb-2">
-<h3 class="font-label-md text-label-md font-semibold text-on-background text-lg group-hover:text-primary transition-colors">Moisturizer</h3>
-<span class="font-caption text-caption px-2 py-1 bg-white rounded-full border border-border-pink text-primary">Nourish</span>
-</div>
-<p class="font-body-md text-body-md text-on-surface-variant mb-4">Lock in hydration and support the skin's natural barrier function.</p>
-<div class="flex items-center gap-3 p-3 bg-white rounded-md border border-outline-variant/30">
-<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center text-primary overflow-hidden">
-<span class="material-symbols-outlined">spa</span>
-</div>
-<div>
-<p class="font-label-md text-label-md font-medium text-on-background">Ceramide Daily Cream</p>
-<p class="font-caption text-caption text-on-surface-variant">Recommended Product</p>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- Step 4 -->
-<div class="relative last-item">
-<div class="timeline-connector"></div>
-<div class="flex items-start gap-6 relative z-10">
-<div class="w-12 h-12 rounded-full bg-primary-light text-primary flex items-center justify-center font-headline-md text-headline-md flex-shrink-0 shadow-sm border-2 border-white">
-                                    4
-                                </div>
-<div class="flex-1 bg-surface-soft rounded-lg border border-border-pink p-5 hover:border-primary-container transition-colors group cursor-pointer">
-<div class="flex justify-between items-start mb-2">
-<h3 class="font-label-md text-label-md font-semibold text-on-background text-lg group-hover:text-primary transition-colors">Sun Protection</h3>
-<span class="font-caption text-caption px-2 py-1 bg-white rounded-full border border-border-pink text-primary">Protect</span>
-</div>
-<p class="font-body-md text-body-md text-on-surface-variant mb-4">Crucial defense against UV rays to prevent premature aging.</p>
-<div class="flex items-center gap-3 p-3 bg-white rounded-md border border-outline-variant/30">
-<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center text-primary overflow-hidden">
-<span class="material-symbols-outlined">sunny</span>
-</div>
-<div>
-<p class="font-label-md text-label-md font-medium text-on-background">Mineral SPF 50</p>
-<p class="font-caption text-caption text-on-surface-variant">Recommended Product</p>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- Summary Panel -->
-<div class="lg:col-span-4 flex flex-col gap-6">
-<!-- AI Insights Card -->
-<div class="bg-gradient-to-br from-surface-soft to-white rounded-DEFAULT border border-border-pink p-6 ambient-shadow relative overflow-hidden">
-<div class="absolute -right-4 -top-4 w-24 h-24 bg-primary-light rounded-full opacity-50 blur-xl"></div>
-<div class="flex items-center gap-2 mb-4 relative z-10">
-<span class="material-symbols-outlined text-primary">psychology</span>
-<h3 class="font-label-md text-label-md font-bold text-on-background">AI Routine Insights</h3>
-</div>
-<p class="font-body-md text-body-md text-on-surface-variant mb-4 relative z-10 text-sm">
-                        Based on your latest scan, your skin's hydration levels have improved by 12%. We've maintained the current focus on barrier repair while slightly increasing the antioxidant concentration for morning protection.
-                    </p>
-<button class="text-primary font-label-md text-label-md font-medium hover:underline relative z-10 flex items-center gap-1">
-                        View Detailed Scan
-                        <span class="material-symbols-outlined text-sm">arrow_forward</span>
-</button>
-</div>
-<!-- Daily Stats -->
-<div class="bg-surface-container-lowest rounded-DEFAULT border border-border-pink p-6 ambient-shadow">
-<h3 class="font-label-md text-label-md font-bold text-on-background mb-4">Routine Consistency</h3>
-<div class="flex items-center justify-center mb-6">
-<div class="relative w-32 h-32 flex items-center justify-center">
-<svg class="w-full h-full transform -rotate-90" viewbox="0 0 36 36">
-<path class="text-surface-variant" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path>
-<path class="text-primary" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="85, 100" stroke-linecap="round" stroke-width="3"></path>
-</svg>
-<div class="absolute text-center">
-<span class="block font-headline-lg text-headline-lg font-bold text-on-background">85%</span>
-<span class="block font-caption text-caption text-on-surface-variant">This Week</span>
-</div>
-</div>
-</div>
-<div class="space-y-3">
-<div class="flex justify-between items-center text-sm">
-<span class="text-on-surface-variant flex items-center gap-2">
-<span class="w-2 h-2 rounded-full bg-primary"></span>
-                                Completed Mornings
-                            </span>
-<span class="font-medium">6/7</span>
-</div>
-<div class="flex justify-between items-center text-sm">
-<span class="text-on-surface-variant flex items-center gap-2">
-<span class="w-2 h-2 rounded-full bg-secondary"></span>
-                                Completed Evenings
-                            </span>
-<span class="font-medium">5/7</span>
-</div>
-</div>
-</div>
-<!-- Action Button -->
-<button class="w-full bg-white border-2 border-border-pink text-on-background font-label-md text-label-md font-semibold py-3 rounded-full hover:bg-surface-soft transition-colors flex items-center justify-center gap-2">
-<span class="material-symbols-outlined">edit</span>
-                    Customize Routine
-                </button>
-</div>
-</div>
-</main>
-<!-- BottomNavBar (Mobile) -->
-<nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-lowest border-t border-pink pb-safe z-50 shadow-[0_-4px_20px_rgba(236,72,153,0.05)]">
-<div class="flex justify-around items-center h-16 px-2">
-<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant" href="#">
-<span class="material-symbols-outlined text-[20px]">dashboard</span>
-<span class="font-caption text-[10px] mt-1">Dash</span>
-</a>
-<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant" href="#">
-<span class="material-symbols-outlined text-[20px]">face</span>
-<span class="font-caption text-[10px] mt-1">Skin</span>
-</a>
-<!-- Active Mobile Tab -->
-<a class="flex flex-col items-center justify-center p-2 text-primary" href="#">
-<div class="bg-primary-light px-4 py-1 rounded-full mb-1">
-<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
-</div>
-<span class="font-caption text-[10px] font-semibold">Routine</span>
-</a>
-<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant" href="#">
-<span class="material-symbols-outlined text-[20px]">shopping_bag</span>
-<span class="font-caption text-[10px] mt-1">Shop</span>
-</a>
-</div>
-</nav>
-</body></html>
+<!DOCTYPE html> <!-- format -->
+ <!-- format -->
+<html class="light" lang="en"><head> <!-- format -->
+<meta charset="utf-8"/> <!-- format -->
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/> <!-- format -->
+<title>MSS Skincare Routine</title> <!-- format -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script> <!-- format -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/> <!-- format -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/> <!-- format -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/> <!-- format -->
+<script id="tailwind-config"> <!-- format -->
+        tailwind.config = { <!-- format -->
+            darkMode: "class", <!-- format -->
+            theme: { <!-- format -->
+                extend: { <!-- format -->
+                    "colors": { <!-- format -->
+                        "secondary-fixed": "#ffd8ea", <!-- format -->
+                        "success": "#10B981", <!-- format -->
+                        "outline": "#8b7079", <!-- format -->
+                        "on-tertiary": "#ffffff", <!-- format -->
+                        "on-surface-variant": "#574048", <!-- format -->
+                        "primary-fixed-dim": "#ffb0cd", <!-- format -->
+                        "on-error-container": "#93000a", <!-- format -->
+                        "surface-bright": "#f8f9ff", <!-- format -->
+                        "tertiary-fixed": "#ffd9e2", <!-- format -->
+                        "inverse-on-surface": "#eaf1ff", <!-- format -->
+                        "on-primary": "#ffffff", <!-- format -->
+                        "on-tertiary-container": "#fffbff", <!-- format -->
+                        "on-secondary-container": "#7c3d63", <!-- format -->
+                        "background": "#f8f9ff", <!-- format -->
+                        "surface-container": "#e6eeff", <!-- format -->
+                        "surface-container-high": "#dee9fc", <!-- format -->
+                        "primary-light": "#FCE7F3", <!-- format -->
+                        "border-pink": "#FBCFE8", <!-- format -->
+                        "inverse-surface": "#27313f", <!-- format -->
+                        "surface": "#f8f9ff", <!-- format -->
+                        "secondary": "#8a486f", <!-- format -->
+                        "on-tertiary-fixed-variant": "#8e0048", <!-- format -->
+                        "on-background": "#121c2a", <!-- format -->
+                        "outline-variant": "#debec8", <!-- format -->
+                        "on-surface": "#121c2a", <!-- format -->
+                        "on-secondary-fixed": "#3a0329", <!-- format -->
+                        "tertiary-fixed-dim": "#ffb1c7", <!-- format -->
+                        "inverse-primary": "#ffb0cd", <!-- format -->
+                        "primary-fixed": "#ffd9e4", <!-- format -->
+                        "surface-dim": "#d0dbed", <!-- format -->
+                        "primary-container": "#d23284", <!-- format -->
+                        "on-primary-fixed-variant": "#8c0053", <!-- format -->
+                        "primary": "#b10e6b", <!-- format -->
+                        "error-container": "#ffdad6", <!-- format -->
+                        "surface-container-lowest": "#ffffff", <!-- format -->
+                        "error": "#EF4444", <!-- format -->
+                        "secondary-fixed-dim": "#ffaeda", <!-- format -->
+                        "warning": "#F59E0B", <!-- format -->
+                        "tertiary": "#b5005d", <!-- format -->
+                        "on-error": "#ffffff", <!-- format -->
+                        "surface-container-highest": "#d9e3f6", <!-- format -->
+                        "on-primary-container": "#fffbff", <!-- format -->
+                        "on-tertiary-fixed": "#3f001c", <!-- format -->
+                        "on-secondary": "#ffffff", <!-- format -->
+                        "tertiary-container": "#da2676", <!-- format -->
+                        "on-primary-fixed": "#3e0022", <!-- format -->
+                        "surface-soft": "#FFF5F9", <!-- format -->
+                        "surface-container-low": "#eff4ff", <!-- format -->
+                        "on-secondary-fixed-variant": "#6f3157", <!-- format -->
+                        "surface-tint": "#b4136d", <!-- format -->
+                        "surface-variant": "#d9e3f6", <!-- format -->
+                        "secondary-container": "#ffaeda" <!-- format -->
+                    }, <!-- format -->
+                    "borderRadius": { <!-- format -->
+                        "DEFAULT": "1rem", <!-- format -->
+                        "lg": "2rem", <!-- format -->
+                        "xl": "3rem", <!-- format -->
+                        "full": "9999px" <!-- format -->
+                    }, <!-- format -->
+                    "spacing": { <!-- format -->
+                        "stack-gap": "16px", <!-- format -->
+                        "margin-mobile": "16px", <!-- format -->
+                        "container-max": "1200px", <!-- format -->
+                        "gutter": "24px", <!-- format -->
+                        "sidebar-width": "90px" <!-- format -->
+                    }, <!-- format -->
+                    "fontFamily": { <!-- format -->
+                        "display-hero": ["Inter"], <!-- format -->
+                        "body-md": ["Inter"], <!-- format -->
+                        "label-md": ["Inter"], <!-- format -->
+                        "body-lg": ["Inter"], <!-- format -->
+                        "caption": ["Inter"], <!-- format -->
+                        "headline-md": ["Inter"], <!-- format -->
+                        "headline-lg-mobile": ["Inter"], <!-- format -->
+                        "headline-lg": ["Inter"] <!-- format -->
+                    }, <!-- format -->
+                    "fontSize": { <!-- format -->
+                        "display-hero": ["56px", { "lineHeight": "64px", "letterSpacing": "-0.02em", "fontWeight": "700" }], <!-- format -->
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], <!-- format -->
+                        "label-md": ["14px", { "lineHeight": "20px", "fontWeight": "500" }], <!-- format -->
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }], <!-- format -->
+                        "caption": ["13px", { "lineHeight": "18px", "fontWeight": "400" }], <!-- format -->
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }], <!-- format -->
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }], <!-- format -->
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }] <!-- format -->
+                    } <!-- format -->
+                } <!-- format -->
+            } <!-- format -->
+        } <!-- format -->
+    </script> <!-- format -->
+<style> <!-- format -->
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9ff; } <!-- format -->
+        .ambient-shadow { box-shadow: 0 10px 40px -10px rgba(236, 72, 153, 0.08); } <!-- format -->
+        .pink-gradient-text { background: linear-gradient(135deg, #F9A8D4, #EC4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; } <!-- format -->
+        .timeline-connector { width: 2px; background-color: #FBCFE8; position: absolute; left: 24px; top: 40px; bottom: -20px; z-index: 0; } <!-- format -->
+        .last-item .timeline-connector { display: none; } <!-- format -->
+    </style> <!-- format -->
+</head> <!-- format -->
+<body class="bg-background text-on-background min-h-screen flex selection:bg-primary-light selection:text-primary"> <!-- format -->
+<!-- SideNavBar --> <!-- format -->
+<nav class="hidden md:flex bg-surface-container-lowest dark:bg-inverse-surface border-r border-pink dark:border-outline-variant shadow-sm fixed left-0 top-0 h-full w-[90px] flex-col items-center py-6 gap-stack-gap z-50"> <!-- format -->
+<div class="mb-8 flex flex-col items-center"> <!-- format -->
+<span class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">MSS</span> <!-- format -->
+<span class="font-caption text-caption text-on-surface-variant text-[10px]">AI Skincare</span> <!-- format -->
+</div> <!-- format -->
+<div class="flex flex-col w-full px-2 gap-4"> <!-- format -->
+<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">clinical_notes</span> <!-- format -->
+<span class="font-caption text-caption text-[11px] text-center">New Scan</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">dashboard</span> <!-- format -->
+<span class="font-caption text-caption text-[11px] text-center">Dashboard</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">face</span> <!-- format -->
+<span class="font-caption text-caption text-[11px] text-center">My Skin</span> <!-- format -->
+</a> <!-- format -->
+<!-- Active Tab --> <!-- format -->
+<a class="flex flex-col items-center justify-center p-2 bg-primary-light dark:bg-secondary-container text-primary dark:text-on-secondary-container rounded-full scale-95 active:scale-90 transition-transform" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">calendar_today</span> <!-- format -->
+<span class="font-caption text-caption text-[11px] text-center font-semibold">Routine</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">shopping_bag</span> <!-- format -->
+<span class="font-caption text-caption text-[11px] text-center">Products</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">history</span> <!-- format -->
+<span class="font-caption text-caption text-[11px] text-center">History</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">trending_up</span> <!-- format -->
+<span class="font-caption text-caption text-[11px] text-center">Progress</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant dark:text-surface-variant hover:bg-primary-light/50 dark:hover:bg-secondary-container/50 transition-colors scale-95 active:scale-90 transition-transform rounded-xl group" href="#"> <!-- format -->
+<span class="material-symbols-outlined mb-1 group-hover:text-primary transition-colors">more_horiz</span> <!-- format -->
+<span class="font-caption text-caption text-[11px] text-center">More</span> <!-- format -->
+</a> <!-- format -->
+</div> <!-- format -->
+<div class="mt-auto pb-4"> <!-- format -->
+<button class="bg-gradient-to-br from-[#F9A8D4] to-[#EC4899] text-white px-3 py-1.5 rounded-full font-label-md text-label-md shadow-sm hover:opacity-90 transition-opacity"> <!-- format -->
+                Upgrade <!-- format -->
+            </button> <!-- format -->
+</div> <!-- format -->
+</nav> <!-- format -->
+<!-- TopNavBar --> <!-- format -->
+<header class="hidden md:flex bg-surface-soft/80 dark:bg-background/80 backdrop-blur-md fixed top-0 right-0 w-[calc(100%-90px)] z-40 justify-end items-center px-gutter h-16 gap-4"> <!-- format -->
+<button class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors opacity-80 hover:opacity-100 p-2 rounded-full hover:bg-surface-variant/50"> <!-- format -->
+<span class="material-symbols-outlined">notifications</span> <!-- format -->
+</button> <!-- format -->
+<button class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors opacity-80 hover:opacity-100 p-2 rounded-full hover:bg-surface-variant/50"> <!-- format -->
+<span class="material-symbols-outlined">settings</span> <!-- format -->
+</button> <!-- format -->
+<div class="w-8 h-8 rounded-full overflow-hidden border border-border-pink ml-2 cursor-pointer"> <!-- format -->
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A close-up portrait of a woman with radiant, healthy skin, looking relaxed and confident. The lighting is soft and natural, emphasizing a modern, clean, and wellness-focused aesthetic. The background is a very light, neutral tone, consistent with a high-end skincare or AI wellness app profile picture. The overall mood is serene, professional, and lightly touched with a rose-water pink tonal warmth." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgsP2_f0dfYhGL3I7qRaw2nQc66QrAZKdgPhMfZyCl3tuHfiLnHxEdH_WEdmWZt07bRzrdnHqFovHXgyLX6xJSYg2hOLYNbGX6tlSfcNKzypBmiA-7IlqV6Ly5R5NwJ_GtyPsqZXUBGZtMd17TYVN8evtnCCiaB7OjKyJ8NnWSlnO94DY7gIOugcBkvWD8ZNSEDZhcyxCXBMyaU5Qo0i82igFr7qf6ivDxn4p_x-N5AUJYkWZMDshzGlhHFEUxSoedABfGCzXdMZg"/> <!-- format -->
+</div> <!-- format -->
+</header> <!-- format -->
+<!-- Main Content Area --> <!-- format -->
+<main class="w-full md:ml-[90px] pt-20 md:pt-24 px-4 md:px-gutter pb-24 max-w-container-max mx-auto"> <!-- format -->
+<!-- Header & Toggle --> <!-- format -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6"> <!-- format -->
+<div> <!-- format -->
+<h1 class="font-headline-lg text-headline-lg md:text-headline-lg font-semibold text-on-background">Your Personalized Routine</h1> <!-- format -->
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">AI-optimized for Hydration and Barrier Repair</p> <!-- format -->
+</div> <!-- format -->
+<div class="bg-surface-container-lowest border border-border-pink p-1 rounded-full flex shadow-sm"> <!-- format -->
+<button class="px-6 py-2 rounded-full bg-primary-light text-primary font-label-md text-label-md font-semibold transition-all"> <!-- format -->
+                    Morning <!-- format -->
+                </button> <!-- format -->
+<button class="px-6 py-2 rounded-full text-on-surface-variant font-label-md text-label-md hover:bg-surface-variant/50 transition-all"> <!-- format -->
+                    Evening <!-- format -->
+                </button> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+<!-- Layout Grid --> <!-- format -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8"> <!-- format -->
+<!-- Timeline Column --> <!-- format -->
+<div class="lg:col-span-8"> <!-- format -->
+<div class="bg-surface-container-lowest rounded-DEFAULT border border-border-pink p-6 md:p-8 ambient-shadow"> <!-- format -->
+<h2 class="font-headline-md text-headline-md mb-6 text-on-background flex items-center gap-2"> <!-- format -->
+<span class="material-symbols-outlined text-primary">light_mode</span> <!-- format -->
+                        Morning Steps <!-- format -->
+                    </h2> <!-- format -->
+<div class="relative pl-2"> <!-- format -->
+<!-- Step 1 --> <!-- format -->
+<div class="relative pb-10"> <!-- format -->
+<div class="timeline-connector"></div> <!-- format -->
+<div class="flex items-start gap-6 relative z-10"> <!-- format -->
+<div class="w-12 h-12 rounded-full bg-gradient-to-br from-[#F9A8D4] to-[#EC4899] text-white flex items-center justify-center font-headline-md text-headline-md flex-shrink-0 shadow-sm border-2 border-white"> <!-- format -->
+                                    1 <!-- format -->
+                                </div> <!-- format -->
+<div class="flex-1 bg-surface-soft rounded-lg border border-border-pink p-5 hover:border-primary-container transition-colors group cursor-pointer"> <!-- format -->
+<div class="flex justify-between items-start mb-2"> <!-- format -->
+<h3 class="font-label-md text-label-md font-semibold text-on-background text-lg group-hover:text-primary transition-colors">Gentle Cleanser</h3> <!-- format -->
+<span class="font-caption text-caption px-2 py-1 bg-white rounded-full border border-border-pink text-primary">Prep</span> <!-- format -->
+</div> <!-- format -->
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Remove overnight impurities without stripping the skin barrier.</p> <!-- format -->
+<div class="flex items-center gap-3 p-3 bg-white rounded-md border border-outline-variant/30"> <!-- format -->
+<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center text-primary overflow-hidden"> <!-- format -->
+<span class="material-symbols-outlined">water_drop</span> <!-- format -->
+</div> <!-- format -->
+<div> <!-- format -->
+<p class="font-label-md text-label-md font-medium text-on-background">Hydrating Gel Cleanser</p> <!-- format -->
+<p class="font-caption text-caption text-on-surface-variant">Recommended Product</p> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+<!-- Step 2 --> <!-- format -->
+<div class="relative pb-10"> <!-- format -->
+<div class="timeline-connector"></div> <!-- format -->
+<div class="flex items-start gap-6 relative z-10"> <!-- format -->
+<div class="w-12 h-12 rounded-full bg-primary-light text-primary flex items-center justify-center font-headline-md text-headline-md flex-shrink-0 shadow-sm border-2 border-white"> <!-- format -->
+                                    2 <!-- format -->
+                                </div> <!-- format -->
+<div class="flex-1 bg-surface-soft rounded-lg border border-border-pink p-5 hover:border-primary-container transition-colors group cursor-pointer"> <!-- format -->
+<div class="flex justify-between items-start mb-2"> <!-- format -->
+<h3 class="font-label-md text-label-md font-semibold text-on-background text-lg group-hover:text-primary transition-colors">Antioxidant Serum</h3> <!-- format -->
+<span class="font-caption text-caption px-2 py-1 bg-white rounded-full border border-border-pink text-primary">Treat</span> <!-- format -->
+</div> <!-- format -->
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Protect against environmental damage and free radicals.</p> <!-- format -->
+<div class="flex items-center gap-3 p-3 bg-white rounded-md border border-outline-variant/30"> <!-- format -->
+<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center text-primary overflow-hidden"> <!-- format -->
+<span class="material-symbols-outlined">science</span> <!-- format -->
+</div> <!-- format -->
+<div> <!-- format -->
+<p class="font-label-md text-label-md font-medium text-on-background">Vitamin C 15%</p> <!-- format -->
+<p class="font-caption text-caption text-on-surface-variant">Recommended Product</p> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+<!-- Step 3 --> <!-- format -->
+<div class="relative pb-10"> <!-- format -->
+<div class="timeline-connector"></div> <!-- format -->
+<div class="flex items-start gap-6 relative z-10"> <!-- format -->
+<div class="w-12 h-12 rounded-full bg-primary-light text-primary flex items-center justify-center font-headline-md text-headline-md flex-shrink-0 shadow-sm border-2 border-white"> <!-- format -->
+                                    3 <!-- format -->
+                                </div> <!-- format -->
+<div class="flex-1 bg-surface-soft rounded-lg border border-border-pink p-5 hover:border-primary-container transition-colors group cursor-pointer"> <!-- format -->
+<div class="flex justify-between items-start mb-2"> <!-- format -->
+<h3 class="font-label-md text-label-md font-semibold text-on-background text-lg group-hover:text-primary transition-colors">Moisturizer</h3> <!-- format -->
+<span class="font-caption text-caption px-2 py-1 bg-white rounded-full border border-border-pink text-primary">Nourish</span> <!-- format -->
+</div> <!-- format -->
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Lock in hydration and support the skin's natural barrier function.</p> <!-- format -->
+<div class="flex items-center gap-3 p-3 bg-white rounded-md border border-outline-variant/30"> <!-- format -->
+<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center text-primary overflow-hidden"> <!-- format -->
+<span class="material-symbols-outlined">spa</span> <!-- format -->
+</div> <!-- format -->
+<div> <!-- format -->
+<p class="font-label-md text-label-md font-medium text-on-background">Ceramide Daily Cream</p> <!-- format -->
+<p class="font-caption text-caption text-on-surface-variant">Recommended Product</p> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+<!-- Step 4 --> <!-- format -->
+<div class="relative last-item"> <!-- format -->
+<div class="timeline-connector"></div> <!-- format -->
+<div class="flex items-start gap-6 relative z-10"> <!-- format -->
+<div class="w-12 h-12 rounded-full bg-primary-light text-primary flex items-center justify-center font-headline-md text-headline-md flex-shrink-0 shadow-sm border-2 border-white"> <!-- format -->
+                                    4 <!-- format -->
+                                </div> <!-- format -->
+<div class="flex-1 bg-surface-soft rounded-lg border border-border-pink p-5 hover:border-primary-container transition-colors group cursor-pointer"> <!-- format -->
+<div class="flex justify-between items-start mb-2"> <!-- format -->
+<h3 class="font-label-md text-label-md font-semibold text-on-background text-lg group-hover:text-primary transition-colors">Sun Protection</h3> <!-- format -->
+<span class="font-caption text-caption px-2 py-1 bg-white rounded-full border border-border-pink text-primary">Protect</span> <!-- format -->
+</div> <!-- format -->
+<p class="font-body-md text-body-md text-on-surface-variant mb-4">Crucial defense against UV rays to prevent premature aging.</p> <!-- format -->
+<div class="flex items-center gap-3 p-3 bg-white rounded-md border border-outline-variant/30"> <!-- format -->
+<div class="w-10 h-10 rounded bg-surface-container flex items-center justify-center text-primary overflow-hidden"> <!-- format -->
+<span class="material-symbols-outlined">sunny</span> <!-- format -->
+</div> <!-- format -->
+<div> <!-- format -->
+<p class="font-label-md text-label-md font-medium text-on-background">Mineral SPF 50</p> <!-- format -->
+<p class="font-caption text-caption text-on-surface-variant">Recommended Product</p> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+<!-- Summary Panel --> <!-- format -->
+<div class="lg:col-span-4 flex flex-col gap-6"> <!-- format -->
+<!-- AI Insights Card --> <!-- format -->
+<div class="bg-gradient-to-br from-surface-soft to-white rounded-DEFAULT border border-border-pink p-6 ambient-shadow relative overflow-hidden"> <!-- format -->
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-primary-light rounded-full opacity-50 blur-xl"></div> <!-- format -->
+<div class="flex items-center gap-2 mb-4 relative z-10"> <!-- format -->
+<span class="material-symbols-outlined text-primary">psychology</span> <!-- format -->
+<h3 class="font-label-md text-label-md font-bold text-on-background">AI Routine Insights</h3> <!-- format -->
+</div> <!-- format -->
+<p class="font-body-md text-body-md text-on-surface-variant mb-4 relative z-10 text-sm"> <!-- format -->
+                        Based on your latest scan, your skin's hydration levels have improved by 12%. We've maintained the current focus on barrier repair while slightly increasing the antioxidant concentration for morning protection. <!-- format -->
+                    </p> <!-- format -->
+<button class="text-primary font-label-md text-label-md font-medium hover:underline relative z-10 flex items-center gap-1"> <!-- format -->
+                        View Detailed Scan <!-- format -->
+                        <span class="material-symbols-outlined text-sm">arrow_forward</span> <!-- format -->
+</button> <!-- format -->
+</div> <!-- format -->
+<!-- Daily Stats --> <!-- format -->
+<div class="bg-surface-container-lowest rounded-DEFAULT border border-border-pink p-6 ambient-shadow"> <!-- format -->
+<h3 class="font-label-md text-label-md font-bold text-on-background mb-4">Routine Consistency</h3> <!-- format -->
+<div class="flex items-center justify-center mb-6"> <!-- format -->
+<div class="relative w-32 h-32 flex items-center justify-center"> <!-- format -->
+<svg class="w-full h-full transform -rotate-90" viewbox="0 0 36 36"> <!-- format -->
+<path class="text-surface-variant" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path> <!-- format -->
+<path class="text-primary" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="85, 100" stroke-linecap="round" stroke-width="3"></path> <!-- format -->
+</svg> <!-- format -->
+<div class="absolute text-center"> <!-- format -->
+<span class="block font-headline-lg text-headline-lg font-bold text-on-background">85%</span> <!-- format -->
+<span class="block font-caption text-caption text-on-surface-variant">This Week</span> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+<div class="space-y-3"> <!-- format -->
+<div class="flex justify-between items-center text-sm"> <!-- format -->
+<span class="text-on-surface-variant flex items-center gap-2"> <!-- format -->
+<span class="w-2 h-2 rounded-full bg-primary"></span> <!-- format -->
+                                Completed Mornings <!-- format -->
+                            </span> <!-- format -->
+<span class="font-medium">6/7</span> <!-- format -->
+</div> <!-- format -->
+<div class="flex justify-between items-center text-sm"> <!-- format -->
+<span class="text-on-surface-variant flex items-center gap-2"> <!-- format -->
+<span class="w-2 h-2 rounded-full bg-secondary"></span> <!-- format -->
+                                Completed Evenings <!-- format -->
+                            </span> <!-- format -->
+<span class="font-medium">5/7</span> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+<!-- Action Button --> <!-- format -->
+<button class="w-full bg-white border-2 border-border-pink text-on-background font-label-md text-label-md font-semibold py-3 rounded-full hover:bg-surface-soft transition-colors flex items-center justify-center gap-2"> <!-- format -->
+<span class="material-symbols-outlined">edit</span> <!-- format -->
+                    Customize Routine <!-- format -->
+                </button> <!-- format -->
+</div> <!-- format -->
+</div> <!-- format -->
+</main> <!-- format -->
+<!-- BottomNavBar (Mobile) --> <!-- format -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-lowest border-t border-pink pb-safe z-50 shadow-[0_-4px_20px_rgba(236,72,153,0.05)]"> <!-- format -->
+<div class="flex justify-around items-center h-16 px-2"> <!-- format -->
+<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant" href="#"> <!-- format -->
+<span class="material-symbols-outlined text-[20px]">dashboard</span> <!-- format -->
+<span class="font-caption text-[10px] mt-1">Dash</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant" href="#"> <!-- format -->
+<span class="material-symbols-outlined text-[20px]">face</span> <!-- format -->
+<span class="font-caption text-[10px] mt-1">Skin</span> <!-- format -->
+</a> <!-- format -->
+<!-- Active Mobile Tab --> <!-- format -->
+<a class="flex flex-col items-center justify-center p-2 text-primary" href="#"> <!-- format -->
+<div class="bg-primary-light px-4 py-1 rounded-full mb-1"> <!-- format -->
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">calendar_today</span> <!-- format -->
+</div> <!-- format -->
+<span class="font-caption text-[10px] font-semibold">Routine</span> <!-- format -->
+</a> <!-- format -->
+<a class="flex flex-col items-center justify-center p-2 text-on-surface-variant" href="#"> <!-- format -->
+<span class="material-symbols-outlined text-[20px]">shopping_bag</span> <!-- format -->
+<span class="font-caption text-[10px] mt-1">Shop</span> <!-- format -->
+</a> <!-- format -->
+</div> <!-- format -->
+</nav> <!-- format -->
+</body></html> <!-- format -->

@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.orderservice.service.impl;
 
 import mss.orderservice.config.MomoConfig;
@@ -17,6 +21,7 @@ import mss.orderservice.dto.ProductInventoryResponse;
 import mss.orderservice.model.Order;
 import mss.orderservice.model.OrderItem;
 import mss.orderservice.repository.OrderRepository;
+import mss.orderservice.service.IVoucherService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -61,21 +66,27 @@ public class OrderService implements IOrderService {
 
     private final PaymentConfigurationValidator paymentConfigurationValidator;
 
+    private final IVoucherService voucherService;
+
     private final RestTemplate restTemplate;
 
     private final String productServiceBaseUrl;
 
     private final String internalServiceToken;
 
-    public OrderService(OrderRepository orderRepository, MomoConfig momoConfig, VnpayConfig vnpayConfig, IGhnService ghnService, PaymentConfigurationValidator paymentConfigurationValidator, RestTemplate restTemplate, @Value("${product-service.base-url}") String productServiceBaseUrl, @Value("${product-service.internal-token}") String internalServiceToken) {
+    private final boolean bankTransferSimulationEnabled;
+
+    public OrderService(OrderRepository orderRepository, MomoConfig momoConfig, VnpayConfig vnpayConfig, IGhnService ghnService, PaymentConfigurationValidator paymentConfigurationValidator, IVoucherService voucherService, RestTemplate restTemplate, @Value("${product-service.base-url}") String productServiceBaseUrl, @Value("${product-service.internal-token}") String internalServiceToken, @Value("${app.features.bank-transfer-simulation-enabled:false}") boolean bankTransferSimulationEnabled) {
         this.orderRepository = orderRepository;
         this.momoConfig = momoConfig;
         this.vnpayConfig = vnpayConfig;
         this.ghnService = ghnService;
         this.paymentConfigurationValidator = paymentConfigurationValidator;
+        this.voucherService = voucherService;
         this.restTemplate = restTemplate;
         this.productServiceBaseUrl = productServiceBaseUrl;
         this.internalServiceToken = internalServiceToken;
+        this.bankTransferSimulationEnabled = bankTransferSimulationEnabled;
     }
 
     public OrderResponse createOrder(OrderRequest request, String idempotencyKey) {
@@ -93,16 +104,43 @@ public class OrderService implements IOrderService {
         // 2. Reserve inventory and resolve trusted product/variant prices from product-service.
         ProductInventoryResponse inventory = callInventoryService("reserve", toInventoryRequest(orderCode, request));
         List<OrderItem> items = inventory.getItems().stream().map(this::toOrderItem).collect(Collectors.toList());
-        BigDecimal totalAmount = inventory.getTotalAmount() != null ? inventory.getTotalAmount() : BigDecimal.ZERO;
-        totalAmount = totalAmount.add(shippingFee);
+        BigDecimal subtotal = inventory.getTotalAmount() != null ? inventory.getTotalAmount() : BigDecimal.ZERO;
+        // 2b. Voucher (nếu có) áp trên subtotal hàng — KHÔNG tính phí ship — vì phí ship là chi phí
+        // vận chuyển thực tế trả cho GHN, không phải giá trị đơn hàng khách mua. Phải trừ vào
+        // totalAmount TRƯỚC khi save vì validatePaymentAmount() so khớp tuyệt đối với paidAmount.
+        String voucherCode = normalizeVoucherCode(request.getVoucherCode());
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        if (voucherCode != null) {
+            try {
+                discountAmount = voucherService.validateAndCalculateDiscount(voucherCode, subtotal);
+            } catch (RuntimeException voucherFailure) {
+                // Tồn kho đã được reserve ở bước 2 nên phải release lại nếu voucher không hợp lệ.
+                compensateFailedOrderCreation(orderCode, request, voucherFailure);
+                throw voucherFailure;
+            }
+        }
+        BigDecimal totalAmount = subtotal.add(shippingFee).subtract(discountAmount);
+        if (totalAmount.compareTo(BigDecimal.ZERO) < 0) {
+            totalAmount = BigDecimal.ZERO;
+        }
         // 3. Save Order
-        Order order = Order.builder().orderCode(orderCode).idempotencyKey(idempotencyKey).customerId(request.getCustomerId()).customerName(request.getCustomerName()).customerPhone(request.getCustomerPhone()).shippingAddress(request.getShippingAddress()).customerNote(request.getCustomerNote()).ghnDistrictId(request.getGhnDistrictId()).ghnWardCode(request.getGhnWardCode()).shippingFee(shippingFee).items(items).totalAmount(totalAmount).status(Order.OrderStatus.PENDING).paymentMethod(request.getPaymentMethod()).paymentStatus(Order.PaymentStatus.UNPAID).inventoryReserved(true).inventoryCommitted(false).reservationExpiresAt(request.getPaymentMethod() == Order.PaymentMethod.COD ? null : LocalDateTime.now().plusMinutes(15)).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
+        Order order = Order.builder().orderCode(orderCode).idempotencyKey(idempotencyKey).customerId(request.getCustomerId()).customerName(request.getCustomerName()).customerPhone(request.getCustomerPhone()).shippingAddress(request.getShippingAddress()).customerNote(request.getCustomerNote()).ghnDistrictId(request.getGhnDistrictId()).ghnWardCode(request.getGhnWardCode()).shippingFee(shippingFee).items(items).totalAmount(totalAmount).voucherCode(voucherCode).discountAmount(discountAmount).status(Order.OrderStatus.PENDING).paymentMethod(request.getPaymentMethod()).paymentStatus(Order.PaymentStatus.UNPAID).inventoryReserved(true).inventoryCommitted(false).reservationExpiresAt(request.getPaymentMethod() == Order.PaymentMethod.COD ? null : LocalDateTime.now().plusMinutes(15)).createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now()).build();
         order.addStatusHistory(Order.OrderStatus.PENDING, "Khách hàng đặt đơn thành công");
         try {
             orderRepository.save(order);
         } catch (RuntimeException saveFailure) {
             compensateFailedOrderCreation(orderCode, request, saveFailure);
             throw saveFailure;
+        }
+        // 3b. Chỉ ghi nhận lượt dùng voucher SAU KHI đơn đã lưu thành công. Nếu tăng lượt thất bại
+        // (vd race condition vừa hết lượt), chấp nhận rủi ro nhỏ này cho phạm vi đồ án — không rollback
+        // đơn đã tạo, chỉ log lại để theo dõi.
+        if (voucherCode != null) {
+            try {
+                voucherService.incrementUsage(voucherCode);
+            } catch (RuntimeException incrementFailure) {
+                log.error("Failed to increment usage for voucher {} after order {} was created", voucherCode, orderCode, incrementFailure);
+            }
         }
         // 4. Handle Payment Method
         String paymentUrl = "";
@@ -129,6 +167,13 @@ public class OrderService implements IOrderService {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Không tính được phí giao hàng");
         }
         return BigDecimal.valueOf(number.longValue());
+    }
+
+    private String normalizeVoucherCode(String voucherCode) {
+        if (voucherCode == null || voucherCode.isBlank()) {
+            return null;
+        }
+        return voucherCode.trim().toUpperCase();
     }
 
     private OrderResponse toOrderResponse(Order order) {
@@ -205,6 +250,23 @@ public class OrderService implements IOrderService {
         if (Boolean.TRUE.equals(order.getInventoryReserved()) && !Boolean.TRUE.equals(order.getInventoryCommitted())) {
             callInventoryService("release", toInventoryRequest(order));
             order.setInventoryReserved(false);
+        }
+    }
+
+    // Hoàn lại lượt dùng voucher khi đơn hàng có áp voucher bị hủy/trả hàng, đối xứng với
+    // releaseInventoryIfNeeded. Dùng cờ voucherUsageReleased để không bị trừ hai lần khi hàm này được
+    // gọi lại nhiều nơi cho cùng một lần chuyển trạng thái (giống cách inventoryReserved bảo vệ release).
+    // Lỗi ở bước này chỉ được log lại chứ không chặn việc hủy/trả đơn — chấp nhận rủi ro nhỏ cho phạm vi đồ án.
+    private void releaseVoucherIfNeeded(Order order) {
+        String voucherCode = order.getVoucherCode();
+        if (voucherCode == null || voucherCode.isBlank() || Boolean.TRUE.equals(order.getVoucherUsageReleased())) {
+            return;
+        }
+        try {
+            voucherService.releaseUsage(voucherCode);
+            order.setVoucherUsageReleased(true);
+        } catch (RuntimeException releaseFailure) {
+            log.error("Failed to release voucher usage {} for order {}", voucherCode, order.getOrderCode(), releaseFailure);
         }
     }
 
@@ -302,6 +364,7 @@ public class OrderService implements IOrderService {
             order.setPaymentStatus(Order.PaymentStatus.FAILED);
         }
         releaseInventoryIfNeeded(order);
+        releaseVoucherIfNeeded(order);
         orderRepository.save(order);
         return OrderResponse.builder().orderCode(order.getOrderCode()).status(order.getStatus().name()).build();
     }
@@ -323,6 +386,7 @@ public class OrderService implements IOrderService {
             order.setPaymentStatus(Order.PaymentStatus.FAILED);
             order.addStatusHistory(Order.OrderStatus.CANCELLED, "Thanh toán MoMo thất bại");
             releaseInventoryIfNeeded(order);
+            releaseVoucherIfNeeded(order);
         }
         orderRepository.save(order);
         return new PaymentProcessingResult(order.getPaymentStatus(), false);
@@ -345,6 +409,7 @@ public class OrderService implements IOrderService {
             order.setPaymentStatus(Order.PaymentStatus.FAILED);
             order.addStatusHistory(Order.OrderStatus.CANCELLED, "Thanh toán VNPay thất bại");
             releaseInventoryIfNeeded(order);
+            releaseVoucherIfNeeded(order);
         }
         order.setUpdatedAt(LocalDateTime.now());
         orderRepository.save(order);
@@ -352,6 +417,9 @@ public class OrderService implements IOrderService {
     }
 
     public PaymentProcessingResult simulateBankTransfer(String orderCode) {
+        if (!bankTransferSimulationEnabled) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bank transfer simulation is disabled");
+        }
         Order order = orderRepository.findByOrderCode(orderCode).orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng"));
         if (order.getPaymentMethod() != Order.PaymentMethod.BANK_TRANSFER) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng không sử dụng hình thức chuyển khoản");
@@ -395,7 +463,11 @@ public class OrderService implements IOrderService {
     }
 
     private void rejectLatePayment(Order order) {
-        if (order.getStatus() == Order.OrderStatus.CANCELLED || !Boolean.TRUE.equals(order.getInventoryReserved())) {
+        boolean reservationExpired = order.getReservationExpiresAt() != null
+                && !order.getReservationExpiresAt().isAfter(LocalDateTime.now());
+        if (order.getStatus() == Order.OrderStatus.CANCELLED
+                || !Boolean.TRUE.equals(order.getInventoryReserved())
+                || reservationExpired) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn hàng đã hết hạn hoặc đã hủy");
         }
     }
@@ -495,6 +567,7 @@ public class OrderService implements IOrderService {
                         }
                         order.setCancelReason(cancelReason);
                         releaseInventoryIfNeeded(order);
+                        releaseVoucherIfNeeded(order);
                     }
                 }
                 // Rule for PROCESSING orders
@@ -577,6 +650,7 @@ public class OrderService implements IOrderService {
                 }
                 if (status == Order.OrderStatus.CANCELLED || status == Order.OrderStatus.RETURNED) {
                     releaseInventoryIfNeeded(order);
+                    releaseVoucherIfNeeded(order);
                 }
                 // Update payment status for DELIVERED COD
                 if (status == Order.OrderStatus.DELIVERED && order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {
@@ -602,6 +676,7 @@ public class OrderService implements IOrderService {
             order.setCancelReason("Hủy tự động do quá hạn thanh toán 15 phút");
             order.setPaymentStatus(Order.PaymentStatus.FAILED);
             releaseInventoryIfNeeded(order);
+            releaseVoucherIfNeeded(order);
             orderRepository.save(order);
             log.info("Auto-cancelled unpaid order: {}", order.getOrderCode());
         }
@@ -682,6 +757,7 @@ public class OrderService implements IOrderService {
         }
         if (newStatus == Order.OrderStatus.CANCELLED || newStatus == Order.OrderStatus.RETURNED) {
             releaseInventoryIfNeeded(order);
+            releaseVoucherIfNeeded(order);
         }
         if (newStatus == Order.OrderStatus.DELIVERED) {
             if (order.getPaymentStatus() == Order.PaymentStatus.UNPAID) {

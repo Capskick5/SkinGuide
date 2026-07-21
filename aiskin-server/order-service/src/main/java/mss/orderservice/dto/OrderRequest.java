@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.orderservice.dto;
 
 import lombok.Data;
@@ -20,7 +24,7 @@ public class OrderRequest {
     @NotBlank(message = "Địa chỉ giao hàng là bắt buộc")
     private String shippingAddress;
     private String customerNote;
-    
+
     @NotNull(message = "Quận/huyện GHN là bắt buộc")
     @Positive(message = "Mã quận/huyện GHN không hợp lệ")
     private Integer ghnDistrictId;
@@ -28,10 +32,13 @@ public class OrderRequest {
     private String ghnWardCode;
     // Chỉ dùng để hiển thị phía client; backend luôn tính lại bằng GHN.
     private java.math.BigDecimal shippingFee;
-    
+
     @Valid
     @NotEmpty(message = "Đơn hàng phải có ít nhất một sản phẩm")
     private List<OrderItemRequest> items;
     @NotNull(message = "Phương thức thanh toán là bắt buộc")
     private PaymentMethod paymentMethod;
+
+    // Mã giảm giá (tùy chọn). Backend luôn kiểm chứng lại giá trị giảm, không tin số tiền client tự tính.
+    private String voucherCode;
 }

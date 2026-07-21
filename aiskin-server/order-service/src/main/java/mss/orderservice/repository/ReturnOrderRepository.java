@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.orderservice.repository;
 
 import mss.orderservice.model.ReturnOrder;
@@ -15,7 +19,7 @@ public interface ReturnOrderRepository extends MongoRepository<ReturnOrder, Stri
     Optional<ReturnOrder> findByOrderId(String orderId);
     List<ReturnOrder> findByStatus(ReturnOrder.ReturnStatus status);
     Optional<ReturnOrder> findByReturnTrackingCode(String returnTrackingCode);
-    
+
     @org.springframework.data.mongodb.repository.Query("{ 'returnTrackingCode': { $exists: true, $ne: null }, 'status': { $nin: ['RECEIVED', 'REFUNDED', 'REJECTED'] } }")
     List<ReturnOrder> findActiveGhnReturns();
 

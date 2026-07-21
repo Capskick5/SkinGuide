@@ -1,3 +1,7 @@
+// Project: SkinGuide - MSS301
+// Author: NguyenTanXuan
+// Service Component
+
 package mss.userservice.security;
 
 import org.springframework.security.access.PermissionEvaluator;
@@ -29,7 +33,7 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
         // Định dạng permission được lưu trong JWT: "METHOD:Resource" (VD: "GET:/api/admin/users")
         String targetResource = targetDomainObject.toString();
         String targetMethod = permission.toString().toUpperCase();
-        
+
         // Vì có thể có các biến {id} trong path, ta dùng String pattern matching đơn giản hoặc chính xác.
         // Trong phiên bản này, ta map chính xác với chuỗi được định nghĩa trong DB.
         String requiredAuthority = targetMethod + ":" + targetResource;
@@ -39,7 +43,7 @@ public class CustomPermissionEvaluator implements PermissionEvaluator {
                 return true;
             }
         }
-        
+
         // Hoặc kiểm tra quyền wildcard nếu cần (VD: "*:/api/admin/users")
         String wildcardAuthority = "ANY:" + targetResource;
         for (GrantedAuthority authority : authentication.getAuthorities()) {
