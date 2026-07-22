@@ -27,12 +27,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Collection;
 import java.time.Instant;
+import java.util.regex.Pattern;
 
 @Repository
 @RequiredArgsConstructor
 public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
 
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_SEARCH_QUERY_LENGTH = 100;
 
     // Tổng số lượng còn bán được = sum(onHandQuantity - reservedQuantity) trên toàn bộ variants/inventoryLevels.
     // Mirror chính xác cách totalAvailable() ở ProductService tính toán (không lọc theo variant.isActive)
@@ -115,6 +117,7 @@ public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
 
     @Override
     public Page<Product> searchAdvanced(ProductSearchRequest request) {
+        validateSearchRequest(request);
         Query query = new Query();
         Criteria criteria = new Criteria();
         List<Criteria> andCriteriaList = new ArrayList<>();
@@ -163,7 +166,7 @@ public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
 
         // 3. Search query
         if (StringUtils.hasText(request.getQuery())) {
-            String q = request.getQuery();
+            String q = Pattern.quote(request.getQuery().trim());
             String field = request.getSearchField();
             if (!StringUtils.hasText(field)) {
                 field = "all";
@@ -251,5 +254,24 @@ public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
         List<Product> products = mongoTemplate.find(query, Product.class);
 
         return new PageImpl<>(products, pageRequest, total);
+    }
+
+    private void validateSearchRequest(ProductSearchRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thông tin tìm kiếm không được để trống");
+        }
+        if (StringUtils.hasText(request.getQuery())
+                && request.getQuery().trim().length() > MAX_SEARCH_QUERY_LENGTH) {
+            throw new IllegalArgumentException("Từ khóa tìm kiếm không được vượt quá 100 ký tự");
+        }
+        Double minPrice = request.getMinPrice();
+        Double maxPrice = request.getMaxPrice();
+        if ((minPrice != null && (!Double.isFinite(minPrice) || minPrice < 0))
+                || (maxPrice != null && (!Double.isFinite(maxPrice) || maxPrice < 0))) {
+            throw new IllegalArgumentException("Khoảng giá phải là số không âm");
+        }
+        if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
+            throw new IllegalArgumentException("Giá tối thiểu không được lớn hơn giá tối đa");
+        }
     }
 }

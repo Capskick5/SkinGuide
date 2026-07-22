@@ -4,6 +4,7 @@
 package mss.orderservice.service.impl;
 
 import lombok.extern.slf4j.Slf4j;
+import com.mongodb.client.result.UpdateResult;
 import mss.orderservice.dto.VoucherRequest;
 import mss.orderservice.model.Voucher;
 import mss.orderservice.repository.VoucherRepository;
@@ -11,6 +12,11 @@ import mss.orderservice.service.IVoucherService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.MongoExpression;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -26,9 +32,11 @@ public class VoucherService implements IVoucherService {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final VoucherRepository voucherRepository;
+    private final MongoTemplate mongoTemplate;
 
-    public VoucherService(VoucherRepository voucherRepository) {
+    public VoucherService(VoucherRepository voucherRepository, MongoTemplate mongoTemplate) {
         this.voucherRepository = voucherRepository;
+        this.mongoTemplate = mongoTemplate;
     }
 
     @Override
@@ -69,26 +77,43 @@ public class VoucherService implements IVoucherService {
     }
 
     @Override
-    public synchronized void incrementUsage(String code) {
+    public void incrementUsage(String code) {
         if (code == null || code.isBlank()) {
             return;
         }
-        Voucher voucher = voucherRepository.findByCodeIgnoreCase(code.trim()).orElseThrow(() -> new IllegalStateException("Voucher " + code + " không tồn tại khi tăng lượt sử dụng"));
-        if (voucher.getUsageLimit() != null && voucher.getUsedCount() >= voucher.getUsageLimit()) {
-            throw new IllegalStateException("Voucher " + code + " đã hết lượt sử dụng khi ghi nhận (race condition)");
+        String normalizedCode = code.trim();
+        Criteria remainingUsage = new Criteria().orOperator(
+                Criteria.where("usageLimit").is(null),
+                Criteria.expr(MongoExpression.create(
+                        "{ $lt: [ { $ifNull: [ '$usedCount', 0 ] }, '$usageLimit' ] }")));
+        Query query = Query.query(new Criteria().andOperator(
+                Criteria.where("code").regex("^" + java.util.regex.Pattern.quote(normalizedCode) + "$", "i"),
+                Criteria.where("isActive").is(true),
+                new Criteria().orOperator(
+                        Criteria.where("expiresAt").is(null),
+                        Criteria.where("expiresAt").gt(Instant.now())),
+                remainingUsage));
+
+        UpdateResult result = mongoTemplate.updateFirst(
+                query,
+                new Update().inc("usedCount", 1),
+                Voucher.class);
+        if (result.getModifiedCount() != 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Mã giảm giá không còn hợp lệ hoặc đã hết lượt sử dụng");
         }
-        voucher.setUsedCount(voucher.getUsedCount() + 1);
-        voucherRepository.save(voucher);
     }
 
     @Override
-    public synchronized void releaseUsage(String code) {
+    public void releaseUsage(String code) {
         if (code == null || code.isBlank()) {
             return;
         }
-        Voucher voucher = voucherRepository.findByCodeIgnoreCase(code.trim()).orElseThrow(() -> new IllegalStateException("Voucher " + code + " không tồn tại khi hoàn lượt sử dụng"));
-        voucher.setUsedCount(Math.max(0, voucher.getUsedCount() - 1));
-        voucherRepository.save(voucher);
+        Query query = Query.query(new Criteria().andOperator(
+                Criteria.where("code").regex(
+                        "^" + java.util.regex.Pattern.quote(code.trim()) + "$", "i"),
+                Criteria.where("usedCount").gt(0)));
+        mongoTemplate.updateFirst(query, new Update().inc("usedCount", -1), Voucher.class);
     }
 
     @Override

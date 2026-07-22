@@ -1,21 +1,25 @@
-/**
- * useCart – quản lý giỏ hàng toàn cục.
- * - localStorage là store trực tiếp (UX tức thì + đồng bộ đa tab).
- * - Khi đã đăng nhập: mirror mọi thay đổi lên server và merge giỏ khách ↔ server lúc đăng nhập,
- *   để giỏ đồng bộ đa thiết bị. Giá/tồn kho vẫn được kiểm chứng lại ở bước checkout.
- */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hook/useAuth'
 import { cartApi } from '@/api/cartApi'
-import { cappedQuantity, cartLineId, normalizeCartItem } from './cartUtils'
+import {
+  GUEST_CART_STORAGE_KEY,
+  cappedQuantity,
+  cartLineId,
+  cartStorageKey,
+  mergeCarts,
+  normalizeCartItem,
+} from './cartUtils'
 
-const CART_KEY = 'aiskin.cart'
+const LEGACY_CART_KEY = 'aiskin.cart'
 const CHANGE_EVENT = 'aiskin:cart-change'
 
-function readCart() {
+function readCart(storageKey = GUEST_CART_STORAGE_KEY) {
   if (typeof window === 'undefined') return []
   try {
-    const raw = localStorage.getItem(CART_KEY)
+    let raw = localStorage.getItem(storageKey)
+    if (!raw && storageKey === GUEST_CART_STORAGE_KEY) {
+      raw = localStorage.getItem(LEGACY_CART_KEY)
+    }
     if (!raw) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed.map(normalizeCartItem) : []
@@ -24,46 +28,45 @@ function readCart() {
   }
 }
 
-function writeCart(items) {
+function writeCart(items, storageKey = GUEST_CART_STORAGE_KEY) {
   if (typeof window === 'undefined') return
-  localStorage.setItem(CART_KEY, JSON.stringify(items))
+  localStorage.setItem(storageKey, JSON.stringify(items))
+  if (storageKey === GUEST_CART_STORAGE_KEY) localStorage.removeItem(LEGACY_CART_KEY)
   window.dispatchEvent(new Event(CHANGE_EVENT))
 }
 
-/**
- * Gộp giỏ local (khách) với giỏ server. Union theo lineId, lấy qty lớn hơn (không cộng dồn)
- * để reload khi đang đăng nhập không nhân đôi số lượng. Giữ snapshot của server khi trùng dòng.
- */
-function mergeCarts(local, server) {
-  const byId = new Map()
-  server.forEach((item) => {
-    const norm = normalizeCartItem(item)
-    byId.set(norm.lineId, norm)
-  })
-  local.forEach((item) => {
-    const norm = normalizeCartItem(item)
-    const existing = byId.get(norm.lineId)
-    if (!existing) {
-      byId.set(norm.lineId, norm)
-    } else {
-      byId.set(norm.lineId, { ...existing, qty: cappedQuantity(existing, Math.max(existing.qty, norm.qty)) })
-    }
-  })
-  return [...byId.values()]
+function clearStoredCart(storageKey) {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(storageKey)
+  if (storageKey === GUEST_CART_STORAGE_KEY) localStorage.removeItem(LEGACY_CART_KEY)
 }
 
 export function useCart() {
   const { isAuthenticated, user } = useAuth()
   const userId = user?.id ?? null
-  const [items, setItems] = useState(() => readCart())
-  // Đọc trạng thái auth mới nhất trong các callback ổn định (deps rỗng).
-  const authRef = useRef({ isAuthenticated: false })
-  useEffect(() => {
-    authRef.current = { isAuthenticated: isAuthenticated && !!userId }
-  }, [isAuthenticated, userId])
+  const [items, setItems] = useState(() => readCart(GUEST_CART_STORAGE_KEY))
+  const storageKeyRef = useRef(GUEST_CART_STORAGE_KEY)
+  const authRef = useRef({ isAuthenticated: false, userId: null })
+  const syncQueueRef = useRef(Promise.resolve())
+  const loadedForRef = useRef(null)
 
   useEffect(() => {
-    const sync = () => setItems(readCart())
+    authRef.current = { isAuthenticated: isAuthenticated && !!userId, userId }
+  }, [isAuthenticated, userId])
+
+  // Serialize writes so a slower, older request cannot overwrite a newer cart snapshot.
+  const enqueueServerSync = useCallback((targetUserId, operation) => {
+    syncQueueRef.current = syncQueueRef.current
+      .catch(() => {})
+      .then(() => {
+        if (authRef.current.userId !== targetUserId) return undefined
+        return operation()
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const sync = () => setItems(readCart(storageKeyRef.current))
     window.addEventListener('storage', sync)
     window.addEventListener(CHANGE_EVENT, sync)
     return () => {
@@ -72,52 +75,71 @@ export function useCart() {
     }
   }, [])
 
-  // Đăng nhập: gộp giỏ khách với giỏ server một lần cho mỗi user, rồi mirror kết quả.
-  const loadedForRef = useRef(null)
+  // Keep guest carts separate, then merge them into only the user who signs in.
   useEffect(() => {
     let alive = true
-    if (!isAuthenticated || !userId || loadedForRef.current === userId) return undefined
+    if (!isAuthenticated || !userId) {
+      loadedForRef.current = null
+      storageKeyRef.current = GUEST_CART_STORAGE_KEY
+      queueMicrotask(() => {
+        if (alive) setItems(readCart(GUEST_CART_STORAGE_KEY))
+      })
+      return () => {
+        alive = false
+      }
+    }
+
+    const userStorageKey = cartStorageKey(userId)
+    storageKeyRef.current = userStorageKey
+    const pendingLocal = mergeCarts(
+      readCart(userStorageKey),
+      readCart(GUEST_CART_STORAGE_KEY),
+    )
+    writeCart(pendingLocal, userStorageKey)
+    clearStoredCart(GUEST_CART_STORAGE_KEY)
+    if (loadedForRef.current === userId) return undefined
 
     void (async () => {
       try {
         const server = await cartApi.get()
         if (!alive) return
-        const merged = mergeCarts(readCart(), Array.isArray(server) ? server : [])
-        writeCart(merged)
+        const merged = mergeCarts(pendingLocal, Array.isArray(server) ? server : [])
+        writeCart(merged, userStorageKey)
         setItems(merged)
         loadedForRef.current = userId
-        await cartApi.replace(merged)
+        enqueueServerSync(userId, () => cartApi.replace(merged))
       } catch {
-        // Không đồng bộ được thì vẫn dùng giỏ local; sẽ thử lại ở thay đổi sau.
+        // Local cart remains usable while the service is temporarily unavailable.
       }
     })()
 
     return () => {
       alive = false
     }
-  }, [isAuthenticated, userId])
+  }, [enqueueServerSync, isAuthenticated, userId])
 
-  /** Ghi giỏ vào local + state, và mirror lên server nếu đã đăng nhập. */
   const commit = useCallback((next) => {
-    writeCart(next)
+    writeCart(next, storageKeyRef.current)
     setItems(next)
-    if (authRef.current.isAuthenticated) {
-      void cartApi.replace(next).catch(() => {})
+    const auth = authRef.current
+    if (auth.isAuthenticated) {
+      enqueueServerSync(auth.userId, () => cartApi.replace(next))
     }
     return next
-  }, [])
+  }, [enqueueServerSync])
 
-  /** Thêm sản phẩm vào giỏ (nếu đã có thì tăng qty) */
   const addItem = useCallback((product, qty = 1) => {
-    const current = readCart()
+    const current = readCart(storageKeyRef.current)
     const normalizedProduct = normalizeCartItem(product)
     const lineId = cartLineId(normalizedProduct)
     const idx = current.findIndex((item) => item.lineId === lineId)
     let next
     if (idx >= 0) {
-      next = current.map((i, index) =>
-        index === idx ? { ...i, qty: cappedQuantity(i, i.qty + qty) } : i,
-      ).filter((item) => item.qty > 0)
+      next = current.map((item, index) => (
+        index === idx
+          ? { ...item, qty: cappedQuantity(item, item.qty + qty) }
+          : item
+      )).filter((item) => item.qty > 0)
     } else {
       const capped = cappedQuantity(normalizedProduct, qty)
       next = capped > 0 ? [...current, { ...normalizedProduct, qty: capped }] : current
@@ -125,58 +147,56 @@ export function useCart() {
     return commit(next)
   }, [commit])
 
-  /** Thêm nhiều sản phẩm cùng lúc */
   const addMultipleItems = useCallback((products) => {
-    let current = readCart()
+    let current = readCart(storageKeyRef.current)
     products.forEach((product) => {
-      const qty = 1
       const normalizedProduct = normalizeCartItem(product)
       const lineId = cartLineId(normalizedProduct)
       const idx = current.findIndex((item) => item.lineId === lineId)
       if (idx >= 0) {
-        current = current.map((i, index) =>
-          index === idx ? { ...i, qty: cappedQuantity(i, i.qty + qty) } : i,
-        ).filter((item) => item.qty > 0)
+        current = current.map((item, index) => (
+          index === idx
+            ? { ...item, qty: cappedQuantity(item, item.qty + 1) }
+            : item
+        )).filter((item) => item.qty > 0)
       } else {
-        const capped = cappedQuantity(normalizedProduct, qty)
+        const capped = cappedQuantity(normalizedProduct, 1)
         if (capped > 0) current = [...current, { ...normalizedProduct, qty: capped }]
       }
     })
     return commit(current)
   }, [commit])
 
-  /** Xóa 1 sản phẩm khỏi giỏ */
   const removeItem = useCallback((lineId) => {
-    commit(readCart().filter((item) => item.lineId !== lineId))
+    commit(readCart(storageKeyRef.current).filter((item) => item.lineId !== lineId))
   }, [commit])
 
-  /** Cập nhật số lượng */
   const updateQty = useCallback((lineId, qty) => {
     if (qty <= 0) {
-      commit(readCart().filter((item) => item.lineId !== lineId))
+      commit(readCart(storageKeyRef.current).filter((item) => item.lineId !== lineId))
       return
     }
-    const next = readCart().map((item) => (
+    const next = readCart(storageKeyRef.current).map((item) => (
       item.lineId === lineId ? { ...item, qty: cappedQuantity(item, qty) } : item
     )).filter((item) => item.qty > 0)
     commit(next)
   }, [commit])
 
-  /** Xóa toàn bộ giỏ hàng */
   const clearCart = useCallback(() => {
-    writeCart([])
+    writeCart([], storageKeyRef.current)
     setItems([])
-    if (authRef.current.isAuthenticated) {
-      void cartApi.clear().catch(() => {})
+    const auth = authRef.current
+    if (auth.isAuthenticated) {
+      enqueueServerSync(auth.userId, () => cartApi.clear())
     }
-  }, [])
+  }, [enqueueServerSync])
 
-  const totalCount = items.reduce((sum, i) => sum + i.qty, 0)
-  const totalPrice = items.reduce((sum, i) => sum + (i.price || 0) * i.qty, 0)
+  const totalCount = items.reduce((sum, item) => sum + item.qty, 0)
+  const totalPrice = items.reduce((sum, item) => sum + (item.price || 0) * item.qty, 0)
 
   return { items, totalCount, totalPrice, addItem, addMultipleItems, removeItem, updateQty, clearCart }
 }
 
 export function getCartItems() {
-  return readCart()
+  return readCart(GUEST_CART_STORAGE_KEY)
 }

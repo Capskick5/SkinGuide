@@ -84,7 +84,7 @@ spring:
             - id: order-service
               uri: http://localhost:${ORDER_SERVICE_PORT:8083}
               predicates:
-                - Path=/api/orders/**,/api/carts/**,/api/payments/**,/api/ghn/**,/api/returns/**,/api/refunds/**
+                - Path=/api/orders/**,/api/carts/**,/api/payments/**,/api/ghn/**,/api/returns/**,/api/refunds/**,/api/vouchers/**
 
             # Expose order-service OpenAPI doc through the gateway
             - id: order-service-api-docs
