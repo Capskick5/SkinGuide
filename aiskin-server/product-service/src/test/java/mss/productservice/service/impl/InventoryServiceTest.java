@@ -47,7 +47,7 @@ class InventoryServiceTest {
 
     @BeforeEach
     void setUp() {
-        inventoryService = new InventoryService(productRepository, movementRepository, kafkaProductProducer);
+        inventoryService = new InventoryService(productRepository, movementRepository, kafkaProductProducer, new mss.productservice.service.FlashDealPolicy());
         level = InventoryLevel.builder().warehouseId(InventoryService.DEFAULT_WAREHOUSE_ID).warehouseName(InventoryService.DEFAULT_WAREHOUSE_NAME).onHandQuantity(10).reservedQuantity(0).soldQuantity(0).build();
         ProductVariant variant = ProductVariant.builder().id("variant-1").name("100 ml").sku("SKU-100").price(100_000D).isActive(true).trackInventory(true).inventoryLevels(new ArrayList<>(List.of(level))).build();
         Product product = Product.builder().id("product-1").name("Cleanser").slug("cleanser").price(100_000D).isActive(true).variants(new ArrayList<>(List.of(variant))).build();

@@ -11,6 +11,8 @@ export default function ProductCard({
   category,
   price,
   priceValue,
+  originalPrice,
+  discountPercent,
   imageUrl,
   targetConcerns = [],
   variants = [],
@@ -87,6 +89,11 @@ export default function ProductCard({
         <span className={`absolute left-3 top-3 rounded-md px-2.5 py-1 text-caption font-semibold ${isSellable ? 'bg-[#e5f5ed] text-[#256247]' : 'bg-[#fde8e8] text-[#a33a3a]'}`}>
           {isSellable ? 'Còn hàng' : 'Hết hàng'}
         </span>
+        {discountPercent ? (
+          <span className="absolute bottom-3 right-3 rounded-full bg-[#ff5a36] px-2.5 py-1 text-xs font-black text-white shadow-sm">
+            -{discountPercent}%
+          </span>
+        ) : null}
         <div className="absolute right-3 top-3 flex gap-2">
           {typeof onFavoriteToggle === 'function' ? (
             <button
@@ -141,7 +148,10 @@ export default function ProductCard({
         )}
 
         <div className="mb-4 mt-auto flex items-end justify-between gap-3">
-          <span className="text-body-lg font-semibold text-on-surface">{price}</span>
+          <span>
+            <span className={`block text-body-lg font-black ${discountPercent ? 'text-[#ef4b2f]' : 'text-on-surface'}`}>{price}</span>
+            {originalPrice ? <span className="text-xs text-on-surface-variant line-through">{originalPrice}</span> : null}
+          </span>
           {sellableVariant ? (
             <span className="text-right text-caption text-on-surface-variant">
               {hasUntrackedInventory ? 'Đang bán' : `Kho: ${sellableAvailableQuantity}`}

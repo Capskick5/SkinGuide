@@ -361,19 +361,15 @@ function PaymentMethodStep({ selectedMethod, availability, onSelect, onBack, onN
   const methods = [
     {
       id: 'COD',
-      label: 'Thanh toán khi nhận hàng (COD)',
-      desc: 'Thanh toán bằng tiền mặt khi nhận hàng',
+      label: 'Thanh toán khi nhận hàng',
       icon: 'local_shipping',
-      badge: 'Truyền thống',
       accent: 'border-primary bg-primary/5 text-primary',
     },
     {
-      id: 'BANK_TRANSFER',
-      label: 'Chuyển khoản ngân hàng',
-      desc: 'Chuyển khoản qua quét mã QR (VietQR)',
-      icon: 'account_balance',
-      badge: 'Thủ công',
-      accent: 'border-green-600 bg-green-50 text-green-700',
+      id: 'VNPAY',
+      label: 'Thanh toán qua VNPay',
+      icon: 'account_balance_wallet',
+      accent: 'border-blue-600 bg-blue-50 text-blue-700',
     },
   ]
 
@@ -406,13 +402,7 @@ function PaymentMethodStep({ selectedMethod, availability, onSelect, onBack, onN
                 <Icon name={method.icon} className="text-2xl" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex flex-wrap items-center gap-2 font-bold text-on-surface">
-                  {method.label}
-                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant">
-                    {available ? method.badge : 'Chưa cấu hình'}
-                  </span>
-                </span>
-                <span className="mt-1 block text-sm text-on-surface-variant">{method.desc}</span>
+                <span className="font-bold text-on-surface">{method.label}</span>
               </span>
               <Icon name={active ? 'radio_button_checked' : 'radio_button_unchecked'} className="text-2xl" />
             </button>
@@ -497,7 +487,7 @@ function ConfirmStep({ formData, items, paymentMethod, onBack, onConfirm, loadin
           Phương thức thanh toán
         </p>
         <p className="font-semibold text-on-surface">
-          {paymentMethod === 'BANK_TRANSFER' ? 'Chuyển khoản ngân hàng' : 'Thanh toán khi nhận hàng (COD)'}
+          {paymentMethod === 'VNPAY' ? 'Thanh toán qua VNPay' : 'Thanh toán khi nhận hàng'}
         </p>
       </div>
 
@@ -806,7 +796,14 @@ export default function CheckoutPage() {
         headers: { 'Idempotency-Key': idempotencyKeyRef.current },
       })
 
-
+      if (paymentMethod === 'VNPAY') {
+        if (!result?.paymentUrl) {
+          throw new Error('VNPay Sandbox không trả về đường dẫn thanh toán.')
+        }
+        clearCart()
+        window.location.assign(result.paymentUrl)
+        return
+      }
 
       clearCart()
 

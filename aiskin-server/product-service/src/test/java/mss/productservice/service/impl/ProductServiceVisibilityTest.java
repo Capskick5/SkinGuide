@@ -32,7 +32,7 @@ class ProductServiceVisibilityTest {
         productRepository = mock(ProductRepository.class);
         BrandRepository brandRepository = mock(BrandRepository.class);
         CategoryRepository categoryRepository = mock(CategoryRepository.class);
-        service = new ProductService(productRepository, brandRepository, categoryRepository, mock(KafkaProductProducer.class));
+        service = new ProductService(productRepository, brandRepository, categoryRepository, mock(KafkaProductProducer.class), new mss.productservice.service.FlashDealPolicy());
         when(brandRepository.findAllById(any())).thenReturn(List.of());
         when(categoryRepository.findAllById(any())).thenReturn(List.of());
     }

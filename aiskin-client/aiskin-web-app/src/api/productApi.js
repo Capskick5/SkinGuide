@@ -12,6 +12,9 @@ export const productApi = {
   async listActiveProducts() {
     return request('/products/active', { auth: false })
   },
+  async listFlashDeals() {
+    return request('/products/flash-deals', { auth: false })
+  },
   async getProduct(id, { auth = false } = {}) {
     return request(`/products/${id}`, { auth })
   },

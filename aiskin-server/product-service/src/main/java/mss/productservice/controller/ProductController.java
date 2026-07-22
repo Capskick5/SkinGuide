@@ -10,6 +10,7 @@ import mss.productservice.dto.request.ProductRequest;
 import mss.productservice.dto.response.ApiResponse;
 import mss.productservice.dto.response.ProductResponse;
 import mss.productservice.dto.response.ProductSummaryResponse;
+import mss.productservice.dto.response.FlashDealResponse;
 import mss.productservice.dto.request.ProductSearchRequest;
 import mss.productservice.service.impl.ProductService;
 import org.springframework.data.domain.Page;
@@ -42,6 +43,11 @@ public class ProductController {
     @GetMapping("/active")
     public ResponseEntity<ApiResponse<List<ProductSummaryResponse>>> getActiveProducts() {
         return ResponseEntity.ok(ApiResponse.ok(productService.getActiveProducts()));
+    }
+
+    @GetMapping("/flash-deals")
+    public ResponseEntity<ApiResponse<List<FlashDealResponse>>> getFlashDeals() {
+        return ResponseEntity.ok(ApiResponse.ok(productService.getFlashDeals()));
     }
 
     @GetMapping("/search/advanced")
