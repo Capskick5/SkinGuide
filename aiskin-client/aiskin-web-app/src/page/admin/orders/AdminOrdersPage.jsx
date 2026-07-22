@@ -177,7 +177,7 @@ function OrderDetailModal({ order, onClose }) {
                   <div key={`${item.productId || item.productName}-${index}`} className="flex items-center gap-4 p-4">
                     <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
                       {imageUrl ? (
-                        <img src={imageUrl} alt={item.productName} className="h-full w-full object-cover" />
+                        <img src={imageUrl} alt={item.productName} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                       ) : (
                         <Icon name="inventory_2" className="text-gray-400" />
                       )}

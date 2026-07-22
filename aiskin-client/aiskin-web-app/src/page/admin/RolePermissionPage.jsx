@@ -22,7 +22,10 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
             pages.push(
                 <button
                     key={i}
+                    type="button"
                     onClick={() => onPageChange(i)}
+                    aria-current={currentPage === i ? 'page' : undefined}
+                    aria-label={`Trang ${i}`}
                     className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
                         currentPage === i 
                             ? 'bg-indigo-600 text-white border border-indigo-600' 
@@ -39,8 +42,10 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
     return (
         <div className="flex items-center justify-center space-x-2 mt-3 mb-3">
             <button
+                type="button"
                 onClick={() => onPageChange(currentPage - 1)}
                 disabled={currentPage === 1}
+                aria-label="Trang trước"
                 className="px-2 py-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-50 text-sm font-medium bg-white"
             >
                 &lt;
@@ -48,7 +53,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
             
             {currentPage > 3 && totalPages > 5 && (
                 <>
-                    <button onClick={() => onPageChange(1)} className="px-3 py-1 rounded bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 text-sm font-medium">1</button>
+                    <button type="button" onClick={() => onPageChange(1)} aria-label="Trang 1" className="px-3 py-1 rounded bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 text-sm font-medium">1</button>
                     <span className="text-gray-500">...</span>
                 </>
             )}
@@ -58,13 +63,15 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
             {currentPage < totalPages - 2 && totalPages > 5 && (
                 <>
                     <span className="text-gray-500">...</span>
-                    <button onClick={() => onPageChange(totalPages)} className="px-3 py-1 rounded bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 text-sm font-medium">{totalPages}</button>
+                    <button type="button" onClick={() => onPageChange(totalPages)} aria-label={`Trang ${totalPages}`} className="px-3 py-1 rounded bg-white text-gray-700 hover:bg-gray-100 border border-gray-200 text-sm font-medium">{totalPages}</button>
                 </>
             )}
 
             <button
+                type="button"
                 onClick={() => onPageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
+                aria-label="Trang sau"
                 className="px-2 py-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-50 text-sm font-medium bg-white"
             >
                 &gt;
@@ -241,13 +248,17 @@ export default function RolePermissionPage() {
             {/* TABS */}
             <div className="flex space-x-6 border-b border-gray-200">
                 <button 
+                    type="button"
                     onClick={() => setActiveTab('roles')}
+                    aria-pressed={activeTab === 'roles'}
                     className={`pb-3 font-medium transition-colors ${activeTab === 'roles' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-900'}`}
                 >
                     Gán Quyền (Roles)
                 </button>
                 <button 
+                    type="button"
                     onClick={() => setActiveTab('permissions')}
+                    aria-pressed={activeTab === 'permissions'}
                     className={`pb-3 font-medium transition-colors ${activeTab === 'permissions' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-900'}`}
                 >
                     Thuộc tính & Quyền (Permissions)
