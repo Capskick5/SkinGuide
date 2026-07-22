@@ -20,7 +20,7 @@ function FavoriteRow({ product, isCompared, onFavoriteToggle, onCompareToggle })
           aria-label={`Xem chi tiết ${product.name}`}
         >
           {imageSrc ? (
-            <img src={imageSrc} alt={product.name} className="h-full w-full object-cover" />
+            <img src={imageSrc} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               <Icon name="spa" className="text-3xl text-primary/40" />
@@ -61,10 +61,10 @@ function FavoriteRow({ product, isCompared, onFavoriteToggle, onCompareToggle })
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 lg:justify-end">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
         <Link
           to={product.slug ? `/products/${product.slug}` : '/products'}
-          className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-label-md font-semibold text-white hover:bg-tertiary"
+          className="col-span-2 inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-label-md font-semibold text-white hover:bg-tertiary sm:col-span-1"
         >
           <Icon name="visibility" className="text-base" />
           Xem chi tiết
@@ -72,7 +72,7 @@ function FavoriteRow({ product, isCompared, onFavoriteToggle, onCompareToggle })
         <button
           type="button"
           onClick={onFavoriteToggle}
-          className="inline-flex items-center gap-2 rounded-full border border-border-pink bg-surface-container-lowest px-4 py-2 text-label-md text-on-surface-variant hover:text-primary"
+          className="inline-flex items-center justify-center gap-2 rounded-full border border-border-pink bg-surface-container-lowest px-4 py-2 text-label-md text-on-surface-variant hover:text-primary"
         >
           <Icon name="favorite" filled className="text-base text-error" />
           Bỏ yêu thích
@@ -81,7 +81,7 @@ function FavoriteRow({ product, isCompared, onFavoriteToggle, onCompareToggle })
           type="button"
           onClick={onCompareToggle}
           className={[
-            'inline-flex items-center gap-2 rounded-full px-4 py-2 text-label-md font-semibold',
+            'inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-label-md font-semibold',
             isCompared
               ? 'bg-primary-light text-primary'
               : 'border border-border-pink bg-surface-container-lowest text-on-surface-variant hover:text-primary',
@@ -184,7 +184,8 @@ export default function FavoriteProductsPage() {
           <button
             type="button"
             onClick={favorites.clear}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary"
+            disabled={favorites.count === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="delete" className="text-base" />
             Xóa hết
