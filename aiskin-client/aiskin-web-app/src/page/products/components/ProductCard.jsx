@@ -16,6 +16,10 @@ export default function ProductCard({
   variants = [],
   totalAvailableQuantity,
   totalOnHandQuantity,
+  isFavorite = false,
+  isCompared = false,
+  onFavoriteToggle,
+  onCompareToggle,
 }) {
   const canRenderImage = imageUrl && (/^https?:\/\//i.test(imageUrl) || imageUrl.startsWith('/'))
   const { addItem } = useCart()
@@ -74,9 +78,33 @@ export default function ProductCard({
         ) : (
           <Icon name="science" className="text-5xl text-primary/50" />
         )}
-        <span className={`absolute right-3 top-3 rounded-md px-2.5 py-1 text-caption font-semibold ${isSellable ? 'bg-[#e5f5ed] text-[#256247]' : 'bg-[#fde8e8] text-[#a33a3a]'}`}>
+        <span className={`absolute left-3 top-3 rounded-md px-2.5 py-1 text-caption font-semibold ${isSellable ? 'bg-[#e5f5ed] text-[#256247]' : 'bg-[#fde8e8] text-[#a33a3a]'}`}>
           {isSellable ? 'Còn hàng' : 'Hết hàng'}
         </span>
+        <div className="absolute right-3 top-3 flex gap-2">
+          {typeof onFavoriteToggle === 'function' ? (
+            <button
+              type="button"
+              onClick={onFavoriteToggle}
+              title={isFavorite ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
+              aria-label={isFavorite ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
+              className={`flex h-9 w-9 items-center justify-center rounded-full border bg-white/95 shadow-sm transition-colors ${isFavorite ? 'border-error/20 text-error' : 'border-border-pink text-on-surface-variant hover:border-primary hover:text-primary'}`}
+            >
+              <Icon name={isFavorite ? 'favorite' : 'favorite_border'} filled={isFavorite} className="text-lg" />
+            </button>
+          ) : null}
+          {typeof onCompareToggle === 'function' ? (
+            <button
+              type="button"
+              onClick={onCompareToggle}
+              title={isCompared ? 'Bỏ so sánh' : 'Thêm vào so sánh'}
+              aria-label={isCompared ? 'Bỏ so sánh' : 'Thêm vào so sánh'}
+              className={`flex h-9 w-9 items-center justify-center rounded-full border bg-white/95 shadow-sm transition-colors ${isCompared ? 'border-primary/20 text-primary' : 'border-border-pink text-on-surface-variant hover:border-primary hover:text-primary'}`}
+            >
+              <Icon name={isCompared ? 'check_circle' : 'compare_arrows'} className="text-lg" />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex grow flex-col p-4">
