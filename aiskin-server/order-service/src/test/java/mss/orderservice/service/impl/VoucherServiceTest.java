@@ -1,8 +1,12 @@
 package mss.orderservice.service.impl;
 
+import com.mongodb.client.result.UpdateResult;
 import mss.orderservice.model.Voucher;
 import mss.orderservice.repository.VoucherRepository;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -19,7 +23,8 @@ import static org.mockito.Mockito.when;
 class VoucherServiceTest {
 
     private final VoucherRepository repository = mock(VoucherRepository.class);
-    private final VoucherService service = new VoucherService(repository);
+    private final MongoTemplate mongoTemplate = mock(MongoTemplate.class);
+    private final VoucherService service = new VoucherService(repository, mongoTemplate);
 
     @Test
     void blankCodeReturnsZeroDiscountWithoutTouchingRepository() {
@@ -99,45 +104,33 @@ class VoucherServiceTest {
     }
 
     @Test
-    void incrementUsageIncreasesUsedCountAndPersists() {
-        Voucher voucher = Voucher.builder().code("INC1").discountType(Voucher.DiscountType.FIXED).discountValue(BigDecimal.valueOf(10_000)).isActive(true).usedCount(2).build();
-        when(repository.findByCodeIgnoreCase("INC1")).thenReturn(Optional.of(voucher));
-        when(repository.save(any(Voucher.class))).thenAnswer(inv -> inv.getArgument(0));
+    void incrementUsageClaimsOneUseAtomically() {
+        when(mongoTemplate.updateFirst(any(Query.class), any(Update.class),
+                org.mockito.ArgumentMatchers.eq(Voucher.class)))
+                .thenReturn(UpdateResult.acknowledged(1, 1L, null));
 
         service.incrementUsage("INC1");
 
-        assertThat(voucher.getUsedCount()).isEqualTo(3);
-        verify(repository).save(voucher);
+        verify(mongoTemplate).updateFirst(any(Query.class), any(Update.class),
+                org.mockito.ArgumentMatchers.eq(Voucher.class));
     }
 
     @Test
-    void incrementUsageThrowsWhenLimitReachedByRaceCondition() {
-        Voucher voucher = Voucher.builder().code("RACE1").discountType(Voucher.DiscountType.FIXED).discountValue(BigDecimal.valueOf(10_000)).isActive(true).usageLimit(3).usedCount(3).build();
-        when(repository.findByCodeIgnoreCase("RACE1")).thenReturn(Optional.of(voucher));
+    void incrementUsageThrowsWhenNoVoucherCanBeClaimed() {
+        when(mongoTemplate.updateFirst(any(Query.class), any(Update.class),
+                org.mockito.ArgumentMatchers.eq(Voucher.class)))
+                .thenReturn(UpdateResult.acknowledged(1, 0L, null));
 
-        assertThatThrownBy(() -> service.incrementUsage("RACE1")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> service.incrementUsage("RACE1"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("hết lượt");
     }
 
     @Test
-    void releaseUsageDecrementsUsedCountAndPersists() {
-        Voucher voucher = Voucher.builder().code("REL1").discountType(Voucher.DiscountType.FIXED).discountValue(BigDecimal.valueOf(10_000)).isActive(true).usedCount(3).build();
-        when(repository.findByCodeIgnoreCase("REL1")).thenReturn(Optional.of(voucher));
-        when(repository.save(any(Voucher.class))).thenAnswer(inv -> inv.getArgument(0));
-
+    void releaseUsageUsesAtomicDecrement() {
         service.releaseUsage("REL1");
 
-        assertThat(voucher.getUsedCount()).isEqualTo(2);
-        verify(repository).save(voucher);
-    }
-
-    @Test
-    void releaseUsageNeverGoesNegative() {
-        Voucher voucher = Voucher.builder().code("REL0").discountType(Voucher.DiscountType.FIXED).discountValue(BigDecimal.valueOf(10_000)).isActive(true).usedCount(0).build();
-        when(repository.findByCodeIgnoreCase("REL0")).thenReturn(Optional.of(voucher));
-        when(repository.save(any(Voucher.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        service.releaseUsage("REL0");
-
-        assertThat(voucher.getUsedCount()).isEqualTo(0);
+        verify(mongoTemplate).updateFirst(any(Query.class), any(Update.class),
+                org.mockito.ArgumentMatchers.eq(Voucher.class));
     }
 }

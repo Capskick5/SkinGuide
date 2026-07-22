@@ -78,6 +78,28 @@ class OrderServiceTest {
     }
 
     @Test
+    void releasesVoucherAndReservationWhenSavingDiscountedOrderFails() {
+        OrderRequest request = request();
+        request.setVoucherCode("SAVE10");
+        when(orderRepository.findByCustomerIdAndIdempotencyKey("user-1", "key-1"))
+                .thenReturn(Optional.empty());
+        when(voucherService.validateAndCalculateDiscount("SAVE10", BigDecimal.valueOf(100_000)))
+                .thenReturn(BigDecimal.valueOf(10_000));
+        when(orderRepository.save(any(Order.class)))
+                .thenThrow(new IllegalStateException("database unavailable"));
+        expectInventory("reserve");
+        expectInventory("release");
+
+        assertThatThrownBy(() -> service.createOrder(request, "key-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("database unavailable");
+
+        verify(voucherService).incrementUsage("SAVE10");
+        verify(voucherService).releaseUsage("SAVE10");
+        inventoryServer.verify();
+    }
+
+    @Test
     void returnsExistingOrderForRepeatedIdempotencyKey() {
         Order existing = Order.builder().orderCode("ORD-EXISTING").customerId("user-1").idempotencyKey("key-1").status(Order.OrderStatus.PENDING).paymentMethod(Order.PaymentMethod.COD).paymentStatus(Order.PaymentStatus.UNPAID).build();
         when(orderRepository.findByCustomerIdAndIdempotencyKey("user-1", "key-1")).thenReturn(Optional.of(existing));
