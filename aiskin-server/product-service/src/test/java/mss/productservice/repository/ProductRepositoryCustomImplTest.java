@@ -15,6 +15,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -187,6 +188,42 @@ class ProductRepositoryCustomImplTest {
         Query capturedQuery = captureSearchQuery(request);
 
         assertThat(capturedQuery.getQueryObject().containsKey("$and")).isFalse();
+    }
+
+    @Test
+    void treatsRegexCharactersInSearchAsLiteralText() {
+        Query capturedQuery = captureSearchQuery(
+                ProductSearchRequest.builder().query(".*").searchField("name").build());
+
+        @SuppressWarnings("unchecked")
+        List<Document> andList = (List<Document>) capturedQuery.getQueryObject().get("$and");
+        Object namePattern = andList.stream()
+                .filter(condition -> condition.containsKey("name"))
+                .map(condition -> condition.get("name"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(namePattern).isInstanceOf(java.util.regex.Pattern.class);
+        assertThat(((java.util.regex.Pattern) namePattern).pattern()).isEqualTo("\\Q.*\\E");
+    }
+
+    @Test
+    void rejectsInvalidPriceRangeBeforeQueryingMongo() {
+        ProductRepositoryCustomImpl repository = new ProductRepositoryCustomImpl(mock(MongoTemplate.class));
+
+        assertThatThrownBy(() -> repository.searchAdvanced(
+                ProductSearchRequest.builder().minPrice(500_000d).maxPrice(100_000d).build()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("tối thiểu");
+    }
+
+    @Test
+    void rejectsOversizedSearchQuery() {
+        ProductRepositoryCustomImpl repository = new ProductRepositoryCustomImpl(mock(MongoTemplate.class));
+
+        assertThatThrownBy(() -> repository.searchAdvanced(
+                ProductSearchRequest.builder().query("a".repeat(101)).build()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("100");
     }
 
     @SuppressWarnings("unchecked")

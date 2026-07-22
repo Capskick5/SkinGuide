@@ -113,6 +113,9 @@ public class OrderService implements IOrderService {
         if (voucherCode != null) {
             try {
                 discountAmount = voucherService.validateAndCalculateDiscount(voucherCode, subtotal);
+                // Claim atomically before persisting the discounted order so concurrent requests
+                // cannot exceed the voucher usage limit.
+                voucherService.incrementUsage(voucherCode);
             } catch (RuntimeException voucherFailure) {
                 // Tồn kho đã được reserve ở bước 2 nên phải release lại nếu voucher không hợp lệ.
                 compensateFailedOrderCreation(orderCode, request, voucherFailure);
@@ -129,18 +132,17 @@ public class OrderService implements IOrderService {
         try {
             orderRepository.save(order);
         } catch (RuntimeException saveFailure) {
+            if (voucherCode != null) {
+                try {
+                    voucherService.releaseUsage(voucherCode);
+                } catch (RuntimeException releaseFailure) {
+                    saveFailure.addSuppressed(releaseFailure);
+                    log.error("Failed to release voucher usage {} after order {} could not be persisted",
+                            voucherCode, orderCode, releaseFailure);
+                }
+            }
             compensateFailedOrderCreation(orderCode, request, saveFailure);
             throw saveFailure;
-        }
-        // 3b. Chỉ ghi nhận lượt dùng voucher SAU KHI đơn đã lưu thành công. Nếu tăng lượt thất bại
-        // (vd race condition vừa hết lượt), chấp nhận rủi ro nhỏ này cho phạm vi đồ án — không rollback
-        // đơn đã tạo, chỉ log lại để theo dõi.
-        if (voucherCode != null) {
-            try {
-                voucherService.incrementUsage(voucherCode);
-            } catch (RuntimeException incrementFailure) {
-                log.error("Failed to increment usage for voucher {} after order {} was created", voucherCode, orderCode, incrementFailure);
-            }
         }
         // 4. Handle Payment Method
         String paymentUrl = "";
