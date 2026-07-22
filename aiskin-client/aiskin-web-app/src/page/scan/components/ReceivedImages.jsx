@@ -9,7 +9,7 @@ export default function ReceivedImages({ images = [], onAnalyze }) {
 
   return (
     <div className="rounded-xl border border-border-pink bg-surface-container-lowest shadow-[0_8px_30px_rgba(103,80,228,0.07)] p-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-headline-md text-on-surface flex items-center gap-2">
           <Icon name="cloud_done" className="text-primary" />
           Ảnh đã nhận ({images.length})
@@ -17,7 +17,7 @@ export default function ReceivedImages({ images = [], onAnalyze }) {
         <button
           type="button"
           onClick={onAnalyze}
-          className="px-5 py-2.5 rounded-full gradient-bg text-white text-label-md font-medium shadow-sm hover:opacity-90 transition-opacity flex items-center gap-2"
+          className="w-full px-5 py-2.5 rounded-full gradient-bg text-white text-label-md font-medium shadow-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 sm:w-auto"
         >
           <Icon name="auto_awesome" className="text-base" />
           Phân tích ngay
@@ -31,7 +31,7 @@ export default function ReceivedImages({ images = [], onAnalyze }) {
             className="relative aspect-[3/4] rounded-xl bg-primary-light border border-border-pink flex flex-col items-center justify-center overflow-hidden group"
           >
             {img.src ? (
-              <img src={img.src} alt={img.label} className="w-full h-full object-cover" />
+              <img src={img.src} alt={img.label || 'Ảnh da đã tải lên'} loading="lazy" decoding="async" className="w-full h-full object-cover" />
             ) : (
               <Icon name="face" className="text-5xl text-primary/40" />
             )}

@@ -15,7 +15,7 @@ export default function AuthPage({ mode = 'login' }) {
   const isLogin = mode === 'login'
 
   return (
-    <div className="flex w-full h-screen overflow-hidden bg-surface-soft">
+    <div className="flex w-full h-screen overflow-hidden bg-surface-soft page-enter">
       <AuthBranding />
 
       {/* Form column */}
@@ -41,8 +41,8 @@ export default function AuthPage({ mode = 'login' }) {
               type="button"
               onClick={() => navigate(PATHS.LOGIN)}
               className={[
-                'flex-1 py-2 px-4 rounded-lg text-label-md transition-all',
-                isLogin ? 'bg-white shadow-sm text-primary font-semibold' : 'text-on-surface-variant hover:text-primary',
+                'flex-1 py-2 px-4 rounded-lg text-label-md transition-all duration-200 focus-ring',
+                isLogin ? 'bg-white shadow-sm text-primary font-semibold' : 'text-on-surface-variant hover:text-primary hover:bg-white/50',
               ].join(' ')}
             >
               Đăng nhập
@@ -51,8 +51,8 @@ export default function AuthPage({ mode = 'login' }) {
               type="button"
               onClick={() => navigate(PATHS.REGISTER)}
               className={[
-                'flex-1 py-2 px-4 rounded-lg text-label-md transition-all',
-                !isLogin ? 'bg-white shadow-sm text-primary font-semibold' : 'text-on-surface-variant hover:text-primary',
+                'flex-1 py-2 px-4 rounded-lg text-label-md transition-all duration-200 focus-ring',
+                !isLogin ? 'bg-white shadow-sm text-primary font-semibold' : 'text-on-surface-variant hover:text-primary hover:bg-white/50',
               ].join(' ')}
             >
               Đăng ký
@@ -68,7 +68,7 @@ export default function AuthPage({ mode = 'login' }) {
             <button
               type="button"
               onClick={() => navigate(isLogin ? PATHS.REGISTER : PATHS.LOGIN)}
-              className="text-label-md text-primary font-semibold hover:text-tertiary transition-colors"
+              className="text-label-md text-primary font-semibold hover:text-tertiary transition-all duration-200 hover:underline underline-offset-4"
             >
               {isLogin ? 'Đăng ký' : 'Đăng nhập'}
             </button>

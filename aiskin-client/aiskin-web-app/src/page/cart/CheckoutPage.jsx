@@ -22,13 +22,15 @@ const steps = [
 
 function Stepper({ currentStep }) {
   return (
-    <div className="mb-6 grid grid-cols-3 gap-2">
+    <div className="mb-6 grid grid-cols-3 gap-2" role="list" aria-label="Tiến trình thanh toán">
       {steps.map((step) => {
         const active = currentStep === step.id
         const done = currentStep > step.id
         return (
           <div
             key={step.id}
+            role="listitem"
+            aria-current={active ? 'step' : undefined}
             className={[
               'flex min-h-14 items-center gap-2 rounded-md px-3 text-sm font-semibold transition-colors',
               active || done ? 'bg-primary text-white' : 'bg-surface-soft text-on-surface-variant',
@@ -519,7 +521,7 @@ function ConfirmStep({ formData, items, paymentMethod, onBack, onConfirm, loadin
             return (
               <div key={item.id} className="grid grid-cols-[48px_1fr_auto] items-center gap-3 px-4 py-3">
                 <div className="h-12 w-12 overflow-hidden rounded-md border border-border-pink bg-primary-light">
-                  {img ? <img src={img} alt={item.name} className="h-full w-full object-cover" /> : <Icon name="science" className="m-3 text-primary/50" />}
+                  {img ? <img src={img} alt={item.name} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <Icon name="science" className="m-3 text-primary/50" />}
                 </div>
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-on-surface">{item.name}</p>
@@ -549,7 +551,7 @@ function ConfirmStep({ formData, items, paymentMethod, onBack, onConfirm, loadin
 function OrderSummary({ items, totalPrice, shippingFee = 0, discountAmount = 0 }) {
   const finalPrice = Math.max(0, totalPrice + shippingFee - discountAmount)
   return (
-    <aside className="sticky top-4 rounded-lg border border-border-pink bg-white">
+    <aside className="rounded-lg border border-border-pink bg-white lg:sticky lg:top-4">
       <div className="border-b border-border-pink px-4 py-3">
         <p className="font-bold text-on-surface">Tóm tắt đơn hàng</p>
         <p className="text-sm text-on-surface-variant">{items.length} sản phẩm trong giỏ</p>
@@ -560,7 +562,7 @@ function OrderSummary({ items, totalPrice, shippingFee = 0, discountAmount = 0 }
           return (
             <div key={item.id} className="grid grid-cols-[44px_1fr_auto] items-center gap-3 py-3">
               <div className="relative h-11 w-11 overflow-hidden rounded-md border border-border-pink bg-primary-light">
-                {img ? <img src={img} alt={item.name} className="h-full w-full object-cover" /> : <Icon name="science" className="m-3 text-primary/50" />}
+                {img ? <img src={img} alt={item.name} loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <Icon name="science" className="m-3 text-primary/50" />}
                 <span className="absolute right-0 top-0 flex h-5 min-w-5 items-center justify-center rounded-bl-md bg-primary px-1 text-[10px] font-bold text-white">{item.qty}</span>
               </div>
               <p className="min-w-0 truncate text-sm font-semibold text-on-surface">{item.name}</p>

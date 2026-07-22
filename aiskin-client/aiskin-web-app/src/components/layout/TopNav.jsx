@@ -16,12 +16,13 @@ export default function TopNav() {
         type="button"
         id="topnav-cart-btn"
         onClick={() => navigate(PATHS.CART)}
-        className="relative w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/70 transition-colors rounded-lg"
+        className="relative w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/70 transition-all duration-200 rounded-lg focus-ring"
         aria-label="Giỏ hàng"
+        title="Giỏ hàng"
       >
         <Icon name="shopping_cart" className="text-[22px]" />
         {totalCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-primary text-white text-[10px] font-bold px-1 shadow-ambient-pink animate-slide-up">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-primary text-white text-[10px] font-bold px-1 shadow-ambient-pink animate-scale-in">
             {totalCount > 99 ? '99+' : totalCount}
           </span>
         )}
@@ -30,8 +31,9 @@ export default function TopNav() {
       <button
         type="button"
         onClick={() => navigate(PATHS.ORDERS)}
-        className="w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/70 transition-colors rounded-lg"
+        className="w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/70 transition-all duration-200 rounded-lg focus-ring"
         aria-label="Lịch sử mua hàng"
+        title="Đơn hàng"
       >
         <Icon name="receipt_long" className="text-[22px]" />
       </button>
@@ -39,8 +41,9 @@ export default function TopNav() {
       <button
         type="button"
         onClick={() => navigate(PATHS.SETTINGS)}
-        className="w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/70 transition-colors rounded-lg"
+        className="w-9 h-9 flex items-center justify-center text-on-surface hover:text-primary hover:bg-white/70 transition-all duration-200 rounded-lg focus-ring"
         aria-label="Cài đặt"
+        title="Cài đặt"
       >
         <Icon name="settings" className="text-[22px]" />
       </button>
@@ -54,14 +57,14 @@ export default function TopNav() {
           <button
             type="button"
             onClick={() => navigate(PATHS.LOGIN)}
-            className="h-9 rounded-lg px-4 text-sm font-semibold text-on-surface hover:bg-white/70 transition-colors"
+            className="h-9 rounded-lg px-4 text-sm font-semibold text-on-surface hover:bg-white/70 transition-all duration-200 focus-ring"
           >
             Đăng nhập
           </button>
           <button
             type="button"
             onClick={() => navigate(PATHS.REGISTER)}
-            className="h-9 rounded-lg bg-on-surface px-4 text-sm font-bold text-white shadow-[0_10px_24px_rgba(23,32,38,0.16)] hover:opacity-90 transition-opacity"
+            className="h-9 rounded-lg bg-on-surface px-4 text-sm font-bold text-white shadow-[0_10px_24px_rgba(23,32,38,0.16)] hover:opacity-90 transition-all duration-200 hover:scale-[1.02] focus-ring"
           >
             Đăng ký
           </button>

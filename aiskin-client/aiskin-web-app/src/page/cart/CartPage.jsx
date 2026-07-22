@@ -11,23 +11,23 @@ function money(value) {
 
 function QtyStepper({ value, onMinus, onPlus, canIncrease }) {
   return (
-    <div className="inline-flex h-9 overflow-hidden rounded-md border border-outline-variant bg-white">
+    <div className="inline-flex h-9 overflow-hidden rounded-md border border-outline-variant bg-white shadow-sm">
       <button
         type="button"
         onClick={onMinus}
-        className="flex w-9 items-center justify-center text-on-surface-variant hover:bg-surface-container"
+        className="flex w-9 items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors duration-150 active:scale-90"
         aria-label="Giảm số lượng"
       >
         <Icon name="remove" className="text-base" />
       </button>
-      <span className="flex w-11 items-center justify-center border-x border-outline-variant text-sm font-bold">
+      <span aria-live="polite" className="flex w-11 items-center justify-center border-x border-outline-variant text-sm font-bold">
         {value}
       </span>
       <button
         type="button"
         onClick={onPlus}
         disabled={!canIncrease}
-        className="flex w-9 items-center justify-center text-on-surface-variant hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-35"
+        className="flex w-9 items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors duration-150 active:scale-90 disabled:cursor-not-allowed disabled:opacity-35"
         aria-label="Tăng số lượng"
       >
         <Icon name="add" className="text-base" />
@@ -51,7 +51,7 @@ function CartRow({ item, onRemove, onUpdateQty }) {
       <div className="flex min-w-0 gap-4">
         <div className="h-24 w-24 shrink-0 overflow-hidden rounded-md border border-outline-variant bg-surface-container">
           {imageSrc ? (
-            <img src={imageSrc} alt={item.name} className="h-full w-full object-cover" />
+            <img src={imageSrc} alt={item.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               <Icon name="spa" className="text-3xl text-secondary/50" />
@@ -114,7 +114,7 @@ function CartRow({ item, onRemove, onUpdateQty }) {
 
 function InvoiceSummary({ totalCount, totalPrice, onCheckout, checkoutDisabled }) {
   return (
-    <aside className="sticky top-6 h-fit border-t-4 border-secondary bg-white shadow-[0_20px_60px_rgba(23,32,38,0.08)]">
+    <aside className="h-fit border-t-4 border-secondary bg-white shadow-[0_20px_60px_rgba(23,32,38,0.08)] lg:sticky lg:top-6">
       <div className="border-b border-outline-variant px-5 py-4">
         <h2 className="text-xl font-black text-on-surface">Hóa đơn của bạn</h2>
         <p className="mt-1 text-sm text-on-surface-variant">{totalCount} sản phẩm trong giỏ</p>
@@ -130,14 +130,14 @@ function InvoiceSummary({ totalCount, totalPrice, onCheckout, checkoutDisabled }
         </div>
         <div className="flex justify-between text-sm">
           <span className="text-on-surface-variant">Phí vận chuyển</span>
-          <span className="font-bold text-secondary">Miễn phí</span>
+          <span className="font-bold text-on-surface-variant">Tính khi đặt hàng</span>
         </div>
         <div className="border-t border-outline-variant pt-4">
           <div className="flex items-end justify-between">
-            <span className="font-bold text-on-surface">Tổng cộng</span>
+            <span className="font-bold text-on-surface">Tạm tính</span>
             <span className="text-2xl font-black text-[#ff5a00]">{money(totalPrice)}</span>
           </div>
-          <p className="mt-1 text-right text-xs text-on-surface-variant">(Đã bao gồm VAT)</p>
+          <p className="mt-1 text-right text-xs text-on-surface-variant">Chưa bao gồm phí vận chuyển</p>
         </div>
         <button
           type="button"
@@ -178,10 +178,10 @@ export default function CartPage() {
   ))
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="mx-auto max-w-7xl page-enter">
       <div className="mb-5 rounded-md bg-[#fff1d8] px-4 py-3 text-sm font-bold text-[#b44200]">
         <Icon name="local_fire_department" filled className="mr-2 align-[-4px] text-[#ff5a00]" />
-        Ưu đãi 1.7: miễn phí vận chuyển cho đơn hàng skincare hôm nay
+        Phí vận chuyển sẽ được tính chính xác theo địa chỉ ở bước đặt hàng
       </div>
 
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -206,11 +206,11 @@ export default function CartPage() {
 
       {items.length === 0 ? (
         <div className="bg-white px-6 py-16 text-center shadow-[0_18px_45px_rgba(23,32,38,0.06)]">
-          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-surface-container">
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-surface-container animate-bounce-gentle">
             <Icon name="shopping_cart" className="text-5xl text-secondary/55" />
           </div>
           <h2 className="mt-5 text-2xl font-black">Giỏ hàng đang trống</h2>
-          <p className="mt-2 text-on-surface-variant">Khám phá sản phẩm skincare và thêm món bạn thích vào giỏ.</p>
+          <p className="mt-2 text-on-surface-variant max-w-sm mx-auto">Khám phá sản phẩm skincare và thêm món bạn thích vào giỏ.</p>
           <Link
             to={PATHS.PRODUCTS}
             className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-md bg-secondary px-6 font-black text-white hover:bg-primary"

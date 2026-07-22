@@ -356,7 +356,7 @@ export default function AdminProductsPage() {
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
                         {product.imageUrl ? (
-                          <img src={product.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover" />
+                          <img src={product.imageUrl} alt={product.name} loading="lazy" decoding="async" className="w-9 h-9 rounded-lg object-cover" />
                         ) : (
                           <div className="w-9 h-9 rounded-lg bg-pink-50 flex items-center justify-center">
                             <Icon name="inventory_2" className="text-pink-400 text-sm" />

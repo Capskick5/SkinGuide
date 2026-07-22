@@ -242,7 +242,7 @@ export default function OrdersPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-6 flex overflow-x-auto gap-2 pt-1 pb-2 px-1 -mx-1 scrollbar-hide">
+      <div className="mb-6 flex overflow-x-auto gap-2 pt-1 pb-2 px-1 -mx-1 scrollbar-hide" role="tablist" aria-label="Lọc đơn hàng theo trạng thái">
         {TABS.map(tab => {
           const isActive = activeTab === tab.key
           const statusStyle = getStatusLabel(tab.key)
@@ -250,6 +250,9 @@ export default function OrdersPage() {
           return (
             <button
               key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
               onClick={() => {
                 setActiveTab(tab.key)
                 setPage(0)
@@ -344,7 +347,7 @@ export default function OrdersPage() {
                       <>
                         <div className="w-12 h-12 rounded-lg bg-primary-light flex items-center justify-center shrink-0 border border-border-pink overflow-hidden">
                           {firstItem.imageUrl ? (
-                            <img src={resolveImageUrl(firstItem.imageUrl)} alt={firstItem.productName} className="w-full h-full object-cover" />
+                            <img src={resolveImageUrl(firstItem.imageUrl)} alt={firstItem.productName} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                           ) : (
                             <Icon name="science" className="text-primary/50 text-2xl" />
                           )}

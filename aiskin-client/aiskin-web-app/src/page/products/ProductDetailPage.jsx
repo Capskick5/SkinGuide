@@ -179,7 +179,13 @@ export default function ProductDetailPage() {
           <div className="lg:sticky lg:top-6 h-fit rounded-xl overflow-hidden border border-border-pink bg-surface-container-lowest">
             <div className="relative aspect-[4/5] bg-primary-light">
               {imageSrc ? (
-                <img src={imageSrc} alt={product.name} className="h-full w-full object-cover" />
+                <img
+                  src={imageSrc}
+                  alt={product.name}
+                  fetchPriority="high"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <div className="h-full w-full flex items-center justify-center">
                   <Icon name="science" className="text-7xl text-primary/50" />
@@ -245,6 +251,7 @@ export default function ProductDetailPage() {
                   </label>
                   <select
                     id="product-variant"
+                    aria-describedby="product-stock-status"
                     value={selectedVariant?.id || ''}
                     onChange={(event) => setSelectedVariantId(event.target.value)}
                     className="h-11 w-full rounded-lg border border-border-pink bg-white px-3 text-body-md text-on-surface outline-none focus:border-primary"
@@ -259,7 +266,7 @@ export default function ProductDetailPage() {
               ) : null}
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 {tracksInventory ? (
-                  <div className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${outOfStock ? 'border-error/20 bg-error/5 text-error' : 'border-success/20 bg-success/5 text-success'}`}>
+                  <div id="product-stock-status" role="status" aria-live="polite" className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${outOfStock ? 'border-error/20 bg-error/5 text-error' : 'border-success/20 bg-success/5 text-success'}`}>
                     <Icon name={outOfStock ? 'remove_shopping_cart' : 'inventory_2'} className="text-lg" />
                     {outOfStock ? 'Hết hàng' : `Còn ${availableQuantity} sản phẩm`}
                     {selectedVariant?.name ? <span className="font-normal opacity-80">· {selectedVariant.name}</span> : null}
@@ -269,8 +276,10 @@ export default function ProductDetailPage() {
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <button
                   id="product-add-to-cart-btn"
+                  type="button"
                   onClick={handleAddToCart}
                   disabled={addedToCart || outOfStock}
+                  aria-live="polite"
                   className={[
                     'inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-label-md transition-all shadow-ambient-pink active:scale-95',
                     outOfStock

@@ -123,7 +123,8 @@ export default function CompareProductsPage() {
           <button
             type="button"
             onClick={compared.clear}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary"
+            disabled={compared.count === 0}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border-pink bg-surface-container-lowest text-label-md text-on-surface-variant hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="delete" className="text-base" />
             Xóa so sánh
@@ -161,12 +162,16 @@ export default function CompareProductsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${selectedProducts.length}, minmax(0, 1fr))` }}>
-            {selectedProducts.map((product) => (
+          <div className="overflow-x-auto pb-2">
+            <div
+              className="grid min-w-max gap-4"
+              style={{ gridTemplateColumns: `repeat(${selectedProducts.length}, minmax(17rem, 22rem))` }}
+            >
+              {selectedProducts.map((product) => (
               <div key={product.id} className="rounded-2xl border border-border-pink bg-surface-container-lowest overflow-hidden">
                 <div className="relative aspect-[4/5] bg-primary-light">
                   {product.imageSrc ? (
-                    <img src={product.imageSrc} alt={product.name} className="h-full w-full object-cover" />
+                    <img src={product.imageSrc} alt={product.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center">
                       <Icon name="science" className="text-6xl text-primary/50" />
@@ -199,7 +204,8 @@ export default function CompareProductsPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-border-pink bg-surface-container-lowest">
@@ -217,7 +223,7 @@ export default function CompareProductsPage() {
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.label} className="border-t border-border-pink align-top">
-                    <td className="px-4 py-4 text-body-md font-medium text-on-surface-variant bg-surface-container-lowest">
+                    <td className="sticky left-0 z-10 px-4 py-4 text-body-md font-medium text-on-surface-variant bg-surface-container-lowest">
                       {row.label}
                     </td>
                     {selectedProducts.map((product) => (

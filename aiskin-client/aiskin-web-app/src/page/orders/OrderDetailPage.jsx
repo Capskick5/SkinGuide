@@ -410,7 +410,7 @@ export default function OrderDetailPage() {
                 <div className="rounded-2xl border border-orange-100 overflow-hidden divide-y divide-orange-100">
                   {returnRequest.items?.map((item, idx) => (
                     <div key={idx} className="flex items-center gap-3 p-3 bg-orange-50/30">
-                      <img src={resolveImageUrl(item.imageUrl)} alt={item.productName} className="w-12 h-12 rounded object-cover border border-orange-100" />
+                      <img src={resolveImageUrl(item.imageUrl)} alt={item.productName} loading="lazy" decoding="async" className="w-12 h-12 rounded object-cover border border-orange-100" />
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm text-gray-900 line-clamp-1">{item.productName}</p>
                         <p className="text-xs text-gray-500">Đã chọn trả: <span className="font-bold text-orange-700">{item.quantity}</span></p>
@@ -657,7 +657,7 @@ export default function OrderDetailPage() {
                   <div key={idx} className="flex items-center gap-4 p-4 bg-white">
                     <div className="w-16 h-16 rounded-xl bg-surface-container-lowest flex items-center justify-center shrink-0 border border-border-pink overflow-hidden">
                       {img ? (
-                        <img src={img} alt={item.productName} className="w-full h-full object-cover" />
+                        <img src={img} alt={item.productName} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       ) : (
                         <Icon name="science" className="text-primary/50 text-3xl" />
                       )}

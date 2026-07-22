@@ -10,6 +10,7 @@ export default function AdminCategoriesPage() {
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ name: '', description: '', displayOrder: 0 })
 
   // Pagination state
@@ -52,6 +53,9 @@ export default function AdminCategoriesPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (saving) return
+
+    setSaving(true)
     const payload = {
       name: form.name,
       description: form.description,
@@ -69,6 +73,8 @@ export default function AdminCategoriesPage() {
       fetchCategories()
     } catch {
       message.error('Thao tác thất bại')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -208,7 +214,7 @@ export default function AdminCategoriesPage() {
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="font-semibold text-gray-900">{editing ? 'Sửa danh mục' : 'Thêm danh mục'}</h3>
-              <button type="button" onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
+              <button type="button" onClick={() => setShowForm(false)} aria-label="Đóng biểu mẫu" className="text-gray-400 hover:text-gray-600">
                 <Icon name="close" className="text-xl" />
               </button>
             </div>
@@ -233,9 +239,10 @@ export default function AdminCategoriesPage() {
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
               <button type="button" onClick={() => setShowForm(false)}
                 className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition-all">Hủy</button>
-              <button type="submit"
-                className="px-5 py-2 bg-pink-500 text-white text-sm font-medium rounded-xl hover:bg-pink-600 transition-all">
-                {editing ? 'Cập nhật' : 'Tạo mới'}
+              <button type="submit" disabled={saving}
+                className="inline-flex min-w-24 items-center justify-center gap-2 px-5 py-2 bg-pink-500 text-white text-sm font-medium rounded-xl hover:bg-pink-600 transition-all disabled:cursor-wait disabled:opacity-60">
+                {saving && <Icon name="progress_activity" className="animate-spin text-base" />}
+                {saving ? 'Đang lưu...' : editing ? 'Cập nhật' : 'Tạo mới'}
               </button>
             </div>
           </form>

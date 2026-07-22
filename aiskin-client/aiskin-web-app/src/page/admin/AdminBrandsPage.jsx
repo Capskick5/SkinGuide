@@ -138,7 +138,7 @@ export default function AdminBrandsPage() {
               <div key={b.id} className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start gap-3">
                   {b.logoUrl ? (
-                    <img src={b.logoUrl} alt="" className="w-12 h-12 rounded-lg object-contain bg-gray-50 p-1" />
+                    <img src={b.logoUrl} alt={`Logo ${b.name}`} loading="lazy" decoding="async" className="w-12 h-12 rounded-lg object-contain bg-gray-50 p-1" />
                   ) : (
                     <div className="w-12 h-12 rounded-lg bg-pink-50 flex items-center justify-center shrink-0">
                       <Icon name="storefront" className="text-pink-400 text-xl" />

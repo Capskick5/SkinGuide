@@ -74,7 +74,13 @@ export default function ProductCard({
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border-pink bg-surface-container-lowest shadow-[0_4px_20px_rgba(103,80,228,0.06)] transition-all hover:shadow-[0_8px_25px_rgba(103,80,228,0.12)]">
       <div className="relative flex h-44 items-center justify-center overflow-hidden bg-primary-light">
         {canRenderImage ? (
-          <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
+          <img
+            src={imageUrl}
+            alt={name}
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.03]"
+          />
         ) : (
           <Icon name="science" className="text-5xl text-primary/50" />
         )}
@@ -109,7 +115,11 @@ export default function ProductCard({
 
       <div className="flex grow flex-col p-4">
         <p className="text-caption text-on-surface-variant">{brand}</p>
-        <h3 className="mb-2 min-h-14 text-body-lg font-semibold text-on-surface line-clamp-2">{name}</h3>
+        <h3 className="mb-2 min-h-14 text-body-lg font-semibold text-on-surface line-clamp-2">
+          <Link to={`/products/${slug}`} className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+            {name}
+          </Link>
+        </h3>
 
         <span className="mb-2 self-start rounded-full bg-primary-light px-3 py-1 text-caption text-tertiary">
           {category}
@@ -117,8 +127,8 @@ export default function ProductCard({
 
         {targetConcerns?.length > 0 && (
           <div className="mb-auto flex flex-wrap gap-1">
-            {targetConcerns.slice(0, 2).map((concern, i) => (
-              <span key={i} className="rounded-md bg-surface-soft px-2 py-0.5 text-[10px] text-on-surface-variant">
+            {targetConcerns.slice(0, 2).map((concern) => (
+              <span key={concern} className="rounded-md bg-surface-soft px-2 py-0.5 text-[10px] text-on-surface-variant">
                 {concern}
               </span>
             ))}

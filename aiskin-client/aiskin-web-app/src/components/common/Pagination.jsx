@@ -44,10 +44,10 @@ export default function Pagination({
   const visiblePages = getVisiblePages(currentPage, totalPages)
 
   return (
-    <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border border-gray-100 shadow-sm ${containerClass}`}>
+    <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border border-outline-variant shadow-sm ${containerClass}`}>
       {showPageInfo && (
-        <p className="text-sm text-gray-500">
-          Trang <span className="font-bold text-gray-800">{currentPage}</span> / {totalPages}
+        <p className="text-sm text-on-surface-variant">
+          Trang <span className="font-bold text-on-surface">{currentPage}</span> / {totalPages}
         </p>
       )}
 
@@ -56,7 +56,7 @@ export default function Pagination({
           type="button"
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
-          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:text-primary hover:bg-gray-50 transition-colors"
+          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-outline-variant bg-white text-sm text-on-surface-variant disabled:opacity-40 disabled:cursor-not-allowed hover:text-primary hover:bg-surface-soft transition-all duration-150 focus-ring"
         >
           <Icon name="chevron_left" className="text-base" />
           Trước
@@ -64,7 +64,7 @@ export default function Pagination({
 
         {visiblePages.map((item, index) =>
           item === '...' ? (
-            <span key={`dots-${index}`} className="px-2 text-gray-400">
+            <span key={`dots-${index}`} className="px-2 text-on-surface-variant/50">
               ...
             </span>
           ) : (
@@ -73,10 +73,10 @@ export default function Pagination({
               type="button"
               onClick={() => onPageChange(item)}
               className={[
-                'min-w-10 h-10 px-3 rounded-xl border text-sm font-semibold transition-colors',
+                'min-w-10 h-10 px-3 rounded-xl border text-sm font-semibold transition-all duration-150 focus-ring',
                 item === currentPage
-                  ? 'bg-primary text-white border-primary shadow-sm shadow-primary/20'
-                  : 'border-gray-200 bg-white text-gray-600 hover:text-primary hover:bg-gray-50',
+                  ? 'bg-primary text-white border-primary shadow-sm shadow-primary/20 scale-105'
+                  : 'border-outline-variant bg-white text-on-surface-variant hover:text-primary hover:bg-surface-soft hover:scale-105',
               ].join(' ')}
             >
               {item}
@@ -88,7 +88,7 @@ export default function Pagination({
           type="button"
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage >= totalPages}
-          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed hover:text-primary hover:bg-gray-50 transition-colors"
+          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-outline-variant bg-white text-sm text-on-surface-variant disabled:opacity-40 disabled:cursor-not-allowed hover:text-primary hover:bg-surface-soft transition-all duration-150 focus-ring"
         >
           Sau
           <Icon name="chevron_right" className="text-base" />

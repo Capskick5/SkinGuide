@@ -354,7 +354,10 @@ export default function RoutinePage() {
         {historyList.length > 0 && (
           <div className="relative z-10">
             <button
+              type="button"
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              aria-expanded={isDropdownOpen}
+              aria-haspopup="listbox"
               className="flex items-center gap-3 bg-surface-container-lowest px-5 py-2.5 rounded-full border border-border-pink hover:border-primary hover:shadow-ambient-pink transition-all cursor-pointer"
             >
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -385,7 +388,7 @@ export default function RoutinePage() {
                             selectScan(h);
                             setIsDropdownOpen(false);
                           }}>
-                            <img src={h.imageUrl} alt="thumb" className="w-full h-full object-cover" />
+                            <img src={h.imageUrl} alt={`Bản quét ngày ${formatDate(h.createdAt)}`} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                           </div>
                           <div className="grow cursor-pointer" onClick={() => {
                             selectScan(h);
@@ -444,8 +447,8 @@ export default function RoutinePage() {
             <div className="bg-primary/10 rounded-2xl p-4 border border-border-pink">
               <h3 className="text-label-lg font-bold text-primary mb-2">🎯 Mục tiêu ưu tiên trị liệu</h3>
               <div className="flex flex-wrap gap-2">
-                {focusAreas.map((area, idx) => (
-                  <span key={idx} className="px-3 py-1 bg-white text-on-surface rounded-full text-label-md border border-border-pink shadow-sm">
+                {focusAreas.map((area) => (
+                  <span key={area} className="px-3 py-1 bg-white text-on-surface rounded-full text-label-md border border-border-pink shadow-sm">
                     {translateIssue(area)}
                   </span>
                 ))}
@@ -627,9 +630,11 @@ export default function RoutinePage() {
       {/* Quick View Modal */}
       {quickViewProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setQuickViewProduct(null)}>
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative" onClick={e => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-label={`Xem nhanh ${quickViewProduct.name}`} className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative" onClick={e => e.stopPropagation()}>
             <button 
+              type="button"
               onClick={() => setQuickViewProduct(null)}
+              aria-label="Đóng xem nhanh sản phẩm"
               className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-colors z-10"
             >
               <Icon name="close" className="text-xl" />
@@ -640,6 +645,7 @@ export default function RoutinePage() {
                 <img
                   src={quickViewProduct.imageUrl}
                   alt={quickViewProduct.name}
+                  decoding="async"
                   className="w-full h-full object-contain mix-blend-multiply py-4"
                 />
               ) : (

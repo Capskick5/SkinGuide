@@ -68,10 +68,17 @@ export default function ForgotPasswordPage() {
           <button
             type="button"
             onClick={() => navigate(PATHS.LOGIN)}
-            className="flex items-center gap-2 text-label-md text-on-surface-variant hover:text-primary transition-colors mb-6"
+            className="flex items-center gap-2 text-label-md text-on-surface-variant hover:text-primary transition-all duration-200 hover:gap-3 mb-6"
           >
             <ArrowLeftOutlined /> Quay lại đăng nhập
           </button>
+
+          {/* Step indicator */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold transition-colors ${step >= 1 ? 'gradient-bg text-white' : 'bg-surface-container text-on-surface-variant'}`}>1</div>
+            <div className={`h-0.5 flex-1 rounded-full transition-colors ${step >= 2 ? 'gradient-bg' : 'bg-outline-variant'}`} />
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold transition-colors ${step >= 2 ? 'gradient-bg text-white' : 'bg-surface-container text-on-surface-variant'}`}>2</div>
+          </div>
 
           <div className="mb-8 text-center lg:text-left">
             <h2 className="text-headline-lg-mobile lg:text-headline-lg text-on-surface mb-2">
