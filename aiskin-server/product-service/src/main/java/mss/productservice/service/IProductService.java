@@ -14,6 +14,7 @@ import mss.productservice.dto.response.ProductIngredientResponse;
 import mss.productservice.dto.response.ProductResponse;
 import mss.productservice.dto.response.ProductVariantResponse;
 import mss.productservice.dto.response.ProductSummaryResponse;
+import mss.productservice.dto.response.FlashDealResponse;
 import mss.productservice.exception.DuplicateResourceException;
 import mss.productservice.exception.ResourceNotFoundException;
 import mss.productservice.model.Brand;
@@ -44,6 +45,8 @@ public interface IProductService {
     List<ProductSummaryResponse> getProducts(boolean includeInactive);
 
     List<ProductSummaryResponse> getActiveProducts();
+
+    List<FlashDealResponse> getFlashDeals();
 
     ProductResponse getProductById(String id, boolean includeInactive);
 

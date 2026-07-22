@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -49,6 +50,8 @@ public class InventoryService implements IInventoryService {
     private final InventoryMovementRepository movementRepository;
 
     private final KafkaProductProducer kafkaProductProducer;
+
+    private final FlashDealPolicy flashDealPolicy;
 
     @Transactional
     public synchronized InventoryReservationResponse reserve(InventoryReservationRequest request) {
@@ -386,6 +389,10 @@ public class InventoryService implements IInventoryService {
     private InventoryReservationItemResponse toReservationItemResponse(InventoryContext context) {
         double price = context.variant().getPrice() != null ? context.variant().getPrice() : context.product().getPrice() != null ? context.product().getPrice() : 0;
         BigDecimal unitPrice = BigDecimal.valueOf(price);
+        Set<String> dealIds = flashDealPolicy.selectProductIds(productRepository.findByIsActiveTrue().stream().map(Product::getId).toList());
+        if (dealIds.contains(context.product().getId())) {
+            unitPrice = flashDealPolicy.dealPrice(unitPrice, flashDealPolicy.discountPercent(context.product().getCategoryId()));
+        }
         return InventoryReservationItemResponse.builder().productId(context.product().getId()).productName(context.product().getName()).variantId(context.variant().getId()).variantName(context.variant().getName()).sku(context.variant().getSku()).imageUrl(hasText(context.variant().getImageUrl()) ? context.variant().getImageUrl() : context.product().getImageUrl()).unit(hasText(context.variant().getUnit()) ? context.variant().getUnit() : "Cái").quantity(context.quantity()).unitPrice(unitPrice).subTotal(unitPrice.multiply(BigDecimal.valueOf(context.quantity()))).build();
     }
 

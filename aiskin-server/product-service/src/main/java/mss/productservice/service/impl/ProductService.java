@@ -14,6 +14,7 @@ import mss.productservice.dto.response.ProductIngredientResponse;
 import mss.productservice.dto.response.ProductResponse;
 import mss.productservice.dto.response.ProductVariantResponse;
 import mss.productservice.dto.response.ProductSummaryResponse;
+import mss.productservice.dto.response.FlashDealResponse;
 import mss.productservice.exception.DuplicateResourceException;
 import mss.productservice.exception.ResourceNotFoundException;
 import mss.productservice.model.Brand;
@@ -36,6 +37,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.math.BigDecimal;
+import java.time.Instant;
 import mss.productservice.service.*;
 
 @Service
@@ -54,6 +57,8 @@ public class ProductService implements IProductService {
 
     private final KafkaProductProducer kafkaProductProducer;
 
+    private final FlashDealPolicy flashDealPolicy;
+
     public void syncAllProductsToKafka() {
         List<Product> products = enrichProducts(productRepository.findAll());
         productRepository.saveAllFlexible(products);
@@ -67,6 +72,20 @@ public class ProductService implements IProductService {
 
     public List<ProductSummaryResponse> getActiveProducts() {
         return enrichProducts(productRepository.findByIsActiveTrue()).stream().map(this::toSummaryResponse).toList();
+    }
+
+    public List<FlashDealResponse> getFlashDeals() {
+        List<ProductSummaryResponse> activeProducts = getActiveProducts();
+        Set<String> dealIds = flashDealPolicy.selectProductIds(activeProducts.stream().map(ProductSummaryResponse::getId).toList());
+        Instant startsAt = flashDealPolicy.startsAt();
+        Instant endsAt = flashDealPolicy.endsAt();
+        return activeProducts.stream().filter(product -> dealIds.contains(product.getId())).map(product -> {
+            int discount = flashDealPolicy.discountPercent(product.getCategoryId());
+            BigDecimal original = BigDecimal.valueOf(product.getPrice() == null ? 0 : product.getPrice());
+            return FlashDealResponse.builder().product(product).discountPercent(discount)
+                    .originalPrice(original.doubleValue()).dealPrice(flashDealPolicy.dealPrice(original, discount).doubleValue())
+                    .startsAt(startsAt).endsAt(endsAt).build();
+        }).toList();
     }
 
     public ProductResponse getProductById(String id, boolean includeInactive) {

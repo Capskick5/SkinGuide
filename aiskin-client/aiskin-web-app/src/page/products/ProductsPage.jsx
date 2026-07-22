@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import { productApi } from '@/api/productApi'
 import ProductCard from './components/ProductCard'
+import FlashDealsSection from './components/FlashDealsSection'
 import { makeSearchBlob, mapById, normalize, toArray, toProductCard } from './productUtils'
 import { translateCategory, translateTag } from './translator'
 import { useComparedProducts, useFavoriteProducts } from './productCollections'
@@ -219,6 +220,7 @@ export default function ProductsPage() {
   const [totalElements, setTotalElements] = useState(0)
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [products, setProducts] = useState([])
+  const [flashDeals, setFlashDeals] = useState([])
   const [brands, setBrands] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
@@ -252,6 +254,16 @@ export default function ProductsPage() {
       }
     })()
     return () => { alive = false }
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    const loadDeals = () => productApi.listFlashDeals()
+      .then(result => { if (alive) setFlashDeals(toArray(result)) })
+      .catch(error => console.error('Không tải được Flash Deal', error))
+    loadDeals()
+    const timer = setInterval(loadDeals, 60_000)
+    return () => { alive = false; clearInterval(timer) }
   }, [])
 
   // 2. Debounce query
@@ -351,6 +363,7 @@ export default function ProductsPage() {
     <div className="page-enter">
       <ShopHero onPick={handlePromoPick} />
       <QuickLinks onPick={handlePromoPick} />
+      <FlashDealsSection deals={flashDeals} brandMap={brandMap} categoryMap={categoryMap} favorites={favorites} compared={compared} />
 
       <div className="mb-6 rounded-2xl border border-border-pink bg-white/90 p-4 shadow-[0_14px_38px_rgba(23,32,38,0.06)]">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
