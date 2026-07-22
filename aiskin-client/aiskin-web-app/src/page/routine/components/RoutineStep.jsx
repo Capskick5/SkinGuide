@@ -52,19 +52,21 @@ export default function RoutineStep({ step, icon, category, title, instruction, 
           <div className="mt-5 pt-4 border-t border-dashed border-gray-200">
             <h5 className="text-[12px] uppercase font-bold text-gray-500 mb-3">AI Đề xuất sản phẩm cho bước này</h5>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {recommendedProducts.map((prod, idx) => {
+              {recommendedProducts.map((prod) => {
                 const matchPercent = prod.match_score ? (prod.match_score * 100).toFixed(0) : null;
                 const formattedPrice = prod.price ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(prod.price) : 'Liên hệ';
                 
                 return (
-                  <div 
-                    key={idx} 
+                  <button
+                    key={prod.id || prod.slug || prod.name}
+                    type="button"
                     onClick={() => onQuickView && onQuickView(prod)}
-                    className="bg-white border border-gray-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col cursor-pointer"
+                    aria-label={`Xem nhanh ${prod.name}`}
+                    className="bg-white border border-gray-100 rounded-xl overflow-hidden hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-shadow flex flex-col cursor-pointer text-left"
                   >
                     <div className="h-28 w-full bg-gray-100 relative">
                       {prod.imageUrl ? (
-                        <img src={prod.imageUrl} alt={prod.name} className="w-full h-full object-cover mix-blend-multiply opacity-90" />
+                        <img src={prod.imageUrl} alt={prod.name} loading="lazy" decoding="async" className="w-full h-full object-cover mix-blend-multiply opacity-90" />
                       ) : (
                         <div className="flex h-full items-center justify-center text-gray-300">
                           <Icon name="image_not_supported" className="text-3xl" />
@@ -93,7 +95,7 @@ export default function RoutineStep({ step, icon, category, title, instruction, 
                         ))}
                       </div>
                     </div>
-                  </div>
+                  </button>
                 )
               })}
             </div>

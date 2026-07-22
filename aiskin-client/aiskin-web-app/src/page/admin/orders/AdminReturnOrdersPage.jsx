@@ -547,12 +547,12 @@ export default function AdminReturnOrdersPage() {
             Theo dõi, lọc và cập nhật trạng thái các yêu cầu đổi trả, hoàn tiền.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
           <button
             type="button"
             onClick={handleSyncGhn}
             disabled={syncingGhn}
-            className="inline-flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-4 py-2.5 text-sm font-semibold text-purple-700 hover:bg-purple-100 disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-4 py-2.5 text-sm font-semibold text-purple-700 hover:bg-purple-100 disabled:cursor-wait disabled:opacity-50 sm:flex-none"
           >
             <Icon name="sync" className={syncingGhn ? 'animate-spin text-lg' : 'text-lg'} />
             Đồng bộ GHN
@@ -560,7 +560,8 @@ export default function AdminReturnOrdersPage() {
           <button
             type="button"
             onClick={fetchReturns}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            disabled={loading}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-wait disabled:opacity-50 sm:flex-none"
           >
             <Icon name="refresh" className={loading ? 'animate-spin text-lg' : 'text-lg'} />
             Làm mới
@@ -575,6 +576,7 @@ export default function AdminReturnOrdersPage() {
               key={tab.key}
               type="button"
               onClick={() => changeFilter(tab.key)}
+              aria-pressed={filter === tab.key}
               className={[
                 'inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-all',
                 filter === tab.key 
@@ -708,6 +710,8 @@ export default function AdminReturnOrdersPage() {
                   key={item}
                   type="button"
                   onClick={() => setPage(item - 1)}
+                  aria-current={item === page + 1 ? 'page' : undefined}
+                  aria-label={`Trang ${item}`}
                   className={[
                     'h-10 min-w-10 rounded-lg border px-3 text-sm font-semibold',
                     item === page + 1

@@ -102,7 +102,8 @@ export default function AnalysisResultPage({
             <div className="relative w-full rounded-2xl overflow-hidden mb-6 bg-surface-container flex items-center justify-center">
               <img 
                 src={originalImage} 
-                alt="Scan" 
+                alt="Ảnh khuôn mặt đã phân tích" 
+                decoding="async"
                 className="w-full h-auto object-contain block"
               />
             </div>
@@ -150,21 +151,25 @@ export default function AnalysisResultPage({
           {/* Tabs T-Zone / U-Zone */}
           {issueModelAvailable && analysisUsesZones && <div className="flex gap-2 mb-4 bg-surface-container-low p-1 rounded-full border border-border-pink">
             <button 
+              type="button"
               onClick={() => setActiveZone('t_zone')}
+              aria-pressed={activeZone === 't_zone'}
               className={`flex-1 py-2 rounded-full text-label-md font-bold transition-all ${activeZone === 't_zone' ? 'bg-primary text-white shadow-md' : 'text-on-surface-variant hover:text-primary'}`}
             >
               Vùng chữ T (Trán, Mũi)
             </button>
             <button 
+              type="button"
               onClick={() => setActiveZone('u_zone')}
+              aria-pressed={activeZone === 'u_zone'}
               className={`flex-1 py-2 rounded-full text-label-md font-bold transition-all ${activeZone === 'u_zone' ? 'bg-primary text-white shadow-md' : 'text-on-surface-variant hover:text-primary'}`}
             >
               Vùng chữ U (Má, Cằm)
             </button>
           </div>}
 
-          {CONDITIONS.length > 0 ? CONDITIONS.map((c, i) => (
-            <ConditionCard key={i} {...c} />
+          {CONDITIONS.length > 0 ? CONDITIONS.map((condition) => (
+            <ConditionCard key={condition.name} {...condition} />
           )) : (
             <div className="p-4 text-center text-on-surface-variant">
               {issueModelAvailable

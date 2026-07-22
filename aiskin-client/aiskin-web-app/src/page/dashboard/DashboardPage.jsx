@@ -97,7 +97,7 @@ export default function DashboardPage() {
         <Spin spinning={isLoading} tip="Hệ thống đang kiểm định và phân loại ảnh...">
           {previewUrl && scanError ? (
             <div className="w-full h-[500px] rounded-xl border-2 border-[#ef4444] border-dashed flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#fef2f2]">
-              <img src={previewUrl} alt="Preview" className="w-40 h-40 object-cover rounded-2xl mb-6 shadow-lg border-2 border-[#ef4444]" />
+              <img src={previewUrl} alt="Ảnh khuôn mặt chưa đạt yêu cầu" decoding="async" className="w-40 h-40 object-cover rounded-2xl mb-6 shadow-lg border-2 border-[#ef4444]" />
               <h3 className="text-title-lg text-[#b91c1c] font-semibold mb-2 flex items-center gap-2">
                 <Icon name="error" className="text-xl" />
                 Ảnh không được chấp nhận
@@ -119,19 +119,19 @@ export default function DashboardPage() {
               <p className="text-body-sm text-on-surface-variant mb-6 text-center max-w-sm">
                 Vui lòng kiểm tra lại ảnh. Đảm bảo ảnh rõ nét và không bị lóa sáng để AI phân tích chính xác nhất.
               </p>
-              <img src={previewUrl} alt="Preview" className="w-48 h-48 object-cover rounded-2xl mb-8 shadow-md border-4 border-white" />
-              <div className="flex gap-4">
+              <img src={previewUrl} alt="Ảnh khuôn mặt chờ phân tích" decoding="async" className="w-48 h-48 object-cover rounded-2xl mb-8 shadow-md border-4 border-white" />
+              <div className="flex w-full max-w-sm flex-col gap-3 sm:flex-row sm:gap-4">
                 <button
                   type="button"
                   onClick={() => { setSelectedFile(null); setPreviewUrl(null) }}
-                  className="px-6 py-2.5 rounded-full border border-outline text-on-surface text-label-md font-medium hover:bg-surface-soft transition-colors"
+                  className="flex-1 px-6 py-2.5 rounded-full border border-outline text-on-surface text-label-md font-medium hover:bg-surface-soft transition-colors"
                 >
                   Đổi ảnh khác
                 </button>
                 <button
                   type="button"
                   onClick={handleAnalyze}
-                  className="px-6 py-2.5 rounded-full gradient-bg text-white text-label-md font-medium shadow-md hover:opacity-90 transition-all flex items-center gap-2"
+                  className="flex flex-1 items-center justify-center gap-2 px-6 py-2.5 rounded-full gradient-bg text-white text-label-md font-medium shadow-md hover:opacity-90 transition-all"
                 >
                   <Icon name="psychology" className="text-xl" />
                   Phân tích ngay

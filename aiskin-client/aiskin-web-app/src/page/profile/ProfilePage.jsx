@@ -41,6 +41,7 @@ export default function ProfilePage() {
   const { message } = AntApp.useApp()
   const [editOpen, setEditOpen] = useState(false)
   const [pwdOpen, setPwdOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   const email = user?.email || ''
   const displayName = user?.fullName || (email ? email.split('@')[0] : 'Người dùng')
@@ -49,9 +50,15 @@ export default function ProfilePage() {
   const concerns = profile?.currentConcerns || []
 
   const handleLogout = async () => {
-    await logout()
-    message.success('Đã đăng xuất')
-    navigate(PATHS.LOGIN, { replace: true })
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      await logout()
+      message.success('Đã đăng xuất')
+      navigate(PATHS.LOGIN, { replace: true })
+    } finally {
+      setLoggingOut(false)
+    }
   }
 
   return (
@@ -103,10 +110,11 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={handleLogout}
-              className="mt-3 w-full py-2.5 rounded-full border-2 border-error/30 text-error text-label-md hover:bg-error/10 transition-colors flex items-center justify-center gap-2"
+              disabled={loggingOut}
+              className="mt-3 w-full py-2.5 rounded-full border-2 border-error/30 text-error text-label-md hover:bg-error/10 transition-colors flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Icon name="logout" className="text-base" />
-              Đăng xuất
+              <Icon name={loggingOut ? 'hourglass_empty' : 'logout'} className={`text-base ${loggingOut ? 'animate-spin' : ''}`} />
+              {loggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
             </button>
           </div>
         </div>
