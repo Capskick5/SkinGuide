@@ -322,6 +322,9 @@ public class OrderService implements IOrderService {
         parameters.put("vnp_TxnRef", order.getOrderCode());
         parameters.put("vnp_OrderInfo", "ThanhToanDonHang_" + order.getOrderCode());
         parameters.put("vnp_OrderType", "210000");
+        if (vnpayConfig.getBankCode() != null && !vnpayConfig.getBankCode().isBlank()) {
+            parameters.put("vnp_BankCode", vnpayConfig.getBankCode().trim());
+        }
         parameters.put("vnp_Locale", "vn");
         parameters.put("vnp_ReturnUrl", vnpayConfig.getReturnUrl().trim());
         parameters.put("vnp_IpAddr", resolveVnpayClientIp());

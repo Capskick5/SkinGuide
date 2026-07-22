@@ -17,4 +17,5 @@ public class VnpayConfig {
     private String url;
     private String returnUrl;
     private String apiUrl;
+    private String bankCode;
 }

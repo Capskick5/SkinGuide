@@ -57,6 +57,7 @@ vnpay:
   url: ${VNPAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
   returnUrl: ${VNPAY_RETURN_URL:http://localhost:5174/payment/vnpay-return}
   apiUrl: ${VNPAY_API_URL:https://sandbox.vnpayment.vn/merchant_webapi/api/transaction}
+  bankCode: ${VNPAY_BANK_CODE:}
 
 product-service:
   base-url: ${PRODUCT_SERVICE_BASE_URL:http://localhost:8082}
