@@ -98,8 +98,14 @@ export default function HistoryPage() {
 
       <Spin spinning={loading}>
         {history.length === 0 && !loading ? (
-          <div className="text-center py-12 text-on-surface-variant">
-            Bạn chưa có lịch sử quét nào.
+          <div className="rounded-xl border border-border-pink bg-surface-container-lowest px-6 py-12 text-center text-on-surface-variant">
+            <Icon name="face_retouching_natural" className="mb-3 text-5xl text-primary/40" />
+            <p className="font-semibold text-on-surface">Bạn chưa có lịch sử quét nào</p>
+            <p className="mt-1 text-sm">Thực hiện lần quét đầu tiên để theo dõi thay đổi của làn da.</p>
+            <button type="button" onClick={() => navigate(PATHS.SCAN)} className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-semibold text-white hover:bg-tertiary">
+              <Icon name="document_scanner" className="text-lg" />
+              Bắt đầu quét da
+            </button>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -114,12 +120,11 @@ export default function HistoryPage() {
               return (
                 <div
                   key={h._id}
-                  className="bg-surface-container-lowest border border-border-pink rounded-xl p-4 flex items-center gap-4 hover:border-primary transition-colors cursor-pointer"
-                  onClick={() => handleViewRoutine(h)}
+                  className="bg-surface-container-lowest border border-border-pink rounded-xl p-4 flex items-center gap-4 hover:border-primary transition-colors"
                 >
                   <div className="w-14 h-14 rounded-xl bg-primary-light overflow-hidden shrink-0 border border-border-pink flex items-center justify-center">
                     {h.imageUrl ? (
-                      <img src={h.imageUrl} alt="Ảnh quét da" className="w-full h-full object-cover" />
+                      <img src={h.imageUrl} alt="Ảnh quét da" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     ) : (
                       <Icon name="face" className="text-2xl text-primary/50" />
                     )}
@@ -168,7 +173,7 @@ export default function HistoryPage() {
                         <Icon name="analytics" className="text-[14px]"/> Xem phân tích AI
                       </button>
                       <span className="text-border-pink">|</span>
-                      <button type="button" className="text-caption text-primary hover:text-tertiary transition-colors flex items-center gap-1">
+                      <button type="button" onClick={() => handleViewRoutine(h)} className="text-caption text-primary hover:text-tertiary transition-colors flex items-center gap-1">
                         Xem lộ trình <Icon name="arrow_forward" className="text-[14px]"/>
                       </button>
                     </div>

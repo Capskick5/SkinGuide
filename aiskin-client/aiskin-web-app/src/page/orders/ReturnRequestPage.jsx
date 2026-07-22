@@ -187,6 +187,7 @@ export default function ReturnRequestPage() {
       <div className="mb-6 flex items-center gap-4">
         <button 
           onClick={() => navigate(`/orders/${id}`)}
+          aria-label="Quay lại chi tiết đơn hàng"
           className="w-10 h-10 flex items-center justify-center rounded-full bg-surface-container-low hover:bg-surface-container-high transition-colors"
         >
           <Icon name="arrow_back" className="text-on-surface" />
@@ -212,7 +213,7 @@ export default function ReturnRequestPage() {
                 
                 return (
                   <div key={key} className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${isSelected ? 'border-primary bg-primary/5' : 'border-gray-200 bg-white'}`}>
-                    <img src={resolveImageUrl(item.imageUrl)} alt={item.productName} className="w-16 h-16 object-cover rounded-lg border border-gray-100" />
+                    <img src={resolveImageUrl(item.imageUrl)} alt={item.productName} loading="lazy" decoding="async" className="w-16 h-16 object-cover rounded-lg border border-gray-100" />
                     <div className="flex-1">
                       <h4 className="font-semibold text-gray-900 line-clamp-1">{item.productName}</h4>
                       <p className="text-sm text-gray-500">{item.unit} • Đã mua: {maxQty}</p>
@@ -271,7 +272,8 @@ export default function ReturnRequestPage() {
                     <button 
                       type="button"
                       onClick={() => removeImage(idx)}
-                      className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                      aria-label={`Xóa ảnh bằng chứng ${idx + 1}`}
+                      className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/65 text-white opacity-100 transition-opacity sm:inset-0 sm:h-auto sm:w-auto sm:rounded-none sm:bg-black/40 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                     >
                       <Icon name="delete" className="text-2xl" />
                     </button>
@@ -296,7 +298,7 @@ export default function ReturnRequestPage() {
           </div>
         </div>
 
-        <div className="p-6 md:px-8 border-t border-gray-100 bg-gray-50 flex gap-4">
+        <div className="p-6 md:px-8 border-t border-gray-100 bg-gray-50 flex flex-col-reverse gap-3 sm:flex-row sm:gap-4">
           <button 
             type="button" 
             onClick={() => navigate(`/orders/${id}`)}

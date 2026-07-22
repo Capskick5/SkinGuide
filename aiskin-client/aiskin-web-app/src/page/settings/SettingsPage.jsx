@@ -22,7 +22,7 @@ function SettingsLink({ to, icon, title, description }) {
   return (
     <Link
       to={to}
-      className="group flex min-h-20 items-center gap-4 px-5 py-4 transition-colors hover:bg-primary-light/45"
+      className="group flex min-h-20 items-center gap-4 px-5 py-4 transition-colors hover:bg-primary-light/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-surface-soft text-primary">
         <Icon name={icon} />
@@ -63,16 +63,19 @@ export default function SettingsPage() {
             title="Hồ sơ và mật khẩu"
             description="Cập nhật thông tin cá nhân, hồ sơ da và mật khẩu"
           />
-          <div className="flex min-h-20 items-center gap-4 px-5 py-4">
+          <div className="flex min-h-20 items-center gap-4 px-5 py-4" role="status">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-surface-soft text-primary">
               <Icon name={user?.emailVerified ? 'verified_user' : 'mark_email_unread'} />
             </span>
-            <div>
+            <div className="min-w-0 grow">
               <p className="text-body-md font-medium text-on-surface">Xác thực email</p>
               <p className="text-caption text-on-surface-variant">
                 {user?.emailVerified ? 'Email đã được xác thực' : 'Email chưa được xác thực'}
               </p>
             </div>
+            <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${user?.emailVerified ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+              {user?.emailVerified ? 'Đã xác thực' : 'Chưa xác thực'}
+            </span>
           </div>
         </SettingsSection>
 
@@ -103,7 +106,7 @@ export default function SettingsPage() {
               disabled={loggingOut}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Icon name="logout" />
+              <Icon name={loggingOut ? 'hourglass_empty' : 'logout'} className={loggingOut ? 'animate-spin' : ''} />
               {loggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
             </button>
           </div>
