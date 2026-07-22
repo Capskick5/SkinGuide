@@ -139,9 +139,9 @@ export default function LandingPage() {
               {FEATURES.map((feature) => (
                 <article
                   key={feature.title}
-                  className="rounded-lg border border-outline-variant bg-surface-container-lowest p-5 shadow-[0_18px_45px_rgba(23,32,38,0.08)]"
+                  className="rounded-lg border border-outline-variant bg-surface-container-lowest p-5 shadow-[0_18px_45px_rgba(23,32,38,0.08)] hover-lift card-hover"
                 >
-                  <span className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-primary-light text-primary">
+                  <span className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-primary-light text-primary transition-transform group-hover:scale-110">
                     <Icon name={feature.icon} filled />
                   </span>
                   <h3 className="text-lg font-black">{feature.title}</h3>
@@ -231,15 +231,22 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-outline-variant bg-white px-6 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 md:flex-row">
-          <Logo layout="inline" size={30} />
-          <p className="text-sm text-on-surface-variant">© 2026 AiSkin. Skincare made clearer.</p>
-          <div className="flex gap-5 text-sm font-semibold text-on-surface-variant">
-            <button type="button" className="hover:text-primary">Điều khoản</button>
-            <button type="button" className="hover:text-primary">Bảo mật</button>
-            <button type="button" className="hover:text-primary">Liên hệ</button>
+      <footer className="border-t border-outline-variant bg-white px-6 py-10">
+        <div className="mx-auto max-w-6xl">
+          <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
+            <div className="flex items-center gap-4">
+              <Logo layout="inline" size={30} />
+              <span className="hidden h-5 w-px bg-outline-variant md:block" />
+              <p className="text-sm text-on-surface-variant">Skincare made clearer.</p>
+            </div>
+            <div className="flex gap-6 text-sm font-semibold text-on-surface-variant">
+              <button type="button" className="hover:text-primary transition-colors">Điều khoản</button>
+              <button type="button" className="hover:text-primary transition-colors">Bảo mật</button>
+              <button type="button" className="hover:text-primary transition-colors">Liên hệ</button>
+            </div>
           </div>
+          <div className="mt-6 h-px w-full bg-gradient-to-r from-transparent via-outline-variant to-transparent" />
+          <p className="mt-4 text-center text-xs text-on-surface-variant/60">© 2026 AiSkin. All rights reserved.</p>
         </div>
       </footer>
     </div>

@@ -12,7 +12,7 @@ import ChangePasswordModal from './components/ChangePasswordModal'
 function InfoRow({ icon, label, value }) {
   return (
     <div className="flex items-center gap-3 py-3">
-      <span className="w-10 h-10 rounded-xl bg-primary-light flex items-center justify-center text-primary shrink-0">
+      <span className="w-10 h-10 rounded-xl bg-primary-light flex items-center justify-center text-primary shrink-0 transition-transform hover:scale-110">
         <Icon name={icon} />
       </span>
       <div className="min-w-0">
@@ -62,7 +62,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div>
+    <div className="page-enter">
       <div className="mb-8">
         <h1 className="text-headline-lg text-on-surface mb-2">Hồ sơ của tôi</h1>
         <p className="text-body-md text-on-surface-variant">
@@ -94,7 +94,7 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={() => setEditOpen(true)}
-              className="mt-6 w-full py-2.5 rounded-full gradient-bg text-white text-label-md font-medium shadow-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+              className="mt-6 w-full py-2.5 rounded-full gradient-bg text-white text-label-md font-medium shadow-sm hover:opacity-90 hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
             >
               <Icon name="edit" className="text-base" />
               Chỉnh sửa hồ sơ
@@ -135,7 +135,9 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="bg-surface-container-lowest border border-border-pink rounded-2xl p-6 shadow-ambient-pink">
+          <div className="bg-surface-container-lowest border border-border-pink rounded-2xl overflow-hidden shadow-ambient-pink">
+            <div className="h-1.5 w-full gradient-bg" />
+            <div className="p-6">
             <h3 className="text-headline-md text-on-surface mb-4">Hồ sơ làn da</h3>
             <div className="flex items-center gap-3 mb-4">
               <span className="text-body-md text-on-surface-variant">Loại da:</span>
@@ -154,6 +156,7 @@ export default function ProfilePage() {
               ) : (
                 <span className="text-body-md text-on-surface-variant">Chưa cập nhật</span>
               )}
+            </div>
             </div>
           </div>
         </div>

@@ -88,7 +88,7 @@ export default function HistoryPage() {
   }
 
   return (
-    <div>
+    <div className="page-enter">
       <div className="mb-8">
         <h1 className="text-headline-lg text-on-surface mb-2">Lịch sử quét da</h1>
         <p className="text-body-md text-on-surface-variant">
@@ -99,7 +99,9 @@ export default function HistoryPage() {
       <Spin spinning={loading}>
         {history.length === 0 && !loading ? (
           <div className="rounded-xl border border-border-pink bg-surface-container-lowest px-6 py-12 text-center text-on-surface-variant">
-            <Icon name="face_retouching_natural" className="mb-3 text-5xl text-primary/40" />
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-surface-container">
+              <Icon name="history" className="text-4xl text-secondary/50" />
+            </div>
             <p className="font-semibold text-on-surface">Bạn chưa có lịch sử quét nào</p>
             <p className="mt-1 text-sm">Thực hiện lần quét đầu tiên để theo dõi thay đổi của làn da.</p>
             <button type="button" onClick={() => navigate(PATHS.SCAN)} className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-semibold text-white hover:bg-tertiary">
@@ -120,7 +122,7 @@ export default function HistoryPage() {
               return (
                 <div
                   key={h._id}
-                  className="bg-surface-container-lowest border border-border-pink rounded-xl p-4 flex items-center gap-4 hover:border-primary transition-colors"
+                  className="bg-surface-container-lowest border border-border-pink rounded-xl p-4 flex items-center gap-4 hover:border-primary transition-all duration-200 hover-lift"
                 >
                   <div className="w-14 h-14 rounded-xl bg-primary-light overflow-hidden shrink-0 border border-border-pink flex items-center justify-center">
                     {h.imageUrl ? (

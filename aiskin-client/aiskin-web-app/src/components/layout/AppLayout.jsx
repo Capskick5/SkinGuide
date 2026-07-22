@@ -19,7 +19,7 @@ export default function AppLayout() {
 
       {/* Panel nội dung trắng: chỉ bo 2 góc trên, phủ kín phải + dưới */}
       <main className="md:fixed md:top-[52px] md:left-sidebar md:right-0 md:bottom-0 px-2 pt-2 pb-20 md:p-0">
-        <div className="bg-canvas/95 rounded-t-[1.5rem] shadow-[0_24px_90px_rgba(23,32,38,0.13)] ring-1 ring-white/60 min-h-[calc(100vh-72px)] md:min-h-0 md:h-full md:overflow-y-auto scrollbar-hidden px-4 md:px-8 lg:px-12 py-8 md:py-10">
+        <div className="bg-canvas/95 rounded-t-[1.5rem] shadow-[0_24px_90px_rgba(23,32,38,0.13)] ring-1 ring-white/60 min-h-[calc(100vh-72px)] md:min-h-0 md:h-full md:overflow-y-auto md:scroll-smooth scrollbar-hidden px-4 md:px-8 lg:px-12 py-8 md:py-10">
           <div className="w-full max-w-container-max mx-auto">
             <Outlet />
           </div>

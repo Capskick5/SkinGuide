@@ -11,11 +11,11 @@ function money(value) {
 
 function QtyStepper({ value, onMinus, onPlus, canIncrease }) {
   return (
-    <div className="inline-flex h-9 overflow-hidden rounded-md border border-outline-variant bg-white">
+    <div className="inline-flex h-9 overflow-hidden rounded-md border border-outline-variant bg-white shadow-sm">
       <button
         type="button"
         onClick={onMinus}
-        className="flex w-9 items-center justify-center text-on-surface-variant hover:bg-surface-container"
+        className="flex w-9 items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors duration-150 active:scale-90"
         aria-label="Giảm số lượng"
       >
         <Icon name="remove" className="text-base" />
@@ -27,7 +27,7 @@ function QtyStepper({ value, onMinus, onPlus, canIncrease }) {
         type="button"
         onClick={onPlus}
         disabled={!canIncrease}
-        className="flex w-9 items-center justify-center text-on-surface-variant hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-35"
+        className="flex w-9 items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors duration-150 active:scale-90 disabled:cursor-not-allowed disabled:opacity-35"
         aria-label="Tăng số lượng"
       >
         <Icon name="add" className="text-base" />
@@ -178,7 +178,7 @@ export default function CartPage() {
   ))
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="mx-auto max-w-7xl page-enter">
       <div className="mb-5 rounded-md bg-[#fff1d8] px-4 py-3 text-sm font-bold text-[#b44200]">
         <Icon name="local_fire_department" filled className="mr-2 align-[-4px] text-[#ff5a00]" />
         Phí vận chuyển sẽ được tính chính xác theo địa chỉ ở bước đặt hàng
@@ -206,11 +206,11 @@ export default function CartPage() {
 
       {items.length === 0 ? (
         <div className="bg-white px-6 py-16 text-center shadow-[0_18px_45px_rgba(23,32,38,0.06)]">
-          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-surface-container">
+          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-surface-container animate-bounce-gentle">
             <Icon name="shopping_cart" className="text-5xl text-secondary/55" />
           </div>
           <h2 className="mt-5 text-2xl font-black">Giỏ hàng đang trống</h2>
-          <p className="mt-2 text-on-surface-variant">Khám phá sản phẩm skincare và thêm món bạn thích vào giỏ.</p>
+          <p className="mt-2 text-on-surface-variant max-w-sm mx-auto">Khám phá sản phẩm skincare và thêm món bạn thích vào giỏ.</p>
           <Link
             to={PATHS.PRODUCTS}
             className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-md bg-secondary px-6 font-black text-white hover:bg-primary"

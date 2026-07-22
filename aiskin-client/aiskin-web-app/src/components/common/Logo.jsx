@@ -13,7 +13,7 @@ export default function Logo({ layout = 'inline', size = 40, showWordmark = true
   return (
     <div
       className={[
-        'flex items-center',
+        'flex items-center transition-opacity hover:opacity-90 duration-200',
         stacked ? 'flex-col gap-1.5' : 'gap-2.5',
         className,
       ].join(' ')}

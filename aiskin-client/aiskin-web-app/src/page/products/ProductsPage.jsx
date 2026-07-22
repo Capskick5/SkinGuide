@@ -197,9 +197,9 @@ function QuickLinks({ onPick }) {
           key={item.label}
           type="button"
           onClick={() => onPick(item.query)}
-          className="group flex flex-col items-center gap-2 text-center"
+          className="group flex flex-col items-center gap-2 text-center p-1 rounded-xl focus-ring transition-transform hover:scale-105"
         >
-          <span className={`flex h-14 w-14 items-center justify-center rounded-full ${item.color} text-white shadow-[0_10px_24px_rgba(23,32,38,0.16)] transition-transform group-hover:-translate-y-1`}>
+          <span className={`flex h-14 w-14 items-center justify-center rounded-full ${item.color} text-white shadow-[0_10px_24px_rgba(23,32,38,0.16)] transition-transform`}>
             <Icon name={item.icon} filled className="text-2xl" />
           </span>
           <span className="text-xs font-bold text-on-surface md:text-sm">{item.label}</span>
@@ -348,7 +348,7 @@ export default function ProductsPage() {
   const visiblePages = useMemo(() => getVisiblePages(currentPage, totalPages), [currentPage, totalPages])
 
   return (
-    <div>
+    <div className="page-enter">
       <ShopHero onPick={handlePromoPick} />
       <QuickLinks onPick={handlePromoPick} />
 
@@ -441,10 +441,10 @@ export default function ProductsPage() {
                 setCategoryFilter(item.id)
               }}
               className={[
-                'px-4 py-2 rounded-full text-label-md transition-all',
+                'px-4 py-2 rounded-full text-label-md transition-all duration-200 focus-ring',
                 categoryFilter === item.id
-                  ? 'gradient-bg text-white shadow-sm'
-                  : 'bg-surface-container-lowest border border-border-pink text-on-surface-variant hover:text-primary',
+                  ? 'gradient-bg text-white shadow-sm scale-105'
+                  : 'bg-surface-container-lowest border border-border-pink text-on-surface-variant hover:text-primary hover:bg-surface-soft hover:scale-105',
               ].join(' ')}
             >
               {item.name}
