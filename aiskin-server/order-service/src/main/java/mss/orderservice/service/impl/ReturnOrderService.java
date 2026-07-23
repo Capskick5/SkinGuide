@@ -138,7 +138,7 @@ public class ReturnOrderService implements IReturnOrderService {
                     throw conflict("Đơn trả hàng đã được xử lý kho với kết quả khác");
                 }
             } else {
-                // DISCARD: hàng không phải của shop, không tác động kho
+                // DISCARD: tiêu hủy hàng thực nhận, không nhập lại bất kỳ kho nào
                 if (inventoryDisposition != ReturnOrder.InventoryDisposition.DISCARD) {
                     ensureReturnItemVariants(returnOrder);
                     returnInventoryClient.process(returnOrder, inventoryDisposition);
@@ -231,7 +231,7 @@ public class ReturnOrderService implements IReturnOrderService {
             returnOrder.setReturnShipmentError(null);
         } catch (Exception exception) {
             log.warn("Return {} was approved but GHN shipment creation failed", returnOrder.getId(), exception);
-            returnOrder.setReturnShipmentError("Chưa tạo được vận đơn GHN. Admin có thể xác nhận nhận hàng thủ công.");
+            returnOrder.setReturnShipmentError("Chưa tạo được vận đơn GHN. Vui lòng thử lại hoặc cập nhật mã vận đơn hợp lệ để GHN đồng bộ.");
         }
     }
 
@@ -334,13 +334,14 @@ public class ReturnOrderService implements IReturnOrderService {
                                           String inspectionNote) {
         boolean pendingDecision = currentStatus == ReturnOrder.ReturnStatus.PENDING
                 && (newStatus == ReturnOrder.ReturnStatus.DELIVERING || newStatus == ReturnOrder.ReturnStatus.REJECTED);
-        boolean receivingPhysicalReturn = isReturnInTransit(currentStatus)
+        boolean startInspection = currentStatus == ReturnOrder.ReturnStatus.DELIVERED
+                && newStatus == ReturnOrder.ReturnStatus.INSPECTING;
+        boolean inspectionPassed = currentStatus == ReturnOrder.ReturnStatus.INSPECTING
                 && newStatus == ReturnOrder.ReturnStatus.RECEIVED;
-        // Cho phép chuyển từ DELIVERED → INSPECTION_FAILED (phát hiện tráo hàng sau kiểm tra)
-        boolean inspectionFailed = currentStatus == ReturnOrder.ReturnStatus.DELIVERED
+        boolean inspectionFailed = currentStatus == ReturnOrder.ReturnStatus.INSPECTING
                 && newStatus == ReturnOrder.ReturnStatus.INSPECTION_FAILED;
 
-        if (!pendingDecision && !receivingPhysicalReturn && !inspectionFailed) {
+        if (!pendingDecision && !startInspection && !inspectionPassed && !inspectionFailed) {
             if (newStatus == ReturnOrder.ReturnStatus.REFUNDED) {
                 throw conflict("Hãy hoàn tiền qua yêu cầu hoàn tiền đã được khách cung cấp thông tin ngân hàng");
             }
@@ -361,15 +362,6 @@ public class ReturnOrderService implements IReturnOrderService {
         if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.RECEIVED && inventoryDisposition != null && returnOrder.getInventoryDisposition() != inventoryDisposition) {
             throw conflict("Đơn trả hàng đã được xử lý kho với kết quả khác");
         }
-    }
-
-    private boolean isReturnInTransit(ReturnOrder.ReturnStatus status) {
-        return switch(status) {
-            case DELIVERING, DELIVERED ->
-                true;
-            default ->
-                false;
-        };
     }
 
     private OrderItem findOriginalItem(Order order, String productId, String variantId, String sku, String unit) {

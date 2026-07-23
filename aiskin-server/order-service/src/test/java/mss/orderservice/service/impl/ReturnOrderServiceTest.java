@@ -65,7 +65,7 @@ class ReturnOrderServiceTest {
     void receivingReturnProcessesInventoryOnceWithSelectedDisposition() {
         ReturnOrder returnOrder = ReturnOrder.builder().id("return-1").orderId("order-1").orderCode("ORD-1")
                 .claimType(ReturnOrder.ClaimType.RETURN).resolution(ReturnOrder.ResolutionType.REFUND)
-                .status(ReturnOrder.ReturnStatus.DELIVERED).inventoryProcessed(false)
+                .status(ReturnOrder.ReturnStatus.INSPECTING).inventoryProcessed(false)
                 .items(List.of(ReturnOrder.ReturnItem.builder().productId("product-1").variantId("variant-2").sku("SKU-2").quantity(1).build())).build();
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
         ReturnOrder result = service.updateReturnStatus("return-1", ReturnOrder.ReturnStatus.RECEIVED, null, ReturnOrder.InventoryDisposition.DAMAGED);
@@ -75,12 +75,26 @@ class ReturnOrderServiceTest {
     }
 
     @Test
-    void receivingApprovedReturnSupportsManualWarehouseConfirmation() {
+    void deliveringReturnCannotBeManuallyMarkedAsReceived() {
         ReturnOrder returnOrder = returnOrder(ReturnOrder.ReturnStatus.DELIVERING);
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
-        service.updateReturnStatus("return-1", ReturnOrder.ReturnStatus.RECEIVED, null, ReturnOrder.InventoryDisposition.RESTOCK);
-        verify(returnInventoryClient).process(returnOrder, ReturnOrder.InventoryDisposition.RESTOCK);
-        assertThat(returnOrder.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.REFUND_PENDING);
+        assertThatThrownBy(() -> service.updateReturnStatus(
+                "return-1", ReturnOrder.ReturnStatus.RECEIVED, null, ReturnOrder.InventoryDisposition.RESTOCK))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("Không thể chuyển");
+        verify(returnInventoryClient, never()).process(any(), any());
+    }
+
+    @Test
+    void deliveredReturnMustEnterInspectionBeforeInventoryDecision() {
+        ReturnOrder returnOrder = returnOrder(ReturnOrder.ReturnStatus.DELIVERED);
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
+
+        ReturnOrder result = service.updateReturnStatus(
+                "return-1", ReturnOrder.ReturnStatus.INSPECTING, null, null);
+
+        assertThat(result.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.INSPECTING);
+        verify(returnInventoryClient, never()).process(any(), any());
     }
 
     @Test
@@ -92,7 +106,7 @@ class ReturnOrderServiceTest {
         ReturnOrder result = service.updateReturnStatus("return-1", ReturnOrder.ReturnStatus.DELIVERING, null, null);
         assertThat(result.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.DELIVERING);
         assertThat(result.getReturnTrackingCode()).isNull();
-        assertThat(result.getReturnShipmentError()).contains("Admin có thể xác nhận nhận hàng thủ công");
+        assertThat(result.getReturnShipmentError()).contains("GHN đồng bộ");
         verify(returnOrderRepository).save(returnOrder);
     }
 

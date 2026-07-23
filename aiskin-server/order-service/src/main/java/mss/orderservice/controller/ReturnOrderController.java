@@ -69,7 +69,9 @@ public class ReturnOrderController {
 
     @PutMapping("/admin/{id}/status")
     @PreAuthorize("hasPermission('/api/returns/admin/{id}/status', 'PUT')")
-    @Operation(summary = "Update return status", description = "Admin updates status of a return request. For INSPECTION_FAILED, inspectionNote is required.")
+    @Operation(
+            summary = "Update return status",
+            description = "Admin manages approval and warehouse inspection. DELIVERING can only become DELIVERED through GHN. DELIVERED must enter INSPECTING before RECEIVED or INSPECTION_FAILED.")
     public ResponseEntity<ReturnOrder> updateReturnStatus(@PathVariable String id, @Valid @RequestBody ReturnStatusUpdateRequest request) {
         return ResponseEntity.ok(returnOrderService.updateReturnStatus(id, request.status(), request.rejectReason(), request.inventoryDisposition(), request.inspectionNote()));
     }

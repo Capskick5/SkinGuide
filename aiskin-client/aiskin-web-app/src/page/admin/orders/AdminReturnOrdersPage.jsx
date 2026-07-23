@@ -42,7 +42,8 @@ const CLAIM_TYPE = {
 const RETURN_STATUS = {
   PENDING: { label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
   DELIVERING: { label: 'Đang vận chuyển hoàn', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  DELIVERED: { label: 'Đã giao đến kho', icon: 'done_all', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
+  DELIVERED: { label: 'Đã về kho - Chờ kiểm hàng', icon: 'warehouse', tone: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
+  INSPECTING: { label: 'Đang kiểm hàng', icon: 'fact_check', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
   RECEIVED: { label: 'Đã nhận hàng trả', icon: 'inventory_2', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   INSPECTION_FAILED: { label: 'Từ chối sau kiểm tra', icon: 'gpp_bad', tone: 'bg-rose-50 text-rose-700 border-rose-200' },
   REFUND_PENDING: { label: 'Chờ hoàn tiền', icon: 'payments', tone: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
@@ -55,7 +56,8 @@ const RETURN_STATUS = {
 
 const TABS = [
   { key: 'PENDING', query: 'PENDING', label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-  { key: 'SHIPPING', query: 'DELIVERING,DELIVERED', label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  { key: 'SHIPPING', query: 'DELIVERING', label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  { key: 'INSPECTION', query: 'DELIVERED,INSPECTING', label: 'Kiểm hàng', icon: 'fact_check', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
   { key: 'REFUND', query: 'REFUND_PENDING', label: 'Chờ hoàn tiền', icon: 'payments', tone: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
   { key: 'REDELIVERY', query: 'REDELIVERY_PENDING,REDELIVERING', label: 'Giao lại', icon: 'local_shipping', tone: 'bg-violet-50 text-violet-700 border-violet-100' },
   { key: 'REFUNDED', query: 'REFUNDED', label: 'Đã hoàn tiền', icon: 'price_check', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
@@ -250,7 +252,7 @@ function ReturnDetailsModal({ request, onClose }) {
               <Icon name={request.resolution === 'REFUND' ? 'payments' : 'local_shipping'} />
               {request.resolution === 'REFUND'
                 ? 'Hoàn tiền'
-                : request.claimType === 'MISSING_ITEM' ? 'Giao bù hàng thiếu' : 'Giao lại sản phẩm đúng'}
+                : request.claimType === 'MISSING_ITEM' ? 'Giao bù hàng thiếu' : 'Giao lại sản phẩm'}
             </p>
           </div>
 
@@ -656,8 +658,8 @@ export default function AdminReturnOrdersPage() {
     const nextStatuses = req.status === 'PENDING'
       ? (isMissingItem ? ['REJECTED'] : ['DELIVERING', 'REJECTED'])
       : req.status === 'DELIVERED'
-        ? ['RECEIVED', 'INSPECTION_FAILED']
-        : req.status === 'DELIVERING' ? ['RECEIVED'] : []
+        ? ['INSPECTING']
+        : req.status === 'INSPECTING' ? ['RECEIVED', 'INSPECTION_FAILED'] : []
 
     const actions = nextStatuses.flatMap(status => {
       if (status === 'DELIVERING') {
@@ -672,6 +674,18 @@ export default function AdminReturnOrdersPage() {
           onClick: () => handleStatusChange(req, 'DELIVERING'),
         }]
       }
+      if (status === 'INSPECTING') {
+        return [{
+          key: 'INSPECTING',
+          label: (
+            <div className="flex items-center gap-2 px-1">
+              <Icon name="fact_check" className="text-[15px] text-blue-700" />
+              <span className="text-sm font-semibold">Bắt đầu kiểm hàng</span>
+            </div>
+          ),
+          onClick: () => handleStatusChange(req, 'INSPECTING'),
+        }]
+      }
       if (status === 'RECEIVED') {
         return [
           {
@@ -679,7 +693,7 @@ export default function AdminReturnOrdersPage() {
             label: (
               <div className="flex items-center gap-2 px-1">
                 <Icon name="inventory_2" className="text-[15px] text-emerald-700" />
-                <span className="text-sm font-semibold">Nhận hàng và nhập lại kho</span>
+                <span className="text-sm font-semibold">Đúng hàng - Nhập lại kho bán</span>
               </div>
             ),
             onClick: () => handleStatusChange(req, 'RECEIVED', null, 'RESTOCK'),
@@ -689,7 +703,7 @@ export default function AdminReturnOrdersPage() {
             label: (
               <div className="flex items-center gap-2 px-1">
                 <Icon name="report" className="text-[15px] text-rose-700" />
-                <span className="text-sm font-semibold">Nhận hàng và đánh dấu hỏng</span>
+                <span className="text-sm font-semibold">Đúng hàng - Chuyển kho hỏng</span>
               </div>
             ),
             onClick: () => handleStatusChange(req, 'RECEIVED', null, 'DAMAGED'),
@@ -699,7 +713,7 @@ export default function AdminReturnOrdersPage() {
             label: (
               <div className="flex items-center gap-2 px-1">
                 <Icon name="delete_forever" className="text-[15px] text-gray-500" />
-                <span className="text-sm font-semibold">Nhận &amp; Hủy bỏ (Không phải hàng của shop)</span>
+                <span className="text-sm font-semibold">Đúng hàng - Tiêu hủy, không nhập kho</span>
               </div>
             ),
             onClick: () => handleStatusChange(req, 'RECEIVED', null, 'DISCARD'),
@@ -887,24 +901,24 @@ export default function AdminReturnOrdersPage() {
                               items: statusActions(req)
                             }}
                             trigger={['click']}
-                            disabled={['REFUNDED', 'REJECTED', 'INSPECTION_FAILED', 'REFUND_PENDING', 'REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(req.status)}
+                            disabled={!['PENDING', 'DELIVERED', 'INSPECTING', 'RECEIVED'].includes(req.status)}
                           >
                             <button 
-                              className={`inline-flex items-center justify-between min-w-36 gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${!['REFUNDED', 'REJECTED', 'INSPECTION_FAILED', 'REFUND_PENDING', 'REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(req.status) ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${RETURN_STATUS[req.status]?.tone || 'bg-gray-100 text-gray-700 border-gray-200'}`}
+                              className={`inline-flex items-center justify-between min-w-36 gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${['PENDING', 'DELIVERED', 'INSPECTING', 'RECEIVED'].includes(req.status) ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${RETURN_STATUS[req.status]?.tone || 'bg-gray-100 text-gray-700 border-gray-200'}`}
                             >
                               <div className="flex items-center gap-1.5">
                                 <Icon name={RETURN_STATUS[req.status]?.icon || 'info'} className="text-[15px]" />
                                 {RETURN_STATUS[req.status]?.label || req.status}
                               </div>
-                              {!['REFUNDED', 'REJECTED', 'INSPECTION_FAILED', 'REFUND_PENDING', 'REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(req.status) && (
+                              {['PENDING', 'DELIVERED', 'INSPECTING', 'RECEIVED'].includes(req.status) && (
                                 <Icon name="expand_more" className="text-lg opacity-60" />
                               )}
                             </button>
                           </Dropdown>
-                          {['DELIVERING', 'DELIVERED'].includes(req.status) && req.returnTrackingCode && (
+                          {req.status === 'DELIVERING' && req.returnTrackingCode && (
                             <p className="text-xs text-blue-600 flex items-center gap-1 ml-1 mt-1">
                               <Icon name="sync" className="text-[14px]" /> 
-                              GHN tự động cập nhật
+                              GHN tự động cập nhật khi giao về kho
                             </p>
                           )}
                         </div>
@@ -1129,7 +1143,7 @@ export default function AdminReturnOrdersPage() {
               <p className="font-semibold flex items-center gap-1.5">
                 <Icon name="warning" className="text-base" /> Hàng trả về không đúng / không hợp lệ
               </p>
-              <p className="mt-1 text-xs">Khách hàng sẽ không được hoàn tiền cho đơn này. Hãy ghi rõ lý do để lưu hồ sơ.</p>
+              <p className="mt-1 text-xs">Chỉ dùng lựa chọn này khi sản phẩm thực nhận không khớp hồ sơ trả hàng. Hãy ghi rõ lý do để lưu hồ sơ.</p>
             </div>
 
             <div className="mt-4">
@@ -1139,8 +1153,9 @@ export default function AdminReturnOrdersPage() {
               <div className="flex flex-wrap gap-2 mb-3">
                 {[
                   'Hàng gửi về không phải hàng đã mua',
-                  'Hàng bị cố tình phá hoại trước khi trả',
-                  'Hàng đã qua sử dụng / không thể bán lại',
+                  'Sai sản phẩm hoặc sai biến thể/SKU đã khai báo',
+                  'Số lượng thực nhận không khớp yêu cầu trả hàng',
+                  'Có dấu hiệu tráo đổi sản phẩm',
                 ].map((option) => (
                   <button
                     key={option}

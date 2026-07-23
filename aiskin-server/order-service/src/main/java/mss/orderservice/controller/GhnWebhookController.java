@@ -137,8 +137,7 @@ public class GhnWebhookController {
 
     private void handleReturnOrderWebhook(ReturnOrder returnOrder, String status) {
         // Webhook cũ/đến trễ không được kéo lùi đơn đã sang hoàn tiền/giao lại.
-        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.DELIVERING
-                && returnOrder.getStatus() != ReturnOrder.ReturnStatus.DELIVERED) {
+        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.DELIVERING) {
             return;
         }
         ReturnOrder.ReturnStatus newStatus = null;
@@ -156,7 +155,9 @@ public class GhnWebhookController {
                 newStatus = ReturnOrder.ReturnStatus.DELIVERED;
                 break;
         }
-        if (newStatus != null && returnOrder.getStatus() != newStatus) {
+        // Chỉ GHN được phép xác nhận kiện hoàn đã đến kho. Webhook vận chuyển
+        // đến trễ hoặc trùng lặp không được kéo lùi trạng thái.
+        if (newStatus == ReturnOrder.ReturnStatus.DELIVERED) {
             returnOrder.setStatus(newStatus);
             returnOrderRepository.save(returnOrder);
             log.info("Đã cập nhật trạng thái ReturnOrder {} thành {}", returnOrder.getId(), newStatus);

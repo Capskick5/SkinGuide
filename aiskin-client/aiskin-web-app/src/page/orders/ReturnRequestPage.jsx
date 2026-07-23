@@ -18,22 +18,22 @@ const CLAIM_TYPES = [
   {
     value: 'RETURN',
     icon: 'assignment_return',
-    title: 'Hàng lỗi / Hư hỏng',
-    description: 'Sản phẩm không hoạt động, bị hỏng, khác mô tả hoặc bạn muốn đổi trả.',
+    title: 'Sản phẩm hư hỏng / Không đảm bảo',
+    description: 'Sản phẩm bị bể, móp méo, rò rỉ, biến chất hoặc không còn đảm bảo khi vận chuyển.',
     color: 'border-indigo-200 bg-indigo-50 text-indigo-700',
     selectedColor: 'border-primary bg-primary/5',
     iconColor: 'text-indigo-500',
     reasons: [
-      'Hàng lỗi / Không hoạt động',
-      'Hàng bị bể vỡ do vận chuyển',
-      'Sản phẩm không giống mô tả / hình ảnh',
-      'Hàng hết hạn sử dụng',
-      'Không ưng ý / Muốn đổi loại khác',
+      'Bao bì bị bể / nứt / móp méo',
+      'Sản phẩm bị đổ, rò rỉ hoặc thất thoát',
+      'Kết cấu, màu sắc hoặc mùi có dấu hiệu bất thường',
+      'Sản phẩm hết hạn / cận hạn không đúng cam kết',
+      'Sản phẩm không đúng mô tả',
       'Khác',
     ],
     needsItems: true,
     needsImages: true,
-    imageHint: 'Chụp ảnh sản phẩm bị hỏng, lỗi, hoặc ảnh so sánh với mô tả',
+    imageHint: 'Chụp rõ bao bì, tình trạng sản phẩm, hạn sử dụng hoặc dấu hiệu bất thường',
     itemsLabel: 'Sản phẩm muốn trả lại',
     itemsHint: 'Chọn đúng sản phẩm bị lỗi và số lượng cần trả',
   },
@@ -579,7 +579,7 @@ export default function ReturnRequestPage() {
                   {
                     value: 'REDELIVER',
                     icon: 'local_shipping',
-                    title: claimType === 'MISSING_ITEM' ? 'Giao bù hàng thiếu' : 'Giao lại sản phẩm đúng',
+                    title: claimType === 'MISSING_ITEM' ? 'Giao bù hàng thiếu' : 'Giao lại sản phẩm',
                     description: 'SkinGuide chịu toàn bộ phí vận chuyển phát sinh.',
                   },
                 ].map(option => (
@@ -827,7 +827,7 @@ export default function ReturnRequestPage() {
                 <Icon name={resolution === 'REFUND' ? 'payments' : 'local_shipping'} />
                 {resolution === 'REFUND'
                   ? 'Hoàn tiền'
-                  : claimType === 'MISSING_ITEM' ? 'Giao bù hàng thiếu' : 'Giao lại sản phẩm đúng'}
+                  : claimType === 'MISSING_ITEM' ? 'Giao bù hàng thiếu' : 'Giao lại sản phẩm'}
               </p>
               <p className="mt-1 text-xs opacity-80">SkinGuide chịu toàn bộ phí vận chuyển phát sinh.</p>
             </div>

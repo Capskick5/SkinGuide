@@ -45,8 +45,9 @@ function getStatusLabel(status) {
 const RETURN_STATUS_VN = {
   PENDING: 'Chờ duyệt',
   DELIVERING: 'Đang trả hàng',
-  DELIVERED: 'Đang trả hàng',
-  RECEIVED: 'Hoàn tất trả hàng',
+  DELIVERED: 'Đã về kho - Chờ kiểm hàng',
+  INSPECTING: 'Đang kiểm hàng',
+  RECEIVED: 'Đã kiểm hàng',
   REFUND_PENDING: 'Chờ hoàn tiền',
   REFUNDED: 'Đã hoàn tiền',
   REDELIVERY_PENDING: 'Chờ giao lại',
@@ -54,6 +55,85 @@ const RETURN_STATUS_VN = {
   RESOLVED: 'Đã giao lại thành công',
   INSPECTION_FAILED: 'Không đạt kiểm tra',
   REJECTED: 'Bị từ chối'
+}
+
+const CLAIM_TYPE_VN = {
+  RETURN: 'Sản phẩm hư hỏng / Không đảm bảo',
+  MISSING_ITEM: 'Giao thiếu sản phẩm',
+  WRONG_ITEM: 'Giao sai sản phẩm',
+}
+
+function ClaimProgress({ request }) {
+  const terminal = ['REFUNDED', 'RESOLVED'].includes(request.status)
+  const resolutionLabel = request.resolution === 'REFUND'
+    ? 'Hoàn tiền'
+    : request.claimType === 'MISSING_ITEM' ? 'Giao bù' : 'Giao lại'
+  const steps = request.claimType === 'MISSING_ITEM'
+    ? [
+        { label: 'Đã gửi yêu cầu', done: true },
+        {
+          label: 'Shop duyệt',
+          active: request.status === 'PENDING',
+          done: !['PENDING', 'REJECTED'].includes(request.status),
+        },
+        {
+          label: resolutionLabel,
+          active: ['REFUND_PENDING', 'REDELIVERY_PENDING', 'REDELIVERING'].includes(request.status),
+          done: terminal,
+        },
+        { label: 'Hoàn tất', active: terminal, done: terminal },
+      ]
+    : [
+        { label: 'Đã gửi yêu cầu', done: true },
+        {
+          label: 'Thu hồi sản phẩm',
+          active: request.status === 'DELIVERING',
+          done: ['DELIVERED', 'INSPECTING', 'RECEIVED', 'REFUND_PENDING', 'REFUNDED', 'REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(request.status),
+        },
+        {
+          label: 'Kiểm hàng',
+          active: ['DELIVERED', 'INSPECTING'].includes(request.status),
+          done: ['RECEIVED', 'REFUND_PENDING', 'REFUNDED', 'REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(request.status),
+        },
+        {
+          label: resolutionLabel,
+          active: ['REFUND_PENDING', 'REDELIVERY_PENDING', 'REDELIVERING'].includes(request.status),
+          done: terminal,
+        },
+        { label: 'Hoàn tất', active: terminal, done: terminal },
+      ]
+
+  return (
+    <div className="rounded-2xl border border-orange-100 bg-orange-50/40 p-4">
+      <p className="mb-4 text-xs font-bold uppercase tracking-wide text-orange-700">Tiến trình xử lý</p>
+      <div className="flex items-start overflow-x-auto pb-1">
+        {steps.map((step, index) => {
+          const highlighted = step.done || step.active
+          return (
+            <div key={step.label} className="flex min-w-[120px] flex-1 items-start">
+              <div className="flex min-w-0 flex-1 flex-col items-center text-center">
+                <div className={`flex h-8 w-8 items-center justify-center rounded-full border-2 ${
+                  step.done
+                    ? 'border-teal-500 bg-teal-500 text-white'
+                    : step.active
+                      ? 'border-orange-500 bg-white text-orange-600'
+                      : 'border-gray-200 bg-white text-gray-400'
+                }`}>
+                  <Icon name={step.done ? 'check' : step.active ? 'radio_button_checked' : 'circle'} className="text-base" />
+                </div>
+                <span className={`mt-2 text-xs font-semibold ${highlighted ? 'text-gray-900' : 'text-gray-400'}`}>
+                  {step.label}
+                </span>
+              </div>
+              {index < steps.length - 1 && (
+                <div className={`mt-4 h-0.5 min-w-6 flex-1 ${step.done ? 'bg-teal-400' : 'bg-gray-200'}`} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 function ConfirmCancelModal({ orderCode, onClose, onConfirm }) {
@@ -377,39 +457,45 @@ export default function OrderDetailPage() {
                 </div>
               )}
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <p className="text-caption text-on-surface-variant mb-1">Trạng thái xử lý</p>
-                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-sm border ${
-                    ['DELIVERING', 'DELIVERED'].includes(returnRequest.status) ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                    ['RECEIVED', 'REFUNDED'].includes(returnRequest.status) ? 'bg-teal-50 text-teal-700 border-teal-200' :
-                    returnRequest.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                    'bg-orange-50 text-orange-700 border-orange-200'
-                  }`}>
-                    {RETURN_STATUS_VN[returnRequest.status] || returnRequest.status}
-                  </div>
-                </div>
 
-                <div>
-                  <p className="text-caption text-on-surface-variant mb-1">Phương án bạn đã chọn</p>
-                  <div className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold ${
-                    !returnRequest.resolution
-                      ? 'border-amber-200 bg-amber-50 text-amber-800'
-                      : returnRequest.resolution === 'REFUND'
-                      ? 'border-teal-200 bg-teal-50 text-teal-800'
-                      : 'border-indigo-200 bg-indigo-50 text-indigo-800'
-                  }`}>
-                    <Icon name={!returnRequest.resolution ? 'schedule' : returnRequest.resolution === 'REFUND' ? 'payments' : 'local_shipping'} />
-                    {!returnRequest.resolution
-                      ? 'Chờ xác nhận phương án'
-                      : returnRequest.resolution === 'REFUND'
+            <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-xs font-medium text-gray-500">Loại khiếu nại</p>
+                <p className="mt-1 font-bold text-gray-950">
+                  {CLAIM_TYPE_VN[returnRequest.claimType] || 'Khiếu nại sản phẩm'}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
+                <p className="text-xs font-medium text-orange-700">Trạng thái hiện tại</p>
+                <p className="mt-1 font-bold text-orange-950">
+                  {RETURN_STATUS_VN[returnRequest.status] || returnRequest.status}
+                </p>
+              </div>
+              <div className={`rounded-2xl border p-4 ${
+                returnRequest.resolution === 'REFUND'
+                  ? 'border-teal-200 bg-teal-50'
+                  : 'border-indigo-200 bg-indigo-50'
+              }`}>
+                <p className="text-xs font-medium text-gray-600">Phương án đã chọn</p>
+                <p className="mt-1 flex items-center gap-2 font-bold text-gray-950">
+                  <Icon name={!returnRequest.resolution ? 'schedule' : returnRequest.resolution === 'REFUND' ? 'payments' : 'local_shipping'} className="text-lg" />
+                  {!returnRequest.resolution
+                    ? 'Chờ xác nhận phương án'
+                    : returnRequest.resolution === 'REFUND'
                       ? 'Hoàn tiền'
-                      : returnRequest.claimType === 'MISSING_ITEM' ? 'Giao bù hàng thiếu' : 'Giao lại sản phẩm đúng'}
-                  </div>
-                </div>
-                
+                      : returnRequest.claimType === 'MISSING_ITEM' ? 'Giao bù hàng thiếu' : 'Giao lại sản phẩm'}
+                </p>
+              </div>
+            </div>
+
+            <ClaimProgress request={returnRequest} />
+
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+              <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5">
+                <h4 className="flex items-center gap-2 font-bold text-gray-950">
+                  <Icon name="description" className="text-orange-600" />
+                  Nội dung khiếu nại
+                </h4>
                 <div>
                   <p className="text-caption text-on-surface-variant mb-1">Lý do khiếu nại</p>
                   <p className="font-semibold text-body-md text-on-surface">{returnRequest.reason}</p>
@@ -449,21 +535,29 @@ export default function OrderDetailPage() {
                 )}
               </div>
               
-              <div>
-                <p className="text-caption text-on-surface-variant mb-2">
+              <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                <h4 className="mb-3 flex items-center gap-2 font-bold text-gray-950">
+                  <Icon name="inventory_2" className="text-orange-600" />
                   {returnRequest.claimType === 'MISSING_ITEM'
                     ? 'Sản phẩm bị giao thiếu'
                     : returnRequest.claimType === 'WRONG_ITEM'
                       ? 'Sản phẩm đáng lẽ phải nhận'
                       : 'Sản phẩm gửi trả'}
-                </p>
+                </h4>
                 <div className="rounded-2xl border border-orange-100 overflow-hidden divide-y divide-orange-100">
                   {returnRequest.items?.map((item, idx) => (
                     <div key={idx} className="flex items-center gap-3 p-3 bg-orange-50/30">
                       <img src={resolveImageUrl(item.imageUrl)} alt={item.productName} loading="lazy" decoding="async" className="w-12 h-12 rounded object-cover border border-orange-100" />
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm text-gray-900 line-clamp-1">{item.productName}</p>
-                        <p className="text-xs text-gray-500">Đã chọn trả: <span className="font-bold text-orange-700">{item.quantity}</span></p>
+                        <p className="text-xs text-gray-500">
+                          {returnRequest.claimType === 'MISSING_ITEM'
+                            ? 'Số lượng thiếu: '
+                            : returnRequest.claimType === 'WRONG_ITEM'
+                              ? 'Số lượng cần giao: '
+                              : 'Số lượng trả: '}
+                          <span className="font-bold text-orange-700">{item.quantity}</span>
+                        </p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-bold text-primary">{money(item.subTotal)}</p>
@@ -477,6 +571,29 @@ export default function OrderDetailPage() {
                     <span className="font-bold text-lg text-primary">{money(returnRequest.refundAmount)}</span>
                   </div>
                 </div>
+
+                {returnRequest.claimType === 'WRONG_ITEM' && returnRequest.wrongItems?.length > 0 && (
+                  <div className="mt-4">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-rose-700">
+                      Sản phẩm thực tế đã nhận sai
+                    </p>
+                    <div className="divide-y divide-rose-100 overflow-hidden rounded-2xl border border-rose-200">
+                      {returnRequest.wrongItems.map((item, idx) => (
+                        <div key={`${item.variantId || item.sku || item.productId}-${idx}`} className="flex items-center justify-between gap-4 bg-rose-50/50 p-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-gray-950">{item.productName}</p>
+                            <p className="mt-0.5 text-xs text-gray-500">
+                              {[item.variantName, item.sku].filter(Boolean).join(' · ') || 'Chưa có thông tin biến thể'}
+                            </p>
+                          </div>
+                          <span className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-rose-700">
+                            SL: {item.quantity}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Phần Nhập thông tin hoàn tiền */}
                 {returnRequest.status === 'REFUND_PENDING' && returnRequest.resolution === 'REFUND' && !refundRequest && (
@@ -632,7 +749,20 @@ export default function OrderDetailPage() {
               </div>
             </div>
 
-            {['DELIVERING', 'DELIVERED'].includes(returnRequest.status) && (
+            {['DELIVERED', 'INSPECTING'].includes(returnRequest.status) && (
+              <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5">
+                <h4 className="flex items-center gap-2 font-bold text-blue-900">
+                  <Icon name="fact_check" />
+                  {returnRequest.status === 'DELIVERED' ? 'Sản phẩm đã về kho, đang chờ kiểm hàng' : 'Kho đang kiểm tra sản phẩm'}
+                </h4>
+                <p className="mt-2 text-sm leading-6 text-blue-700">
+                  Nhân viên kho sẽ đối chiếu sản phẩm thực nhận, kiểm tra tình trạng và quyết định nhập lại kho,
+                  chuyển vào kho hỏng hoặc từ chối nếu hàng gửi về không đúng.
+                </p>
+              </div>
+            )}
+
+            {returnRequest.status === 'DELIVERING' && (
               <div className="mt-6 pt-6 border-t border-orange-200">
                 <h4 className="font-bold text-lg text-orange-800 mb-4 flex items-center gap-2">
                   <Icon name="local_shipping" /> Hướng dẫn gửi hàng hoàn trả

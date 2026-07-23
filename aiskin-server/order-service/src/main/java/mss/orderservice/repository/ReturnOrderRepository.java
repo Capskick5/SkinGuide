@@ -20,7 +20,7 @@ public interface ReturnOrderRepository extends MongoRepository<ReturnOrder, Stri
     List<ReturnOrder> findByStatus(ReturnOrder.ReturnStatus status);
     Optional<ReturnOrder> findByReturnTrackingCode(String returnTrackingCode);
 
-    @org.springframework.data.mongodb.repository.Query("{ 'returnTrackingCode': { $exists: true, $ne: null }, 'status': { $in: ['DELIVERING', 'DELIVERED'] } }")
+    @org.springframework.data.mongodb.repository.Query("{ 'returnTrackingCode': { $exists: true, $ne: null }, 'status': 'DELIVERING' }")
     List<ReturnOrder> findActiveGhnReturns();
 
     Page<ReturnOrder> findAll(Pageable pageable);

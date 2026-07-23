@@ -93,6 +93,7 @@ public class ReturnOrder {
         PENDING,            // Chờ Admin duyệt
         DELIVERING,         // GHN đang trung chuyển/giao kiện hàng hoàn
         DELIVERED,          // GHN đã giao thành công cho kho SkinGuide
+        INSPECTING,         // Kho đang kiểm tra đúng sản phẩm và tình trạng thực tế
         REJECTED,           // Admin từ chối trả hàng (trước khi nhận hàng)
         RECEIVED,           // Kho đã nhận và kiểm tra hàng OK (Admin xác nhận)
         INSPECTION_FAILED,  // Hàng trả về không đúng/tráo hàng - từ chối sau kiểm tra
@@ -106,7 +107,7 @@ public class ReturnOrder {
     public enum InventoryDisposition {
         RESTOCK,   // Nhập lại kho hàng có thể bán
         DAMAGED,   // Nhập vào kho hàng hỏng
-        DISCARD    // Hủy bỏ - không tác động kho (hàng không phải của shop)
+        DISCARD    // Tiêu hủy - không nhập lại bất kỳ kho nào
     }
 
     public enum ResolutionType {
