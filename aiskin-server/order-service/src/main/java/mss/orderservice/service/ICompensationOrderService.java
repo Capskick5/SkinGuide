@@ -9,6 +9,7 @@ public interface ICompensationOrderService {
     CompensationOrder getByReturnOrderId(String returnOrderId);
     CompensationOrder reserveInventory(String id);
     CompensationOrder createShipment(String id);
+    void syncGhnCompensationOrderStatus();
     CompensationOrder complete(String id);
     CompensationOrder cancel(String id);
 }

@@ -1,6 +1,7 @@
 package mss.orderservice.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import mss.orderservice.model.CompensationOrder;
 import mss.orderservice.model.Order;
 import mss.orderservice.model.ReturnOrder;
@@ -23,6 +24,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CompensationOrderService implements ICompensationOrderService {
     private final CompensationOrderRepository repository;
     private final ReturnOrderRepository returnOrderRepository;
@@ -102,6 +104,31 @@ public class CompensationOrderService implements ICompensationOrderService {
             repository.save(compensation);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "Không thể tạo vận đơn giao bù", exception);
+        }
+    }
+
+    public void syncGhnCompensationOrderStatus() {
+        List<CompensationOrder> shippingOrders =
+                repository.findByStatus(CompensationOrder.CompensationStatus.SHIPPING);
+        for (CompensationOrder compensation : shippingOrders) {
+            if (compensation.getTrackingCode() == null || compensation.getTrackingCode().isBlank()) {
+                log.warn("Skipping GHN redelivery synchronization for compensation {} without tracking code",
+                        compensation.getId());
+                continue;
+            }
+            try {
+                Map<String, Object> detail = ghnService.getOrderDetail(compensation.getTrackingCode());
+                if (detail == null || detail.get("status") == null) {
+                    continue;
+                }
+                String ghnStatus = String.valueOf(detail.get("status")).trim().toLowerCase();
+                if ("delivered".equals(ghnStatus) || "deliveried".equals(ghnStatus)) {
+                    complete(compensation.getId());
+                }
+            } catch (Exception exception) {
+                log.warn("Failed to synchronize GHN redelivery compensation {}",
+                        compensation.getId(), exception);
+            }
         }
     }
 

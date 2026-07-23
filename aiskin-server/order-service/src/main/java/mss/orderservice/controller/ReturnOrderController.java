@@ -22,6 +22,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 import mss.orderservice.security.IOrderAuthorizationService;
+import mss.orderservice.service.ICompensationOrderService;
 import mss.orderservice.service.IReturnOrderService;
 
 @RestController
@@ -32,6 +33,8 @@ import mss.orderservice.service.IReturnOrderService;
 public class ReturnOrderController {
 
     private final IReturnOrderService returnOrderService;
+
+    private final ICompensationOrderService compensationOrderService;
 
     private final IOrderAuthorizationService authorizationService;
 
@@ -130,9 +133,10 @@ public class ReturnOrderController {
     public ResponseEntity<?> syncGhnReturnOrderStatusManual() {
         try {
             returnOrderService.syncGhnReturnOrderStatus();
+            compensationOrderService.syncGhnCompensationOrderStatus();
             return ResponseEntity.ok(Map.of("message", "Đồng bộ thành công"));
         } catch (Exception exception) {
-            log.error("Failed to synchronize GHN return statuses", exception);
+            log.error("Failed to synchronize GHN return and redelivery statuses", exception);
             return ResponseEntity.internalServerError().body(Map.of("message", "Không thể đồng bộ trạng thái GHN"));
         }
     }

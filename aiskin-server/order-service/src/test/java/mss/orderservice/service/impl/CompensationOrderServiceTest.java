@@ -71,6 +71,47 @@ class CompensationOrderServiceTest {
     }
 
     @Test
+    void synchronizingDeliveredGhnOrderCompletesRedeliveryAndResolvesClaim() {
+        CompensationOrder compensation = pendingCompensation();
+        compensation.setStatus(CompensationOrder.CompensationStatus.SHIPPING);
+        compensation.setInventoryReserved(true);
+        compensation.setTrackingCode("GHN-REDELIVERY");
+        ReturnOrder claim = ReturnOrder.builder()
+                .id("return-1")
+                .status(ReturnOrder.ReturnStatus.REDELIVERING)
+                .resolution(ReturnOrder.ResolutionType.REDELIVER)
+                .build();
+        when(repository.findByStatus(CompensationOrder.CompensationStatus.SHIPPING))
+                .thenReturn(List.of(compensation));
+        when(repository.findById("comp-1")).thenReturn(Optional.of(compensation));
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(claim));
+        when(ghnService.getOrderDetail("GHN-REDELIVERY"))
+                .thenReturn(Map.of("status", "deliveried"));
+
+        service.syncGhnCompensationOrderStatus();
+
+        verify(inventoryClient).commit(compensation);
+        assertThat(compensation.getStatus()).isEqualTo(CompensationOrder.CompensationStatus.COMPLETED);
+        assertThat(claim.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.RESOLVED);
+    }
+
+    @Test
+    void synchronizingShippingGhnOrderDoesNotCompleteRedeliveryEarly() {
+        CompensationOrder compensation = pendingCompensation();
+        compensation.setStatus(CompensationOrder.CompensationStatus.SHIPPING);
+        compensation.setTrackingCode("GHN-REDELIVERY");
+        when(repository.findByStatus(CompensationOrder.CompensationStatus.SHIPPING))
+                .thenReturn(List.of(compensation));
+        when(ghnService.getOrderDetail("GHN-REDELIVERY"))
+                .thenReturn(Map.of("status", "delivering"));
+
+        service.syncGhnCompensationOrderStatus();
+
+        verify(inventoryClient, never()).commit(any());
+        assertThat(compensation.getStatus()).isEqualTo(CompensationOrder.CompensationStatus.SHIPPING);
+    }
+
+    @Test
     void creatingRedeliveryUsesANewGhnOrderAndTrackingCode() {
         CompensationOrder compensation = pendingCompensation();
         compensation.setOrderId("order-1");
