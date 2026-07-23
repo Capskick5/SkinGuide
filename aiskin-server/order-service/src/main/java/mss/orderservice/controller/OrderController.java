@@ -249,7 +249,9 @@ public class OrderController {
 
     @GetMapping("/admin/dashboard")
     @PreAuthorize("hasPermission('/api/orders/admin/dashboard', 'GET')")
-    @Operation(summary = "Dashboard tài chính", description = "Thống kê doanh thu, chi phí hoàn tiền, chi phí vận chuyển trả hàng")
+    @Operation(
+            summary = "Dashboard tài chính và vận hành",
+            description = "Thống kê doanh thu, hoàn tiền và chi phí vận chuyển đơn gốc, thu hồi, giao lại")
     public ResponseEntity<?> getFinancialDashboard() {
         return ResponseEntity.ok(dashboardService.getFinancialSummary());
     }

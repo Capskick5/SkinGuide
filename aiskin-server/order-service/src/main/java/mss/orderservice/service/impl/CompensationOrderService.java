@@ -93,6 +93,7 @@ public class CompensationOrderService implements ICompensationOrderService {
             }
             compensation.setCourier("GHN");
             compensation.setTrackingCode(trackingCode);
+            compensation.setShipmentCreatedAt(LocalDateTime.now());
             if (response.get("total_fee") != null) {
                 compensation.setShippingFee(new BigDecimal(response.get("total_fee").toString()));
             }

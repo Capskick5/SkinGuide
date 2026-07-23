@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -349,6 +350,7 @@ public class ReturnOrderService implements IReturnOrderService {
                 returnOrder.setReturnShippingFee(new BigDecimal(feeObj.toString()));
             }
             returnOrder.setReturnTrackingCode(trackingCode);
+            returnOrder.setReturnShipmentCreatedAt(LocalDateTime.now());
             returnOrder.setReturnCourier("GHN");
             returnOrder.setReturnShipmentError(null);
         } catch (Exception exception) {
@@ -715,6 +717,9 @@ public class ReturnOrderService implements IReturnOrderService {
         }
         returnOrder.setReturnCourier(courier.trim());
         returnOrder.setReturnTrackingCode(normalizedTrackingCode);
+        if (returnOrder.getReturnShipmentCreatedAt() == null) {
+            returnOrder.setReturnShipmentCreatedAt(LocalDateTime.now());
+        }
         returnOrder.setReturnShipmentError(null);
         return returnOrderRepository.save(returnOrder);
     }

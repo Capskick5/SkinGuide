@@ -639,6 +639,13 @@ public class OrderService implements IOrderService {
                         Map<String, Object> ghnResponse = ghnService.createOrder(ghnData);
                         String trackingCode = ghnResponse != null ? (String) ghnResponse.get("order_code") : null;
                         order.setTrackingCode(trackingCode);
+                        if (trackingCode != null && !trackingCode.isBlank()) {
+                            order.setShipmentCreatedAt(LocalDateTime.now());
+                        }
+                        if (ghnResponse != null && ghnResponse.get("total_fee") != null) {
+                            order.setActualShippingFee(
+                                    new BigDecimal(ghnResponse.get("total_fee").toString()));
+                        }
                     } catch (Exception e) {
                         log.error("Không thể tạo vận đơn GHN cho đơn {}", order.getOrderCode(), e);
                         throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Chưa thể tạo vận đơn GHN lúc này, vui lòng thử lại sau");

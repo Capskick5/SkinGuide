@@ -38,6 +38,8 @@ public interface OrderRepository extends MongoRepository<Order, String> {
     @Query("{ 'paymentStatus': 'PAID', 'createdAt': { $gte: ?0, $lte: ?1 } }")
     List<Order> findPaidOrdersBetween(LocalDateTime from, LocalDateTime to);
 
-    @Query("{ 'paymentStatus': { $in: ['PAID'] }, 'status': { $nin: ['CANCELLED', 'REFUSED'] } }")
+    // Doanh thu gộp phải giữ cả các đơn đã được hoàn một phần/toàn phần.
+    // Phần tiền hoàn được DashboardService ghi nhận riêng để tránh làm mất doanh thu lịch sử.
+    @Query("{ 'paymentStatus': { $in: ['PAID', 'PARTIALLY_REFUNDED', 'REFUNDED'] } }")
     List<Order> findAllPaidOrders();
 }

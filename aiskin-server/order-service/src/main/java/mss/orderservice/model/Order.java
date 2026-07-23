@@ -69,6 +69,8 @@ public class Order {
 
     // Shipping
     private String trackingCode; // Mã vận đơn GHN
+    private BigDecimal actualShippingFee; // Phí thực tế GHN trả về khi tạo vận đơn
+    private LocalDateTime shipmentCreatedAt; // Mốc ghi nhận chi phí vận chuyển đơn gốc
 
     // Status
     private OrderStatus status;

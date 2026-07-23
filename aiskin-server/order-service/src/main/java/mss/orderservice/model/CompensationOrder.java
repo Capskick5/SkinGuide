@@ -52,6 +52,7 @@ public class CompensationOrder {
     private String courier;
     private String trackingCode;
     private BigDecimal shippingFee;
+    private LocalDateTime shipmentCreatedAt; // Mốc ghi nhận chi phí giao lại
     private String ghnStatus;
     private String ghnReason;
     private String ghnReasonCode;
