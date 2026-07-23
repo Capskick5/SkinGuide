@@ -715,7 +715,7 @@ export default function ReturnRequestPage() {
               <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Hàng thực tế nhận nhầm</p>
                 <p className="mt-2 text-sm text-orange-900">
-                  Kho sẽ đối chiếu hình ảnh và xác định chính xác sản phẩm/SKU sau khi nhận kiện hàng.
+                  Kho sẽ đối chiếu hình ảnh và xác định chính xác sản phẩm cùng biến thể sau khi nhận kiện hàng.
                 </p>
               </div>
             )}

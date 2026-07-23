@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -44,14 +45,57 @@ class InventoryServiceTest {
     private IInventoryService inventoryService;
 
     private InventoryLevel level;
+    private InventoryLevel wrongItemLevel;
+    private InventoryLevel sameProductWrongVariantLevel;
 
     @BeforeEach
     void setUp() {
         inventoryService = new InventoryService(productRepository, movementRepository, kafkaProductProducer, new mss.productservice.service.FlashDealPolicy());
         level = InventoryLevel.builder().warehouseId(InventoryService.DEFAULT_WAREHOUSE_ID).warehouseName(InventoryService.DEFAULT_WAREHOUSE_NAME).onHandQuantity(10).reservedQuantity(0).soldQuantity(0).build();
         ProductVariant variant = ProductVariant.builder().id("variant-1").name("100 ml").sku("SKU-100").price(100_000D).isActive(true).trackInventory(true).inventoryLevels(new ArrayList<>(List.of(level))).build();
-        Product product = Product.builder().id("product-1").name("Cleanser").slug("cleanser").price(100_000D).isActive(true).variants(new ArrayList<>(List.of(variant))).build();
+        sameProductWrongVariantLevel = InventoryLevel.builder()
+                .warehouseId(InventoryService.DEFAULT_WAREHOUSE_ID)
+                .warehouseName(InventoryService.DEFAULT_WAREHOUSE_NAME)
+                .onHandQuantity(5)
+                .reservedQuantity(0)
+                .soldQuantity(0)
+                .damagedQuantity(0)
+                .build();
+        ProductVariant sameProductWrongVariant = ProductVariant.builder()
+                .id("variant-1b")
+                .name("50 ml")
+                .price(80_000D)
+                .isActive(true)
+                .trackInventory(true)
+                .inventoryLevels(new ArrayList<>(List.of(sameProductWrongVariantLevel)))
+                .build();
+        Product product = Product.builder().id("product-1").name("Cleanser").slug("cleanser").price(100_000D).isActive(true).variants(new ArrayList<>(List.of(variant, sameProductWrongVariant))).build();
         lenient().when(productRepository.findByFlexibleId("product-1")).thenReturn(Optional.of(product));
+        wrongItemLevel = InventoryLevel.builder()
+                .warehouseId(InventoryService.DEFAULT_WAREHOUSE_ID)
+                .warehouseName(InventoryService.DEFAULT_WAREHOUSE_NAME)
+                .onHandQuantity(8)
+                .reservedQuantity(0)
+                .soldQuantity(0)
+                .damagedQuantity(0)
+                .build();
+        ProductVariant wrongVariant = ProductVariant.builder()
+                .id("variant-2")
+                .name("Kem dưỡng 50 g")
+                .price(150_000D)
+                .isActive(true)
+                .trackInventory(true)
+                .inventoryLevels(new ArrayList<>(List.of(wrongItemLevel)))
+                .build();
+        Product wrongProduct = Product.builder()
+                .id("product-2")
+                .name("Kem dưỡng")
+                .slug("kem-duong")
+                .price(150_000D)
+                .isActive(true)
+                .variants(new ArrayList<>(List.of(wrongVariant)))
+                .build();
+        lenient().when(productRepository.findByFlexibleId("product-2")).thenReturn(Optional.of(wrongProduct));
     }
 
     @Test
@@ -78,7 +122,7 @@ class InventoryServiceTest {
     void repeatedReserveWithDifferentQuantityIsRejected() {
         level.setReservedQuantity(3);
         when(movementRepository.findByReferenceTypeAndReferenceIdAndType("ORDER", "ORD-1", InventoryMovement.MovementType.RESERVE)).thenReturn(List.of(movement(InventoryMovement.MovementType.RESERVE, 3)));
-        assertThatThrownBy(() -> inventoryService.reserve(request("ORD-1", 2))).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("không khớp SKU hoặc số lượng");
+        assertThatThrownBy(() -> inventoryService.reserve(request("ORD-1", 2))).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("không khớp biến thể hoặc số lượng");
     }
 
     @Test
@@ -162,6 +206,110 @@ class InventoryServiceTest {
     }
 
     @Test
+    void discardedReturnReducesSoldWithoutRestoringStock() {
+        level.setOnHandQuantity(7);
+        level.setSoldQuantity(3);
+        stubReturnNotProcessed();
+
+        inventoryService.processReturn(returnRequest(InventoryReturnRequest.Disposition.DISCARD, 2));
+
+        assertThat(level.getOnHandQuantity()).isEqualTo(7);
+        assertThat(level.getSoldQuantity()).isEqualTo(1);
+        assertThat(level.getDamagedQuantity()).isZero();
+    }
+
+    @Test
+    void wrongDeliveryRestockReversesExpectedItemWithoutAddingWrongItemTwice() {
+        level.setOnHandQuantity(9);
+        level.setSoldQuantity(1);
+
+        inventoryService.processReturn(wrongDeliveryReturn(InventoryReturnRequest.Disposition.RESTOCK));
+
+        assertThat(level.getOnHandQuantity()).isEqualTo(10);
+        assertThat(level.getSoldQuantity()).isZero();
+        assertThat(wrongItemLevel.getOnHandQuantity()).isEqualTo(8);
+        assertThat(wrongItemLevel.getSoldQuantity()).isZero();
+    }
+
+    @Test
+    void wrongDeliveryDamagedMovesActualItemOutOfSaleableStock() {
+        level.setOnHandQuantity(9);
+        level.setSoldQuantity(1);
+
+        inventoryService.processReturn(wrongDeliveryReturn(InventoryReturnRequest.Disposition.DAMAGED));
+
+        assertThat(level.getOnHandQuantity()).isEqualTo(10);
+        assertThat(level.getSoldQuantity()).isZero();
+        assertThat(wrongItemLevel.getOnHandQuantity()).isEqualTo(7);
+        assertThat(wrongItemLevel.getDamagedQuantity()).isEqualTo(1);
+    }
+
+    @Test
+    void wrongDeliveryDiscardRemovesActualItemFromTrackedStock() {
+        level.setOnHandQuantity(9);
+        level.setSoldQuantity(1);
+
+        inventoryService.processReturn(wrongDeliveryReturn(InventoryReturnRequest.Disposition.DISCARD));
+
+        assertThat(level.getOnHandQuantity()).isEqualTo(10);
+        assertThat(level.getSoldQuantity()).isZero();
+        assertThat(wrongItemLevel.getOnHandQuantity()).isEqualTo(7);
+        assertThat(wrongItemLevel.getDamagedQuantity()).isZero();
+    }
+
+    @Test
+    void wrongDeliveryBetweenVariantsOfSameProductUsesOneConsistentProductSnapshot() {
+        level.setOnHandQuantity(9);
+        level.setSoldQuantity(1);
+        InventoryReturnRequest request = InventoryReturnRequest.builder()
+                .returnOrderId("RET-WRONG-SAME-PRODUCT")
+                .orderCode("ORD-WRONG-SAME-PRODUCT")
+                .disposition(InventoryReturnRequest.Disposition.RESTOCK)
+                .expectedItems(List.of(InventoryReservationItemRequest.builder()
+                        .productId("product-1")
+                        .variantId("variant-1")
+                        .quantity(1)
+                        .build()))
+                .items(List.of(InventoryReservationItemRequest.builder()
+                        .productId("product-1")
+                        .variantId("variant-1b")
+                        .quantity(1)
+                        .build()))
+                .build();
+
+        inventoryService.processReturn(request);
+
+        assertThat(level.getOnHandQuantity()).isEqualTo(10);
+        assertThat(level.getSoldQuantity()).isZero();
+        assertThat(sameProductWrongVariantLevel.getOnHandQuantity()).isEqualTo(5);
+        verify(productRepository, times(1)).findByFlexibleId("product-1");
+    }
+
+    @Test
+    void wrongDeliveryRejectsActualVariantThatMatchesExpectedVariant() {
+        InventoryReturnRequest request = InventoryReturnRequest.builder()
+                .returnOrderId("RET-WRONG-MATCH")
+                .orderCode("ORD-WRONG-MATCH")
+                .disposition(InventoryReturnRequest.Disposition.RESTOCK)
+                .expectedItems(List.of(InventoryReservationItemRequest.builder()
+                        .productId("product-1")
+                        .variantId("variant-1")
+                        .quantity(1)
+                        .build()))
+                .items(List.of(InventoryReservationItemRequest.builder()
+                        .productId("product-1")
+                        .variantId("variant-1")
+                        .quantity(1)
+                        .build()))
+                .build();
+
+        assertThatThrownBy(() -> inventoryService.processReturn(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("không được trùng");
+        verify(productRepository, never()).saveAllFlexible(any());
+    }
+
+    @Test
     void repeatedReturnDoesNotChangeInventoryTwice() {
         level.setOnHandQuantity(9);
         level.setSoldQuantity(1);
@@ -189,10 +337,29 @@ class InventoryServiceTest {
     private void stubReturnNotProcessed() {
         when(movementRepository.findByReferenceTypeAndReferenceIdAndType("RETURN_ORDER", "RET-1", InventoryMovement.MovementType.RETURN_RESTOCK)).thenReturn(List.of());
         when(movementRepository.findByReferenceTypeAndReferenceIdAndType("RETURN_ORDER", "RET-1", InventoryMovement.MovementType.RETURN_DAMAGED)).thenReturn(List.of());
+        when(movementRepository.findByReferenceTypeAndReferenceIdAndType("RETURN_ORDER", "RET-1", InventoryMovement.MovementType.RETURN_DISCARD)).thenReturn(List.of());
     }
 
     private InventoryReturnRequest returnRequest(InventoryReturnRequest.Disposition disposition, int quantity) {
         return InventoryReturnRequest.builder().returnOrderId("RET-1").orderCode("ORD-1").disposition(disposition).items(List.of(InventoryReservationItemRequest.builder().productId("product-1").variantId("variant-1").quantity(quantity).build())).build();
+    }
+
+    private InventoryReturnRequest wrongDeliveryReturn(InventoryReturnRequest.Disposition disposition) {
+        return InventoryReturnRequest.builder()
+                .returnOrderId("RET-WRONG-1")
+                .orderCode("ORD-WRONG-1")
+                .disposition(disposition)
+                .expectedItems(List.of(InventoryReservationItemRequest.builder()
+                        .productId("product-1")
+                        .variantId("variant-1")
+                        .quantity(1)
+                        .build()))
+                .items(List.of(InventoryReservationItemRequest.builder()
+                        .productId("product-2")
+                        .variantId("variant-2")
+                        .quantity(1)
+                        .build()))
+                .build();
     }
 
     private InventoryReservationRequest request(String orderCode, int quantity) {

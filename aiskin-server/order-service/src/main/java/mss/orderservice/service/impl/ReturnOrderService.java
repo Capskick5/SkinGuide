@@ -75,7 +75,7 @@ public class ReturnOrderService implements IReturnOrderService {
                 .description(request.description().trim())
                 .imageUrls(List.copyOf(request.imageUrls()))
                 .items(calculation.items())
-                // Khách chỉ mô tả/chụp ảnh hàng nhận sai. SKU thực tế do kho xác định khi kiểm hàng.
+                // Khách chỉ mô tả/chụp ảnh hàng nhận sai. Biến thể thực tế do kho xác định khi kiểm hàng.
                 .wrongItems(List.of())
                 .refundAmount(calculation.totalRefund())
                 .status(ReturnOrder.ReturnStatus.PENDING)
@@ -164,7 +164,7 @@ public class ReturnOrderService implements IReturnOrderService {
         if (newStatus == ReturnOrder.ReturnStatus.RECEIVED
                 && returnOrder.getClaimType() == ReturnOrder.ClaimType.WRONG_ITEM) {
             if (inspectedWrongItems == null || inspectedWrongItems.isEmpty()) {
-                throw badRequest("Kho cần xác định chính xác sản phẩm và biến thể/SKU thực tế nhận về");
+                throw badRequest("Kho cần xác định chính xác sản phẩm và biến thể thực tế nhận về");
             }
             returnOrder.setWrongItems(toWrongItems(inspectedWrongItems));
         }
@@ -187,13 +187,8 @@ public class ReturnOrderService implements IReturnOrderService {
                     throw conflict("Đơn trả hàng đã được xử lý kho với kết quả khác");
                 }
             } else {
-                // DISCARD: tiêu hủy hàng thực nhận, không nhập lại bất kỳ kho nào
-                if (inventoryDisposition != ReturnOrder.InventoryDisposition.DISCARD) {
-                    ensureReturnItemVariants(returnOrder);
-                    returnInventoryClient.process(returnOrder, inventoryDisposition);
-                } else {
-                    log.info("Return {}: DISCARD disposition - skipping inventory update", returnOrder.getId());
-                }
+                ensureReturnItemVariants(returnOrder);
+                returnInventoryClient.process(returnOrder, inventoryDisposition);
                 returnOrder.setInventoryDisposition(inventoryDisposition);
                 returnOrder.setInventoryProcessed(true);
             }
@@ -352,7 +347,7 @@ public class ReturnOrderService implements IReturnOrderService {
         returnOrder.setDescription(request.description().trim());
         returnOrder.setImageUrls(List.copyOf(request.imageUrls()));
         returnOrder.setItems(calculation.items());
-        // Không nhận SKU hàng giao sai từ khách; kho sẽ xác định sau khi nhận kiện hoàn.
+        // Không nhận thông tin hàng giao sai từ khách; kho sẽ xác định sản phẩm và biến thể sau khi nhận kiện hoàn.
         returnOrder.setWrongItems(List.of());
         returnOrder.setRefundAmount(calculation.totalRefund());
         if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.REJECTED) {
@@ -440,7 +435,7 @@ public class ReturnOrderService implements IReturnOrderService {
         List<OrderItem> candidates = order.getItems().stream().filter(item -> Objects.equals(item.getProductId(), productId)).filter(item -> variantId == null || Objects.equals(item.getVariantId(), variantId)).filter(item -> sku == null || Objects.equals(item.getSku(), sku)).filter(item -> variantId != null || sku != null || Objects.equals(item.getUnit(), unit)).toList();
         if (candidates.size() != 1) {
             if (candidates.size() > 1) {
-                throw badRequest("Vui lòng chọn đúng biến thể/SKU của sản phẩm: " + productId);
+                throw badRequest("Vui lòng chọn đúng biến thể của sản phẩm: " + productId);
             }
             throw badRequest("Sản phẩm hoặc biến thể không thuộc đơn hàng: " + productId);
         }

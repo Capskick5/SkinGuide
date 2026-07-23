@@ -22,7 +22,7 @@ public class InventoryAdjustmentRequest {
     private String productId;
 
     @NotBlank(message = "Variant id is required")
-    @Schema(description = "Variant/SKU being updated")
+    @Schema(description = "Biến thể sản phẩm được cập nhật")
     private String variantId;
 
     @Schema(description = "Warehouse id; defaults to MAIN_WAREHOUSE", example = "MAIN_WAREHOUSE")

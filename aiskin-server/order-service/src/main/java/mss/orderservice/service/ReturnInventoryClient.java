@@ -36,12 +36,20 @@ public class ReturnInventoryClient {
 
     public void process(ReturnOrder returnOrder, ReturnOrder.InventoryDisposition disposition) {
         java.util.List<ProductInventoryItemRequest> inventoryItems;
+        java.util.List<ProductInventoryItemRequest> expectedItems = null;
         if (returnOrder.getClaimType() == ReturnOrder.ClaimType.WRONG_ITEM) {
             if (returnOrder.getWrongItems() == null || returnOrder.getWrongItems().isEmpty()) {
                 throw new ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
                         "Chưa xác định sản phẩm thực tế giao sai để nhập kho");
             }
             inventoryItems = returnOrder.getWrongItems().stream()
+                    .map(item -> ProductInventoryItemRequest.builder()
+                            .productId(item.getProductId())
+                            .variantId(item.getVariantId())
+                            .quantity(item.getQuantity())
+                            .build())
+                    .toList();
+            expectedItems = returnOrder.getItems().stream()
                     .map(item -> ProductInventoryItemRequest.builder()
                             .productId(item.getProductId())
                             .variantId(item.getVariantId())
@@ -62,6 +70,7 @@ public class ReturnInventoryClient {
                 .orderCode(returnOrder.getOrderCode())
                 .disposition(disposition.name())
                 .items(inventoryItems)
+                .expectedItems(expectedItems)
                 .build();
 
         HttpHeaders headers = new HttpHeaders();

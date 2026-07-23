@@ -34,8 +34,16 @@ public class InventoryReturnRequest {
     @NotEmpty(message = "Return must include at least one item")
     private List<InventoryReservationItemRequest> items;
 
+    /**
+     * Chỉ dùng cho giao sai hàng: các sản phẩm hệ thống đã ghi nhận bán theo
+     * đơn gốc nhưng thực tế chưa rời kho.
+     */
+    @Valid
+    private List<InventoryReservationItemRequest> expectedItems;
+
     public enum Disposition {
         RESTOCK,
-        DAMAGED
+        DAMAGED,
+        DISCARD
     }
 }

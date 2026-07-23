@@ -16,6 +16,11 @@ const MOVEMENT_LABELS = {
   COMMIT_SALE: 'Chốt bán',
   RETURN_RESTOCK: 'Hàng trả nhập lại',
   RETURN_DAMAGED: 'Hàng trả bị hỏng',
+  RETURN_DISCARD: 'Hàng trả tiêu hủy',
+  WRONG_DELIVERY_EXPECTED_REVERSAL: 'Hoàn tác hàng đáng lẽ giao',
+  WRONG_DELIVERY_ACTUAL_RESTOCK: 'Hàng giao nhầm về kho bán',
+  WRONG_DELIVERY_ACTUAL_DAMAGED: 'Hàng giao nhầm vào kho hỏng',
+  WRONG_DELIVERY_ACTUAL_DISCARD: 'Hàng giao nhầm tiêu hủy',
   STOCK_RECEIPT: 'Nhập hàng',
   STOCK_COUNT: 'Kiểm kê',
   STOCK_WRITE_OFF: 'Xuất hủy',
@@ -28,6 +33,11 @@ const MOVEMENT_TONES = {
   COMMIT_SALE: 'bg-gray-100 text-gray-700 border-gray-200',
   RETURN_RESTOCK: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   RETURN_DAMAGED: 'bg-rose-50 text-rose-700 border-rose-200',
+  RETURN_DISCARD: 'bg-red-50 text-red-700 border-red-200',
+  WRONG_DELIVERY_EXPECTED_REVERSAL: 'bg-sky-50 text-sky-700 border-sky-200',
+  WRONG_DELIVERY_ACTUAL_RESTOCK: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  WRONG_DELIVERY_ACTUAL_DAMAGED: 'bg-rose-50 text-rose-700 border-rose-200',
+  WRONG_DELIVERY_ACTUAL_DISCARD: 'bg-red-50 text-red-700 border-red-200',
   STOCK_RECEIPT: 'bg-teal-50 text-teal-700 border-teal-200',
   STOCK_COUNT: 'bg-amber-50 text-amber-700 border-amber-200',
   STOCK_WRITE_OFF: 'bg-red-50 text-red-700 border-red-200',
@@ -299,7 +309,7 @@ export default function AdminInventoryPage() {
         <div>
           <p className="text-xs font-bold uppercase text-emerald-700">Vận hành kho</p>
           <h1 className="mt-1 text-2xl font-bold text-gray-950">Quản lý tồn kho</h1>
-          <p className="mt-1 text-sm text-gray-500">Theo dõi SKU, hàng đang giữ và mọi thay đổi tại kho chính.</p>
+          <p className="mt-1 text-sm text-gray-500">Theo dõi từng biến thể, hàng đang giữ và mọi thay đổi tại kho chính.</p>
         </div>
         <div className="flex gap-2">
           <button type="button" onClick={() => openHistory()} className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
@@ -337,7 +347,7 @@ export default function AdminInventoryPage() {
             <input
               value={query}
               onChange={(event) => { setQuery(event.target.value); setProductPage(1) }}
-              placeholder="Tìm sản phẩm, SKU, thương hiệu"
+              placeholder="Tìm sản phẩm, biến thể, thương hiệu"
               className="w-full rounded-lg border border-gray-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-100"
             />
           </div>
@@ -432,7 +442,7 @@ export default function AdminInventoryPage() {
           <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-4">
             <div>
               <h2 className="font-bold text-gray-950">Biến thể: {selectedProduct.name}</h2>
-              <p className="text-xs text-gray-500">Nhập hàng, kiểm kê hoặc xuất hủy theo từng SKU.</p>
+              <p className="text-xs text-gray-500">Nhập hàng, kiểm kê hoặc xuất hủy theo từng biến thể.</p>
             </div>
             <button type="button" onClick={() => setSelectedProduct(null)} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100" title="Đóng chi tiết">
               <Icon name="close" className="text-lg" />
@@ -442,7 +452,7 @@ export default function AdminInventoryPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
                 <tr>
-                  <th className="px-3 py-2">Biến thể / SKU</th>
+                  <th className="px-3 py-2">Biến thể</th>
                   <th className="px-3 py-2">Kho</th>
                   <th className="px-3 py-2">Tồn vật lý</th>
                   <th className="px-3 py-2">Đang giữ</th>
@@ -455,7 +465,7 @@ export default function AdminInventoryPage() {
               <tbody className="divide-y divide-gray-100">
                 {(selectedProduct.variants || []).map((variant) => (
                   <tr key={variant.id} className={selectedVariantId === variant.id ? 'bg-emerald-50/70' : ''}>
-                    <td className="px-3 py-3"><p className="font-semibold text-gray-900">{variant.name}</p><p className="text-xs text-gray-400">{variant.sku}</p></td>
+                    <td className="px-3 py-3"><p className="font-semibold text-gray-900">{variant.name || 'Biến thể mặc định'}</p></td>
                     <td className="px-3 py-3 text-gray-600">{variant.inventoryLevels?.[0]?.warehouseName || 'Kho chính'}</td>
                     <td className="px-3 py-3">{variant.onHandQuantity || 0}</td>
                     <td className="px-3 py-3 text-indigo-600">{variant.reservedQuantity || 0}</td>
@@ -464,7 +474,7 @@ export default function AdminInventoryPage() {
                     <td className="px-3 py-3 font-medium text-red-600">{variant.damagedQuantity || 0}</td>
                     <td className="px-3 py-3 text-right">
                       <div className="flex justify-end gap-2">
-                        <button type="button" onClick={() => selectVariantMovements(variant.id)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900" title="Xem lịch sử SKU">
+                        <button type="button" onClick={() => selectVariantMovements(variant.id)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900" title="Xem lịch sử biến thể">
                           <Icon name="history" className="text-base" />
                         </button>
                         <button type="button" onClick={() => openAdjustment(selectedProduct, variant)} className="inline-flex items-center gap-1 rounded-lg bg-gray-950 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800">
@@ -489,7 +499,7 @@ export default function AdminInventoryPage() {
             <h2 className="font-bold text-gray-950">Lịch sử kho</h2>
             <p className="text-xs text-gray-500">
               {selectedVariantId
-                ? `Đang lọc theo SKU ${(selectedProduct?.variants || []).find((variant) => variant.id === selectedVariantId)?.sku || ''}`
+                ? `Đang lọc theo biến thể ${(selectedProduct?.variants || []).find((variant) => variant.id === selectedVariantId)?.name || ''}`
                 : historyProduct ? `Đang lọc theo ${historyProduct.name}` : 'Tất cả biến động gần nhất'}
             </p>
           </div>
@@ -500,11 +510,13 @@ export default function AdminInventoryPage() {
             <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
               <tr>
                 <th className="px-4 py-3">Thời gian</th>
-                <th className="px-4 py-3">Sản phẩm / SKU</th>
+                <th className="px-4 py-3">Sản phẩm / Biến thể</th>
                 <th className="px-4 py-3">Loại</th>
                 <th className="px-4 py-3">Số lượng</th>
                 <th className="px-4 py-3">Tồn vật lý</th>
                 <th className="px-4 py-3">Đang giữ</th>
+                <th className="px-4 py-3">Đã bán</th>
+                <th className="px-4 py-3">Kho hỏng</th>
                 <th className="px-4 py-3">Tham chiếu / Lý do</th>
               </tr>
             </thead>
@@ -512,16 +524,18 @@ export default function AdminInventoryPage() {
               {!movementLoading && movements.map((movement) => (
                 <tr key={movement.id}>
                   <td className="px-4 py-3 whitespace-nowrap text-gray-500">{formatDate(movement.createdAt)}</td>
-                  <td className="px-4 py-3"><p className="font-medium text-gray-900">{movement.productName}</p><p className="text-xs text-gray-400">{movement.sku}</p></td>
+                  <td className="px-4 py-3"><p className="font-medium text-gray-900">{movement.productName}</p><p className="text-xs text-gray-400">{movement.variantName || 'Biến thể mặc định'}</p></td>
                   <td className="px-4 py-3"><span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${MOVEMENT_TONES[movement.type] || 'border-gray-200 bg-gray-50 text-gray-700'}`}>{MOVEMENT_LABELS[movement.type] || movement.type}</span></td>
                   <td className="px-4 py-3 font-bold text-gray-900">{movement.quantity}</td>
                   <td className="px-4 py-3 text-gray-600">{movement.onHandBefore} → {movement.onHandAfter}</td>
                   <td className="px-4 py-3 text-gray-600">{movement.reservedBefore} → {movement.reservedAfter}</td>
+                  <td className="px-4 py-3 text-gray-600">{movement.soldBefore ?? 0} → {movement.soldAfter ?? 0}</td>
+                  <td className="px-4 py-3 text-gray-600">{movement.damagedBefore ?? 0} → {movement.damagedAfter ?? 0}</td>
                   <td className="px-4 py-3"><p className="text-xs font-medium text-gray-700">{movement.referenceId || '—'}</p><p className="text-xs text-gray-400">{movement.reason || '—'}</p></td>
                 </tr>
               ))}
-              {movementLoading ? <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-400">Đang tải lịch sử...</td></tr> : null}
-              {!movementLoading && movements.length === 0 ? <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-400">Chưa có lịch sử kho</td></tr> : null}
+              {movementLoading ? <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">Đang tải lịch sử...</td></tr> : null}
+              {!movementLoading && movements.length === 0 ? <tr><td colSpan={9} className="px-4 py-10 text-center text-gray-400">Chưa có lịch sử kho</td></tr> : null}
             </tbody>
           </table>
         </div>
@@ -543,7 +557,7 @@ export default function AdminInventoryPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <form onSubmit={submitAdjustment} className="w-full max-w-md rounded-lg bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-              <div><h3 className="font-bold text-gray-950">Cập nhật kho</h3><p className="text-xs text-gray-500">{adjustTarget.productName} · {adjustTarget.sku}</p></div>
+              <div><h3 className="font-bold text-gray-950">Cập nhật kho</h3><p className="text-xs text-gray-500">{adjustTarget.productName} · {adjustTarget.variantName || 'Biến thể mặc định'}</p></div>
               <button type="button" onClick={() => setAdjustTarget(null)} className="rounded-lg p-2 text-gray-400 hover:bg-gray-100" title="Đóng"><Icon name="close" /></button>
             </div>
             <div className="space-y-4 p-5">

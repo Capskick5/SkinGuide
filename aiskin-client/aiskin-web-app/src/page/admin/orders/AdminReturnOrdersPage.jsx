@@ -350,7 +350,6 @@ function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewerId })
                         <p className="break-words text-sm font-semibold text-gray-950">{item.productName}</p>
                         <div className="mt-1 space-y-0.5 text-xs text-gray-500">
                           <p className="break-words">Biến thể: <strong>{item.variantName || item.unit || 'Chưa có'}</strong></p>
-                          <p className="break-all">SKU: <strong>{item.sku || 'Chưa có'}</strong></p>
                           <p>Số lượng: <strong>{item.quantity}</strong> × {money(item.unitPrice)}</p>
                         </div>
                       </div>
@@ -373,7 +372,6 @@ function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewerId })
                     <div>
                       <p className="break-words font-semibold text-gray-950">{item.productName}</p>
                       <p className="mt-1 break-words text-xs text-gray-500">Biến thể: {item.variantName || 'Chưa có'}</p>
-                      <p className="mt-1 break-all text-xs text-gray-500">SKU: {item.sku || 'Chưa có'}</p>
                     </div>
                     <span className="font-bold text-orange-800">×{item.quantity}</span>
                   </div>
@@ -388,7 +386,7 @@ function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewerId })
               <div>
                 <p className="font-semibold text-orange-950">Chưa xác định sản phẩm thực tế nhận sai</p>
                 <p className="mt-1 text-sm text-orange-800">
-                  Khách chỉ cung cấp mô tả và hình ảnh. Nhân viên kho sẽ chọn đúng sản phẩm và SKU trong bước kiểm hàng.
+                  Khách chỉ cung cấp mô tả và hình ảnh. Nhân viên kho sẽ chọn đúng sản phẩm và biến thể trong bước kiểm hàng.
                 </p>
               </div>
             </div>
@@ -416,7 +414,6 @@ function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewerId })
                         <p className="mt-0.5 break-words text-xs text-gray-500">
                           {item.variantName || item.unit || 'Chưa có biến thể'}
                         </p>
-                        <p className="mt-0.5 break-all text-xs text-gray-500">SKU: {item.sku || 'Chưa có'}</p>
                         <p className="mt-0.5 text-xs text-gray-500">
                           SL đã mua: <span className="font-bold text-gray-900">{item.quantity}</span> × {money(item.unitPrice)}
                         </p>
@@ -686,7 +683,6 @@ function CompensationManagementModal({ request, onClose, onChanged }) {
                           <p className="break-words font-bold text-gray-950">{item.productName}</p>
                           <div className="mt-2 grid gap-1 text-sm text-gray-600 sm:grid-cols-2">
                             <p className="break-words">Biến thể: <strong>{item.variantName || item.unit || 'Chưa có'}</strong></p>
-                            <p className="break-all">SKU: <strong>{item.sku || 'Chưa có'}</strong></p>
                             <p>Số lượng: <strong>{item.quantity}</strong></p>
                             <p>Giá trị tham chiếu: <strong>{money(item.unitPrice)}</strong></p>
                           </div>
@@ -813,8 +809,7 @@ export default function AdminReturnOrdersPage() {
   const [receivingRequest, setReceivingRequest] = useState(null)
   const [receivingDisposition, setReceivingDisposition] = useState(null)
   const [inspectionProducts, setInspectionProducts] = useState([])
-  const [inspectionProductDetail, setInspectionProductDetail] = useState(null)
-  const [identifiedWrongItem, setIdentifiedWrongItem] = useState(null)
+  const [identifiedWrongItems, setIdentifiedWrongItems] = useState([])
   const [inspectionCatalogLoading, setInspectionCatalogLoading] = useState(false)
   const [syncingGhn, setSyncingGhn] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -924,9 +919,17 @@ export default function AdminReturnOrdersPage() {
   const openWarehouseDecision = async (req, disposition) => {
     setReceivingRequest(req)
     setReceivingDisposition(disposition)
-    setInspectionProductDetail(null)
-    setIdentifiedWrongItem(null)
+    setIdentifiedWrongItems([])
     if (req.claimType !== 'WRONG_ITEM') return
+    setIdentifiedWrongItems([{
+      productId: '',
+      variantId: '',
+      sku: '',
+      productName: '',
+      variantName: '',
+      quantity: 1,
+      variants: [],
+    }])
 
     setInspectionCatalogLoading(true)
     try {
@@ -941,23 +944,32 @@ export default function AdminReturnOrdersPage() {
     }
   }
 
-  const selectInspectedProduct = async (productId) => {
+  const selectInspectedProduct = async (index, productId) => {
     const product = inspectionProducts.find(item => item.id === productId)
-    setInspectionProductDetail(null)
-    setIdentifiedWrongItem(null)
+    setIdentifiedWrongItems(previous => previous.map((item, itemIndex) =>
+      itemIndex === index
+        ? {
+            ...item,
+            productId: product?.id || '',
+            productName: product?.name || '',
+            variantId: '',
+            sku: '',
+            variantName: '',
+            variants: [],
+          }
+        : item))
     if (!product) return
     setInspectionCatalogLoading(true)
     try {
       const detail = await productApi.getProduct(productId, { auth: true })
-      setInspectionProductDetail(detail)
-      setIdentifiedWrongItem({
-        productId,
-        variantId: '',
-        sku: '',
-        productName: detail?.name || product.name,
-        variantName: '',
-        quantity: 1,
-      })
+      setIdentifiedWrongItems(previous => previous.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              productName: detail?.name || product.name,
+              variants: detail?.variants || [],
+            }
+          : item))
     } catch (err) {
       console.error('Load inspected product detail failed:', err)
       message.error('Không thể tải biến thể của sản phẩm')
@@ -968,7 +980,16 @@ export default function AdminReturnOrdersPage() {
 
   const confirmWarehouseDecision = () => {
     if (!receivingRequest || !receivingDisposition) return
-    const wrongItems = receivingRequest.claimType === 'WRONG_ITEM' ? [identifiedWrongItem] : null
+    const wrongItems = receivingRequest.claimType === 'WRONG_ITEM'
+      ? identifiedWrongItems.map(item => ({
+          productId: item.productId,
+          variantId: item.variantId,
+          sku: item.sku || null,
+          productName: item.productName,
+          variantName: item.variantName || null,
+          quantity: item.quantity,
+        }))
+      : null
     handleStatusChange(
       receivingRequest,
       'RECEIVED',
@@ -1552,70 +1573,128 @@ export default function AdminReturnOrdersPage() {
 
             {receivingRequest.claimType === 'WRONG_ITEM' ? (
               <div className="mt-5 space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-gray-800">
-                    Sản phẩm thực tế kho nhận được <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={identifiedWrongItem?.productId || ''}
-                    onChange={event => void selectInspectedProduct(event.target.value)}
-                    disabled={inspectionCatalogLoading}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 disabled:bg-gray-100"
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">
+                      Sản phẩm thực tế kho nhận được <span className="text-rose-500">*</span>
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Thêm đủ từng sản phẩm và biến thể có trong kiện hàng trả về.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIdentifiedWrongItems(previous => [...previous, {
+                      productId: '',
+                      variantId: '',
+                      sku: '',
+                      productName: '',
+                      variantName: '',
+                      quantity: 1,
+                      variants: [],
+                    }])}
+                    className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100"
                   >
-                    <option value="">
-                      {inspectionCatalogLoading ? 'Đang tải danh mục...' : 'Chọn sản phẩm sau khi đối chiếu bao bì/mã vạch'}
-                    </option>
-                    {inspectionProducts.map(product => (
-                      <option key={product.id} value={product.id}>{product.name}</option>
-                    ))}
-                  </select>
+                    + Thêm sản phẩm
+                  </button>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-800">
-                      Biến thể / SKU <span className="text-rose-500">*</span>
-                    </label>
-                    <select
-                      value={identifiedWrongItem?.variantId || ''}
-                      disabled={!inspectionProductDetail || inspectionCatalogLoading}
-                      onChange={event => {
-                        const variant = inspectionProductDetail?.variants?.find(item => item.id === event.target.value)
-                        setIdentifiedWrongItem(previous => previous ? {
-                          ...previous,
-                          variantId: variant?.id || '',
-                          sku: variant?.sku || '',
-                          variantName: variant?.name || variant?.unit || '',
-                        } : previous)
-                      }}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 disabled:bg-gray-100"
-                    >
-                      <option value="">Chọn đúng biến thể/SKU thực nhận</option>
-                      {inspectionProductDetail?.variants?.map(variant => (
-                        <option key={variant.id} value={variant.id}>
-                          {variant.name || variant.unit || variant.sku}
-                          {variant.sku ? ` · ${variant.sku}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-800">Số lượng</label>
-                    <InputNumber
-                      min={1}
-                      max={20}
-                      value={identifiedWrongItem?.quantity || 1}
-                      onChange={value => setIdentifiedWrongItem(previous => previous
-                        ? { ...previous, quantity: value || 1 }
-                        : previous)}
-                      className="w-full sm:w-24"
-                    />
-                  </div>
+                <div className="max-h-[48vh] space-y-3 overflow-y-auto pr-1">
+                  {identifiedWrongItems.map((identifiedItem, index) => (
+                    <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <p className="text-sm font-bold text-gray-800">Sản phẩm thực nhận #{index + 1}</p>
+                        {identifiedWrongItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setIdentifiedWrongItems(previous =>
+                              previous.filter((_, itemIndex) => itemIndex !== index))}
+                            className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                          >
+                            Xóa
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid gap-3">
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold text-gray-700">Sản phẩm</label>
+                          <select
+                            value={identifiedItem.productId}
+                            onChange={event => void selectInspectedProduct(index, event.target.value)}
+                            disabled={inspectionCatalogLoading}
+                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 disabled:bg-gray-100"
+                          >
+                            <option value="">
+                              {inspectionCatalogLoading ? 'Đang tải danh mục...' : 'Chọn theo tên và bao bì thực nhận'}
+                            </option>
+                            {inspectionProducts.map(product => (
+                              <option key={product.id} value={product.id}>{product.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-gray-700">Biến thể</label>
+                            <select
+                              value={identifiedItem.variantId}
+                              disabled={!identifiedItem.productId || inspectionCatalogLoading}
+                              onChange={event => {
+                                const variant = identifiedItem.variants.find(item => item.id === event.target.value)
+                                setIdentifiedWrongItems(previous => previous.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        variantId: variant?.id || '',
+                                        sku: variant?.sku || '',
+                                        variantName: variant?.name || variant?.unit || '',
+                                      }
+                                    : item))
+                              }}
+                              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 disabled:bg-gray-100"
+                            >
+                              <option value="">Chọn đúng biến thể thực nhận</option>
+                              {identifiedItem.variants.map(variant => (
+                                <option
+                                  key={variant.id}
+                                  value={variant.id}
+                                  disabled={receivingRequest.items?.some(expected =>
+                                    expected.productId === identifiedItem.productId
+                                    && expected.variantId === variant.id)}
+                                >
+                                  {variant.name || variant.unit || 'Biến thể mặc định'}
+                                  {receivingRequest.items?.some(expected =>
+                                    expected.productId === identifiedItem.productId
+                                    && expected.variantId === variant.id)
+                                    ? ' · sản phẩm đáng lẽ giao'
+                                    : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-gray-700">Số lượng</label>
+                            <InputNumber
+                              min={1}
+                              max={100}
+                              value={identifiedItem.quantity}
+                              onChange={value => setIdentifiedWrongItems(previous =>
+                                previous.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, quantity: value || 1 } : item))}
+                              className="w-full sm:w-24"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <p className="text-xs leading-5 text-gray-500">
                   Thông tin này do kho xác định từ sản phẩm thực tế, không lấy theo lựa chọn của khách hàng.
                 </p>
+                <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-5 text-sky-900">
+                  Khi xác nhận, hệ thống sẽ hoàn tác tồn kho của sản phẩm đáng lẽ giao và xử lý các sản phẩm thực nhận theo kết quả ở trên. Nếu khách chọn giao lại, sản phẩm đúng sẽ được giữ tồn và xuất riêng trong mục quản lý đơn giao lại.
+                </div>
               </div>
             ) : (
               <p className="mt-5 text-sm leading-6 text-gray-600">
@@ -1637,7 +1716,8 @@ export default function AdminReturnOrdersPage() {
                 disabled={
                   updating === receivingRequest.id
                   || (receivingRequest.claimType === 'WRONG_ITEM'
-                    && (!identifiedWrongItem?.productId || !identifiedWrongItem?.variantId))
+                    && (identifiedWrongItems.length === 0
+                      || identifiedWrongItems.some(item => !item.productId || !item.variantId || !item.quantity)))
                 }
                 className="flex-1 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -1677,7 +1757,7 @@ export default function AdminReturnOrdersPage() {
               <div className="flex flex-wrap gap-2 mb-3">
                 {[
                   'Hàng gửi về không phải hàng đã mua',
-                  'Sai sản phẩm hoặc sai biến thể/SKU đã khai báo',
+                  'Sai sản phẩm hoặc sai biến thể đã khai báo',
                   'Số lượng thực nhận không khớp yêu cầu trả hàng',
                   'Có dấu hiệu tráo đổi sản phẩm',
                 ].map((option) => (

@@ -25,7 +25,7 @@ public class ProductVariantRequest {
     @Size(max = 120, message = "Variant name must not exceed 120 characters")
     private String name;
 
-    @Size(max = 80, message = "SKU must not exceed 80 characters")
+    @Size(max = 80, message = "Mã biến thể nội bộ không được vượt quá 80 ký tự")
     private String sku;
 
     @PositiveOrZero(message = "Variant price must not be negative")

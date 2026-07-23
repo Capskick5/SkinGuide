@@ -583,7 +583,7 @@ export default function OrderDetailPage() {
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-gray-950">{item.productName}</p>
                             <p className="mt-0.5 text-xs text-gray-500">
-                              {[item.variantName, item.sku].filter(Boolean).join(' · ') || 'Chưa có thông tin biến thể'}
+                              {item.variantName || 'Chưa có thông tin biến thể'}
                             </p>
                           </div>
                           <span className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-rose-700">

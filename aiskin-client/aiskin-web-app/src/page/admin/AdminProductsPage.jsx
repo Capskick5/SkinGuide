@@ -562,7 +562,7 @@ function VariantField({ value, onChange }) {
       <div className="flex items-center justify-between gap-3 mb-4">
         <div>
           <h4 className="text-sm font-semibold text-gray-900">Biến thể & tồn kho</h4>
-          <p className="text-xs text-gray-500 mt-1">Ví dụ: chai 50ml, chai 100ml. Mỗi biến thể có SKU và tồn kho riêng.</p>
+          <p className="text-xs text-gray-500 mt-1">Ví dụ: chai 50ml, chai 100ml. Mỗi biến thể có tồn kho riêng.</p>
         </div>
         <button
           type="button"
@@ -597,7 +597,6 @@ function VariantField({ value, onChange }) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <Field label="Tên variant" value={variant.name} onChange={(name) => updateVariant(index, { name })} placeholder="Chai 100ml" />
-                  <Field label="SKU" value={variant.sku} onChange={(sku) => updateVariant(index, { sku })} placeholder="SRM-A-100ML" />
                   <Field label="Giá variant" value={variant.price} onChange={(price) => updateVariant(index, { price })} type="number" />
                   <Field label="Ảnh variant URL" value={variant.imageUrl} onChange={(imageUrl) => updateVariant(index, { imageUrl })} />
                   <Field label="Dung tích" value={variant.volume} onChange={(volume) => updateVariant(index, { volume })} placeholder="100" />

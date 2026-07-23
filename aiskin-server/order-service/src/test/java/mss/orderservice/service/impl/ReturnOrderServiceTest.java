@@ -77,6 +77,35 @@ class ReturnOrderServiceTest {
     }
 
     @Test
+    void discardingReturnedProductStillRecordsInventoryProcessing() {
+        ReturnOrder returnOrder = ReturnOrder.builder()
+                .id("return-1")
+                .orderId("order-1")
+                .orderCode("ORD-1")
+                .claimType(ReturnOrder.ClaimType.RETURN)
+                .resolution(ReturnOrder.ResolutionType.REFUND)
+                .status(ReturnOrder.ReturnStatus.INSPECTING)
+                .inventoryProcessed(false)
+                .items(List.of(ReturnOrder.ReturnItem.builder()
+                        .productId("product-1")
+                        .variantId("variant-2")
+                        .quantity(1)
+                        .build()))
+                .build();
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
+
+        ReturnOrder result = service.updateReturnStatus(
+                "return-1",
+                ReturnOrder.ReturnStatus.RECEIVED,
+                null,
+                ReturnOrder.InventoryDisposition.DISCARD);
+
+        verify(returnInventoryClient).process(returnOrder, ReturnOrder.InventoryDisposition.DISCARD);
+        assertThat(result.getInventoryProcessed()).isTrue();
+        assertThat(result.getInventoryDisposition()).isEqualTo(ReturnOrder.InventoryDisposition.DISCARD);
+    }
+
+    @Test
     void deliveringReturnCannotBeManuallyMarkedAsReceived() {
         ReturnOrder returnOrder = returnOrder(ReturnOrder.ReturnStatus.DELIVERING);
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));

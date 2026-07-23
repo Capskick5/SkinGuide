@@ -20,4 +20,5 @@ public class ProductReturnInventoryRequest {
     private String orderCode;
     private String disposition;
     private List<ProductInventoryItemRequest> items;
+    private List<ProductInventoryItemRequest> expectedItems;
 }
