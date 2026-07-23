@@ -5,6 +5,7 @@
 package mss.orderservice.service;
 
 import mss.orderservice.dto.ReturnRequest;
+import mss.orderservice.dto.WrongItemRequest;
 import mss.orderservice.model.ReturnOrder;
 import org.springframework.data.domain.Page;
 
@@ -23,6 +24,10 @@ public interface IReturnOrderService {
     ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason, ReturnOrder.InventoryDisposition inventoryDisposition);
 
     ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason, ReturnOrder.InventoryDisposition inventoryDisposition, String inspectionNote);
+
+    ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason,
+                                   ReturnOrder.InventoryDisposition inventoryDisposition, String inspectionNote,
+                                   List<WrongItemRequest> inspectedWrongItems);
 
     ReturnOrder resolveReturn(String id, ReturnOrder.ResolutionType resolutionType, String note);
 

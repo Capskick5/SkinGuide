@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { App as AntApp, Dropdown } from 'antd'
+import { App as AntApp, Dropdown, InputNumber } from 'antd'
 import Icon from '@/components/common/Icon'
 import ProtectedImage from '@/components/common/ProtectedImage'
 import httpClient from '@/api/httpClient'
 import { resolveImageUrl } from '@/page/products/productUtils'
+import { productApi } from '@/api/productApi'
 
 function money(value) {
   if (value === null || value === undefined) return '0đ'
@@ -41,7 +42,7 @@ const CLAIM_TYPE = {
 
 const RETURN_STATUS = {
   PENDING: { label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-  DELIVERING: { label: 'Đang vận chuyển hoàn', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  DELIVERING: { label: 'Vận chuyển trả hàng', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   DELIVERED: { label: 'Đã về kho - Chờ kiểm hàng', icon: 'warehouse', tone: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
   INSPECTING: { label: 'Đang kiểm hàng', icon: 'fact_check', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
   RECEIVED: { label: 'Đã nhận hàng trả', icon: 'inventory_2', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
@@ -56,7 +57,7 @@ const RETURN_STATUS = {
 
 const TABS = [
   { key: 'PENDING', query: 'PENDING', label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-  { key: 'SHIPPING', query: 'DELIVERING', label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  { key: 'SHIPPING', query: 'DELIVERING', label: 'Vận chuyển trả hàng', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   { key: 'INSPECTION', query: 'DELIVERED,INSPECTING', label: 'Kiểm hàng', icon: 'fact_check', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
   { key: 'REFUND', query: 'REFUND_PENDING', label: 'Chờ hoàn tiền', icon: 'payments', tone: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
   { key: 'REDELIVERY', query: 'REDELIVERY_PENDING,REDELIVERING', label: 'Giao lại', icon: 'local_shipping', tone: 'bg-violet-50 text-violet-700 border-violet-100' },
@@ -344,6 +345,18 @@ function ReturnDetailsModal({ request, onClose }) {
             </div>
           )}
 
+          {request.claimType === 'WRONG_ITEM' && !request.wrongItems?.length && (
+            <div className="mt-4 flex gap-3 rounded-lg border border-orange-200 bg-orange-50 p-4">
+              <Icon name="fact_check" className="mt-0.5 shrink-0 text-xl text-orange-600" />
+              <div>
+                <p className="font-semibold text-orange-950">Chưa xác định sản phẩm thực tế nhận sai</p>
+                <p className="mt-1 text-sm text-orange-800">
+                  Khách chỉ cung cấp mô tả và hình ảnh. Nhân viên kho sẽ chọn đúng sản phẩm và SKU trong bước kiểm hàng.
+                </p>
+              </div>
+            </div>
+          )}
+
           {fullOrder?.items && fullOrder.items.length > 0 && (
             <div className="mt-4 overflow-hidden rounded-lg border border-gray-100 opacity-70">
               <div className="border-b border-gray-100 bg-gray-50 px-4 py-3">
@@ -495,7 +508,7 @@ function ReturnDetailsModal({ request, onClose }) {
                 </div>
                 {compensationOrder.trackingCode && (
                   <div className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm">
-                    <span className="text-indigo-600">Mã GHN</span>
+                    <span className="text-indigo-600">Mã GHN giao lại mới</span>
                     <p className="font-bold text-indigo-950">{compensationOrder.trackingCode}</p>
                   </div>
                 )}
@@ -556,7 +569,14 @@ export default function AdminReturnOrdersPage() {
   const [hasReadApprove, setHasReadApprove] = useState(false)
   const [inspectionFailRequest, setInspectionFailRequest] = useState(null)
   const [inspectionNote, setInspectionNote] = useState('')
+  const [receivingRequest, setReceivingRequest] = useState(null)
+  const [receivingDisposition, setReceivingDisposition] = useState(null)
+  const [inspectionProducts, setInspectionProducts] = useState([])
+  const [inspectionProductDetail, setInspectionProductDetail] = useState(null)
+  const [identifiedWrongItem, setIdentifiedWrongItem] = useState(null)
+  const [inspectionCatalogLoading, setInspectionCatalogLoading] = useState(false)
   const [syncingGhn, setSyncingGhn] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const pageSize = 10
@@ -568,13 +588,25 @@ export default function AdminReturnOrdersPage() {
       const data = await httpClient.get(`/returns?page=${page}&size=${pageSize}&status=${activeTabObj.query}`)
       setReturns(data.content || [])
       setTotalPages(data.totalPages || 1)
+      return true
     } catch (err) {
       console.error('Fetch returns failed:', err)
       message.error('Lỗi khi tải danh sách')
+      return false
     } finally {
       setLoading(false)
     }
   }, [filter, message, page])
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      const refreshed = await fetchReturns()
+      if (refreshed) message.success('Đã làm mới danh sách khiếu nại')
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const handleSyncGhn = async () => {
     try {
@@ -600,7 +632,15 @@ export default function AdminReturnOrdersPage() {
     setPage(0)
   }
 
-  const handleStatusChange = async (req, newStatus, reason = null, inventoryDisposition = null, forceApprove = false, inspNote = null) => {
+  const handleStatusChange = async (
+    req,
+    newStatus,
+    reason = null,
+    inventoryDisposition = null,
+    forceApprove = false,
+    inspNote = null,
+    wrongItems = null,
+  ) => {
     if (newStatus === 'REJECTED' && !reason) {
       setRejectingRequest(req)
       setRejectReason('')
@@ -625,17 +665,78 @@ export default function AdminReturnOrdersPage() {
         rejectReason: reason,
         inventoryDisposition,
         inspectionNote: inspNote,
+        wrongItems,
       })
       message.success('Cập nhật trạng thái thành công')
       setRejectingRequest(null)
       setApprovingRequest(null)
       setInspectionFailRequest(null)
+      setReceivingRequest(null)
       fetchReturns()
     } catch (err) {
       message.error(err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật')
     } finally {
       setUpdating(null)
     }
+  }
+
+  const openWarehouseDecision = async (req, disposition) => {
+    setReceivingRequest(req)
+    setReceivingDisposition(disposition)
+    setInspectionProductDetail(null)
+    setIdentifiedWrongItem(null)
+    if (req.claimType !== 'WRONG_ITEM') return
+
+    setInspectionCatalogLoading(true)
+    try {
+      const result = await productApi.listProducts({ auth: true })
+      setInspectionProducts(Array.isArray(result) ? result : (result?.content || result?.data || []))
+    } catch (err) {
+      console.error('Load inspection products failed:', err)
+      setInspectionProducts([])
+      message.error('Không thể tải danh mục sản phẩm để kiểm hàng')
+    } finally {
+      setInspectionCatalogLoading(false)
+    }
+  }
+
+  const selectInspectedProduct = async (productId) => {
+    const product = inspectionProducts.find(item => item.id === productId)
+    setInspectionProductDetail(null)
+    setIdentifiedWrongItem(null)
+    if (!product) return
+    setInspectionCatalogLoading(true)
+    try {
+      const detail = await productApi.getProduct(productId, { auth: true })
+      setInspectionProductDetail(detail)
+      setIdentifiedWrongItem({
+        productId,
+        variantId: '',
+        sku: '',
+        productName: detail?.name || product.name,
+        variantName: '',
+        quantity: 1,
+      })
+    } catch (err) {
+      console.error('Load inspected product detail failed:', err)
+      message.error('Không thể tải biến thể của sản phẩm')
+    } finally {
+      setInspectionCatalogLoading(false)
+    }
+  }
+
+  const confirmWarehouseDecision = () => {
+    if (!receivingRequest || !receivingDisposition) return
+    const wrongItems = receivingRequest.claimType === 'WRONG_ITEM' ? [identifiedWrongItem] : null
+    handleStatusChange(
+      receivingRequest,
+      'RECEIVED',
+      null,
+      receivingDisposition,
+      false,
+      null,
+      wrongItems,
+    )
   }
 
   const handleResolve = async (req, resolutionType, note = null) => {
@@ -696,7 +797,7 @@ export default function AdminReturnOrdersPage() {
                 <span className="text-sm font-semibold">Đúng hàng - Nhập lại kho bán</span>
               </div>
             ),
-            onClick: () => handleStatusChange(req, 'RECEIVED', null, 'RESTOCK'),
+            onClick: () => openWarehouseDecision(req, 'RESTOCK'),
           },
           {
             key: 'RECEIVED_DAMAGED',
@@ -706,7 +807,7 @@ export default function AdminReturnOrdersPage() {
                 <span className="text-sm font-semibold">Đúng hàng - Chuyển kho hỏng</span>
               </div>
             ),
-            onClick: () => handleStatusChange(req, 'RECEIVED', null, 'DAMAGED'),
+            onClick: () => openWarehouseDecision(req, 'DAMAGED'),
           },
           {
             key: 'RECEIVED_DISCARD',
@@ -716,7 +817,7 @@ export default function AdminReturnOrdersPage() {
                 <span className="text-sm font-semibold">Đúng hàng - Tiêu hủy, không nhập kho</span>
               </div>
             ),
-            onClick: () => handleStatusChange(req, 'RECEIVED', null, 'DISCARD'),
+            onClick: () => openWarehouseDecision(req, 'DISCARD'),
           },
         ]
       }
@@ -819,11 +920,11 @@ export default function AdminReturnOrdersPage() {
           </button>
           <button
             type="button"
-            onClick={fetchReturns}
-            disabled={loading}
+            onClick={handleRefresh}
+            disabled={loading || refreshing}
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-wait disabled:opacity-50 sm:flex-none"
           >
-            <Icon name="refresh" className={loading ? 'animate-spin text-lg' : 'text-lg'} />
+            <Icon name="refresh" className={refreshing ? 'animate-spin text-lg' : 'text-lg'} />
             Làm mới
           </button>
         </div>
@@ -1118,6 +1219,131 @@ export default function AdminReturnOrdersPage() {
                 className="flex-1 rounded-lg bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {updating === approvingRequest.id ? 'Đang xử lý...' : 'Xác nhận duyệt'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xác nhận kết quả kiểm hàng và nhận diện hàng giao sai */}
+      {receivingRequest && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/45"
+            onClick={() => setReceivingRequest(null)}
+            aria-label="Đóng"
+          />
+          <div className="relative w-full max-w-lg rounded-lg bg-white p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                <Icon name="fact_check" className="text-2xl" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-950">Xác nhận kết quả kiểm hàng</h3>
+                <p className="mt-0.5 text-xs text-gray-500">{receivingRequest.orderCode}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
+              <span className="font-semibold">Cách xử lý kho: </span>
+              {receivingDisposition === 'RESTOCK' && 'Nhập lại kho bán'}
+              {receivingDisposition === 'DAMAGED' && 'Chuyển vào kho hỏng'}
+              {receivingDisposition === 'DISCARD' && 'Tiêu hủy, không nhập kho'}
+            </div>
+
+            {receivingRequest.claimType === 'WRONG_ITEM' ? (
+              <div className="mt-5 space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-gray-800">
+                    Sản phẩm thực tế kho nhận được <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={identifiedWrongItem?.productId || ''}
+                    onChange={event => void selectInspectedProduct(event.target.value)}
+                    disabled={inspectionCatalogLoading}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 disabled:bg-gray-100"
+                  >
+                    <option value="">
+                      {inspectionCatalogLoading ? 'Đang tải danh mục...' : 'Chọn sản phẩm sau khi đối chiếu bao bì/mã vạch'}
+                    </option>
+                    {inspectionProducts.map(product => (
+                      <option key={product.id} value={product.id}>{product.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-800">
+                      Biến thể / SKU <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={identifiedWrongItem?.variantId || ''}
+                      disabled={!inspectionProductDetail || inspectionCatalogLoading}
+                      onChange={event => {
+                        const variant = inspectionProductDetail?.variants?.find(item => item.id === event.target.value)
+                        setIdentifiedWrongItem(previous => previous ? {
+                          ...previous,
+                          variantId: variant?.id || '',
+                          sku: variant?.sku || '',
+                          variantName: variant?.name || variant?.unit || '',
+                        } : previous)
+                      }}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 disabled:bg-gray-100"
+                    >
+                      <option value="">Chọn đúng biến thể/SKU thực nhận</option>
+                      {inspectionProductDetail?.variants?.map(variant => (
+                        <option key={variant.id} value={variant.id}>
+                          {variant.name || variant.unit || variant.sku}
+                          {variant.sku ? ` · ${variant.sku}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-800">Số lượng</label>
+                    <InputNumber
+                      min={1}
+                      max={20}
+                      value={identifiedWrongItem?.quantity || 1}
+                      onChange={value => setIdentifiedWrongItem(previous => previous
+                        ? { ...previous, quantity: value || 1 }
+                        : previous)}
+                      className="w-full sm:w-24"
+                    />
+                  </div>
+                </div>
+
+                <p className="text-xs leading-5 text-gray-500">
+                  Thông tin này do kho xác định từ sản phẩm thực tế, không lấy theo lựa chọn của khách hàng.
+                </p>
+              </div>
+            ) : (
+              <p className="mt-5 text-sm leading-6 text-gray-600">
+                Xác nhận sản phẩm thực nhận khớp yêu cầu trả hàng và tình trạng đã được kiểm tra đúng với cách xử lý kho ở trên.
+              </p>
+            )}
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setReceivingRequest(null)}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={confirmWarehouseDecision}
+                disabled={
+                  updating === receivingRequest.id
+                  || (receivingRequest.claimType === 'WRONG_ITEM'
+                    && (!identifiedWrongItem?.productId || !identifiedWrongItem?.variantId))
+                }
+                className="flex-1 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {updating === receivingRequest.id ? 'Đang xử lý...' : 'Xác nhận kiểm hàng'}
               </button>
             </div>
           </div>

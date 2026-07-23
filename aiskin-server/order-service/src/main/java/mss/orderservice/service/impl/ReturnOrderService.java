@@ -64,7 +64,6 @@ public class ReturnOrderService implements IReturnOrderService {
         ReturnCalculation calculation = calculateReturn(order, request.items());
         // Xác định loại khiếu nại, mặc định RETURN để tương thích ngược
         ReturnOrder.ClaimType claimType = request.claimType() != null ? request.claimType() : ReturnOrder.ClaimType.RETURN;
-        validateClaimDetails(claimType, request.wrongItems());
         ReturnOrder returnOrder = ReturnOrder.builder()
                 .orderId(order.getId())
                 .orderCode(order.getOrderCode())
@@ -76,7 +75,8 @@ public class ReturnOrderService implements IReturnOrderService {
                 .description(request.description().trim())
                 .imageUrls(List.copyOf(request.imageUrls()))
                 .items(calculation.items())
-                .wrongItems(toWrongItems(request.wrongItems()))
+                // Khách chỉ mô tả/chụp ảnh hàng nhận sai. SKU thực tế do kho xác định khi kiểm hàng.
+                .wrongItems(List.of())
                 .refundAmount(calculation.totalRefund())
                 .status(ReturnOrder.ReturnStatus.PENDING)
                 .build();
@@ -112,6 +112,12 @@ public class ReturnOrderService implements IReturnOrderService {
     }
 
     public ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason, ReturnOrder.InventoryDisposition inventoryDisposition, String inspectionNote) {
+        return updateReturnStatus(id, newStatus, rejectReason, inventoryDisposition, inspectionNote, null);
+    }
+
+    public ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason,
+                                          ReturnOrder.InventoryDisposition inventoryDisposition, String inspectionNote,
+                                          List<WrongItemRequest> inspectedWrongItems) {
         ReturnOrder returnOrder = returnOrderRepository.findById(id).orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
         ReturnOrder.ReturnStatus currentStatus = returnOrder.getStatus();
         if (newStatus == currentStatus) {
@@ -119,6 +125,13 @@ public class ReturnOrderService implements IReturnOrderService {
             return returnOrder;
         }
         validateAdminTransition(currentStatus, newStatus, rejectReason, inventoryDisposition, inspectionNote);
+        if (newStatus == ReturnOrder.ReturnStatus.RECEIVED
+                && returnOrder.getClaimType() == ReturnOrder.ClaimType.WRONG_ITEM) {
+            if (inspectedWrongItems == null || inspectedWrongItems.isEmpty()) {
+                throw badRequest("Kho cần xác định chính xác sản phẩm và biến thể/SKU thực tế nhận về");
+            }
+            returnOrder.setWrongItems(toWrongItems(inspectedWrongItems));
+        }
         returnOrder.setStatus(newStatus);
 
         if (newStatus == ReturnOrder.ReturnStatus.REJECTED) {
@@ -279,14 +292,14 @@ public class ReturnOrderService implements IReturnOrderService {
         Order order = orderRepository.findById(returnOrder.getOrderId()).orElseThrow(() -> notFound("Không tìm thấy đơn hàng gốc"));
         ReturnCalculation calculation = calculateReturn(order, request.items());
         ReturnOrder.ClaimType claimType = request.claimType() != null ? request.claimType() : ReturnOrder.ClaimType.RETURN;
-        validateClaimDetails(claimType, request.wrongItems());
         returnOrder.setClaimType(claimType);
         returnOrder.setResolution(request.resolution());
         returnOrder.setReason(request.reason().trim());
         returnOrder.setDescription(request.description().trim());
         returnOrder.setImageUrls(List.copyOf(request.imageUrls()));
         returnOrder.setItems(calculation.items());
-        returnOrder.setWrongItems(toWrongItems(request.wrongItems()));
+        // Không nhận SKU hàng giao sai từ khách; kho sẽ xác định sau khi nhận kiện hoàn.
+        returnOrder.setWrongItems(List.of());
         returnOrder.setRefundAmount(calculation.totalRefund());
         if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.REJECTED) {
             returnOrder.setStatus(ReturnOrder.ReturnStatus.PENDING);
@@ -402,12 +415,6 @@ public class ReturnOrderService implements IReturnOrderService {
         }
     }
 
-    private void validateClaimDetails(ReturnOrder.ClaimType claimType, List<WrongItemRequest> wrongItems) {
-        if (claimType == ReturnOrder.ClaimType.WRONG_ITEM && (wrongItems == null || wrongItems.isEmpty())) {
-            throw badRequest("Cần khai báo sản phẩm thực tế đã nhận sai");
-        }
-    }
-
     private List<ReturnOrder.WrongItem> toWrongItems(List<WrongItemRequest> wrongItems) {
         if (wrongItems == null || wrongItems.isEmpty()) {
             return List.of();
@@ -440,6 +447,8 @@ public class ReturnOrderService implements IReturnOrderService {
         if (compensationOrderRepository.findByReturnOrderId(returnOrder.getId()).isPresent()) {
             return;
         }
+        returnOrder.setRedeliveryTrackingCode(null);
+        returnOrder.setRedeliveryShippingFee(null);
         CompensationOrder.CompensationType type =
                 returnOrder.getClaimType() == ReturnOrder.ClaimType.MISSING_ITEM
                         ? CompensationOrder.CompensationType.REDELIVER_MISSING

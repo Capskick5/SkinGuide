@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Icon from '@/components/common/Icon'
 import ProtectedImage from '@/components/common/ProtectedImage'
-import { App as AntApp, InputNumber } from 'antd'
+import { App as AntApp } from 'antd'
 import { resolveImageUrl } from '@/page/products/productUtils'
 import httpClient from '@/api/httpClient'
 import { API_BASE_URL } from '@/config/api'
 import { tokenStorage } from '@/api/tokenStorage'
-import { productApi } from '@/api/productApi'
 
 function returnItemKey(item) {
   return [item.productId, item.variantId || '', item.sku || '', item.unit || ''].join('::')
@@ -97,9 +96,6 @@ export default function ReturnRequestPage() {
   const [reason, setReason] = useState('')
   const [description, setDescription] = useState('')
   const [resolution, setResolution] = useState(null)
-  const [wrongItem, setWrongItem] = useState(null)
-  const [catalogProducts, setCatalogProducts] = useState([])
-  const [wrongProductDetail, setWrongProductDetail] = useState(null)
   const [images, setImages] = useState([])
   const [uploading, setUploading] = useState(false)
 
@@ -109,10 +105,6 @@ export default function ReturnRequestPage() {
   const [existingReturnId, setExistingReturnId] = useState(null)
 
   const selectedClaim = CLAIM_TYPES.find(c => c.value === claimType)
-  const selectedWrongProduct = wrongProductDetail?.id === wrongItem?.productId
-    ? wrongProductDetail
-    : catalogProducts.find(product => product.id === wrongItem?.productId)
-
   useEffect(() => {
     async function loadOrderAndReturn() {
       try {
@@ -128,8 +120,6 @@ export default function ReturnRequestPage() {
             setReason(returnData.reason)
             setDescription(returnData.description)
             setImages(returnData.imageUrls || [])
-            setWrongItem(returnData.wrongItems?.[0] || null)
-
             const itemsObj = {}
             returnData.items?.forEach(i => {
               const originalItem = orderData.items?.find(item =>
@@ -152,24 +142,6 @@ export default function ReturnRequestPage() {
     }
     loadOrderAndReturn()
   }, [id, isEdit, message, navigate])
-
-  useEffect(() => {
-    if (claimType !== 'WRONG_ITEM' || catalogProducts.length > 0) return
-    productApi.listActiveProducts()
-      .then(result => {
-        const products = Array.isArray(result) ? result : (result?.content || result?.data || [])
-        setCatalogProducts(products)
-      })
-      .catch(() => message.error('Không thể tải danh sách sản phẩm để xác định hàng giao sai'))
-  }, [claimType, catalogProducts.length, message])
-
-  useEffect(() => {
-    if (claimType !== 'WRONG_ITEM' || !wrongItem?.productId
-        || wrongProductDetail?.id === wrongItem.productId) return
-    productApi.getProduct(wrongItem.productId)
-      .then(setWrongProductDetail)
-      .catch(() => setWrongProductDetail(null))
-  }, [claimType, wrongItem?.productId, wrongProductDetail?.id])
 
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files)
@@ -217,10 +189,8 @@ export default function ReturnRequestPage() {
   // Validate từng bước
   const canGoNextStep0 = !!claimType
   const selectedItemsCount = Object.values(returnItems).filter(q => q > 0).length
-  const hasWrongItem = claimType !== 'WRONG_ITEM'
-    || (wrongItem?.productId && wrongItem?.variantId && Number(wrongItem?.quantity) > 0)
   const canGoNextStep1 = selectedItemsCount > 0 && reason.trim() !== ''
-    && description.trim().length >= 20 && !!resolution && hasWrongItem
+    && description.trim().length >= 20 && !!resolution
   const canGoNextStep2 = images.length >= 1
   
   const validateStep = (targetStep) => {
@@ -232,7 +202,6 @@ export default function ReturnRequestPage() {
       if (selectedItemsCount === 0) message.warning('Vui lòng chọn ít nhất 1 sản phẩm')
       else if (!reason) message.warning('Vui lòng chọn lý do cụ thể')
       else if (!resolution) message.warning('Vui lòng chọn hoàn tiền hoặc giao lại')
-      else if (!hasWrongItem) message.warning('Vui lòng xác định sản phẩm thực tế đã nhận sai')
       else message.warning('Mô tả chi tiết cần ít nhất 20 ký tự')
       return false
     }
@@ -267,8 +236,7 @@ export default function ReturnRequestPage() {
 
     try {
       setLoading(true)
-      const wrongItems = claimType === 'WRONG_ITEM' && wrongItem ? [wrongItem] : []
-      const payload = { claimType, resolution, reason, description, imageUrls: images, items: itemsPayload, wrongItems }
+      const payload = { claimType, resolution, reason, description, imageUrls: images, items: itemsPayload, wrongItems: [] }
 
       if (isEdit && existingReturnId) {
         await httpClient.put(`/returns/${existingReturnId}`, payload)
@@ -488,79 +456,15 @@ export default function ReturnRequestPage() {
             </div>
 
             {claimType === 'WRONG_ITEM' && (
-              <div className="rounded-xl border-2 border-orange-200 bg-orange-50/40 p-4">
-                <label className="block text-sm font-bold text-gray-900">
-                  Sản phẩm thực tế bạn đã nhận nhầm <span className="text-rose-500">*</span>
-                </label>
-                <p className="mt-1 text-xs text-gray-500">
-                  Thông tin này giúp kho nhập lại đúng sản phẩm, không cộng nhầm vào món bạn đã đặt.
-                </p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <select
-                    value={wrongItem?.productId || ''}
-                    onChange={async event => {
-                      const product = catalogProducts.find(item => item.id === event.target.value)
-                      if (!product) {
-                        setWrongProductDetail(null)
-                        setWrongItem(null)
-                        return
-                      }
-                      try {
-                        const detail = await productApi.getProduct(product.id)
-                        const variant = detail?.variants?.[0]
-                        setWrongProductDetail(detail)
-                        setWrongItem({
-                          productId: product.id,
-                          variantId: variant?.id || '',
-                          sku: variant?.sku || '',
-                          productName: product.name,
-                          variantName: variant?.name || variant?.unit || '',
-                          quantity: 1,
-                        })
-                      } catch {
-                        message.error('Không thể tải biến thể của sản phẩm đã nhận nhầm')
-                      }
-                    }}
-                    className="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-sm outline-none focus:border-primary"
-                  >
-                    <option value="">Chọn sản phẩm đã nhận nhầm</option>
-                    {catalogProducts.map(product => (
-                      <option key={product.id} value={product.id}>{product.name}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={wrongItem?.variantId || ''}
-                    disabled={!selectedWrongProduct}
-                    onChange={event => {
-                      const variant = selectedWrongProduct?.variants?.find(item => item.id === event.target.value)
-                      setWrongItem(previous => previous ? {
-                        ...previous,
-                        variantId: variant?.id || '',
-                        sku: variant?.sku || '',
-                        variantName: variant?.name || variant?.unit || '',
-                      } : previous)
-                    }}
-                    className="rounded-xl border-2 border-gray-200 bg-white px-3 py-3 text-sm outline-none focus:border-primary disabled:bg-gray-100"
-                  >
-                    <option value="">Chọn biến thể/SKU</option>
-                    {selectedWrongProduct?.variants?.map(variant => (
-                      <option key={variant.id} value={variant.id}>
-                        {variant.name || variant.unit || variant.sku} {variant.sku ? `· ${variant.sku}` : ''}
-                      </option>
-                    ))}
-                  </select>
+              <div className="flex gap-3 rounded-xl border-2 border-orange-200 bg-orange-50 p-4">
+                <Icon name="photo_camera" className="mt-0.5 shrink-0 text-xl text-orange-600" />
+                <div>
+                  <p className="text-sm font-bold text-orange-950">Bạn không cần biết tên hoặc mã sản phẩm nhận nhầm</p>
+                  <p className="mt-1 text-xs leading-5 text-orange-800">
+                    Hãy mô tả đặc điểm nhìn thấy trên bao bì trong phần mô tả và chụp rõ mặt trước, mặt sau, mã vạch nếu có.
+                    Nhân viên kho sẽ xác định chính xác sản phẩm và biến thể khi nhận hàng.
+                  </p>
                 </div>
-                {wrongItem && (
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-600">Số lượng thực tế nhận sai</span>
-                    <InputNumber
-                      min={1}
-                      max={20}
-                      value={wrongItem.quantity}
-                      onChange={value => setWrongItem(previous => ({ ...previous, quantity: value || 1 }))}
-                    />
-                  </div>
-                )}
               </div>
             )}
 
@@ -807,12 +711,11 @@ export default function ReturnRequestPage() {
               </div>
             </div>
 
-            {claimType === 'WRONG_ITEM' && wrongItem && (
+            {claimType === 'WRONG_ITEM' && (
               <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Hàng thực tế nhận nhầm</p>
-                <p className="mt-2 text-sm font-bold text-orange-950">{wrongItem.productName}</p>
-                <p className="text-xs text-orange-700">
-                  {wrongItem.variantName || wrongItem.sku} · Số lượng {wrongItem.quantity}
+                <p className="mt-2 text-sm text-orange-900">
+                  Kho sẽ đối chiếu hình ảnh và xác định chính xác sản phẩm/SKU sau khi nhận kiện hàng.
                 </p>
               </div>
             )}

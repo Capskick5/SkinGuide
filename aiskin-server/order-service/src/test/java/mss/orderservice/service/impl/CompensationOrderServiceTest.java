@@ -11,7 +11,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -19,16 +21,20 @@ import static org.mockito.Mockito.*;
 class CompensationOrderServiceTest {
     private CompensationOrderRepository repository;
     private ReturnOrderRepository returnOrderRepository;
+    private OrderRepository orderRepository;
     private CompensationInventoryClient inventoryClient;
+    private IGhnService ghnService;
     private CompensationOrderService service;
 
     @BeforeEach
     void setUp() {
         repository = mock(CompensationOrderRepository.class);
         returnOrderRepository = mock(ReturnOrderRepository.class);
+        orderRepository = mock(OrderRepository.class);
         inventoryClient = mock(CompensationInventoryClient.class);
+        ghnService = mock(IGhnService.class);
         service = new CompensationOrderService(repository, returnOrderRepository,
-                mock(OrderRepository.class), inventoryClient, mock(IGhnService.class));
+                orderRepository, inventoryClient, ghnService);
         when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
@@ -62,6 +68,47 @@ class CompensationOrderServiceTest {
         verify(inventoryClient).commit(compensation);
         assertThat(compensation.getStatus()).isEqualTo(CompensationOrder.CompensationStatus.COMPLETED);
         assertThat(claim.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.RESOLVED);
+    }
+
+    @Test
+    void creatingRedeliveryUsesANewGhnOrderAndTrackingCode() {
+        CompensationOrder compensation = pendingCompensation();
+        compensation.setOrderId("order-1");
+        compensation.setStatus(CompensationOrder.CompensationStatus.INVENTORY_RESERVED);
+        mss.orderservice.model.Order original = mss.orderservice.model.Order.builder()
+                .id("order-1")
+                .orderCode("ORD-1")
+                .trackingCode("GHN-ORIGINAL")
+                .customerName("Customer")
+                .customerPhone("0900000000")
+                .shippingAddress("TP HCM")
+                .ghnWardCode("123")
+                .ghnDistrictId(456)
+                .build();
+        ReturnOrder claim = ReturnOrder.builder()
+                .id("return-1")
+                .returnTrackingCode("GHN-RETURN")
+                .redeliveryTrackingCode("GHN-OLD-STALE")
+                .status(ReturnOrder.ReturnStatus.REDELIVERY_PENDING)
+                .build();
+        when(repository.findById("comp-1")).thenReturn(Optional.of(compensation));
+        when(orderRepository.findById("order-1")).thenReturn(Optional.of(original));
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(claim));
+        when(ghnService.createOrder(any())).thenReturn(Map.of(
+                "order_code", "GHN-REDELIVERY-NEW",
+                "total_fee", 25_000));
+
+        CompensationOrder result = service.createShipment("comp-1");
+
+        ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
+        verify(ghnService).createOrder(payload.capture());
+        assertThat(payload.getValue().get("client_order_code")).isEqualTo("REDL-comp-1");
+        assertThat(payload.getValue().get("cod_amount")).isEqualTo(0);
+        assertThat(result.getTrackingCode()).isEqualTo("GHN-REDELIVERY-NEW");
+        assertThat(result.getTrackingCode()).isNotEqualTo(original.getTrackingCode());
+        assertThat(result.getTrackingCode()).isNotEqualTo(claim.getReturnTrackingCode());
+        assertThat(claim.getRedeliveryTrackingCode()).isEqualTo("GHN-REDELIVERY-NEW");
+        assertThat(claim.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.REDELIVERING);
     }
 
     private CompensationOrder pendingCompensation() {

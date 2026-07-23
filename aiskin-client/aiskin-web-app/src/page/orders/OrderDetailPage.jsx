@@ -626,11 +626,11 @@ export default function OrderDetailPage() {
                       {returnRequest.status === 'RESOLVED' && 'Đã giao lại sản phẩm thành công'}
                     </h4>
                     <p className="mt-2 text-sm text-indigo-700">SkinGuide chịu toàn bộ phí vận chuyển cho đơn giao lại này.</p>
-                    {(compensationOrder?.trackingCode || returnRequest.redeliveryTrackingCode) && (
+                    {compensationOrder?.trackingCode && (
                       <div className="mt-3 rounded-xl border border-indigo-200 bg-white p-3 text-sm">
-                        <span className="text-indigo-600">Mã vận đơn giao lại:</span>
+                        <span className="text-indigo-600">Mã vận đơn GHN mới:</span>
                         <p className="mt-1 font-bold text-indigo-950">
-                          {compensationOrder?.trackingCode || returnRequest.redeliveryTrackingCode}
+                          {compensationOrder.trackingCode}
                         </p>
                       </div>
                     )}

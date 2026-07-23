@@ -4,6 +4,7 @@ import mss.orderservice.service.*;
 
 import mss.orderservice.dto.ReturnItemRequest;
 import mss.orderservice.dto.ReturnRequest;
+import mss.orderservice.dto.WrongItemRequest;
 import mss.orderservice.model.Order;
 import mss.orderservice.model.OrderItem;
 import mss.orderservice.model.ReturnOrder;
@@ -94,6 +95,69 @@ class ReturnOrderServiceTest {
                 "return-1", ReturnOrder.ReturnStatus.INSPECTING, null, null);
 
         assertThat(result.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.INSPECTING);
+        verify(returnInventoryClient, never()).process(any(), any());
+    }
+
+    @Test
+    void warehouseIdentifiesWrongItemBeforeInventoryProcessing() {
+        ReturnOrder returnOrder = ReturnOrder.builder()
+                .id("return-1")
+                .orderId("order-1")
+                .claimType(ReturnOrder.ClaimType.WRONG_ITEM)
+                .resolution(ReturnOrder.ResolutionType.REFUND)
+                .status(ReturnOrder.ReturnStatus.INSPECTING)
+                .inventoryProcessed(false)
+                .items(List.of(ReturnOrder.ReturnItem.builder()
+                        .productId("expected-product")
+                        .variantId("expected-variant")
+                        .quantity(1)
+                        .build()))
+                .wrongItems(List.of())
+                .build();
+        WrongItemRequest actualItem = new WrongItemRequest(
+                "actual-product", "actual-variant", "ACTUAL-SKU",
+                "Actual product", "100 ml", 1);
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
+
+        service.updateReturnStatus(
+                "return-1",
+                ReturnOrder.ReturnStatus.RECEIVED,
+                null,
+                ReturnOrder.InventoryDisposition.RESTOCK,
+                null,
+                List.of(actualItem));
+
+        assertThat(returnOrder.getWrongItems()).singleElement().satisfies(item -> {
+            assertThat(item.getProductId()).isEqualTo("actual-product");
+            assertThat(item.getVariantId()).isEqualTo("actual-variant");
+        });
+        verify(returnInventoryClient).process(returnOrder, ReturnOrder.InventoryDisposition.RESTOCK);
+    }
+
+    @Test
+    void wrongItemCannotEnterInventoryBeforeWarehouseIdentifiesSku() {
+        ReturnOrder returnOrder = ReturnOrder.builder()
+                .id("return-1")
+                .claimType(ReturnOrder.ClaimType.WRONG_ITEM)
+                .status(ReturnOrder.ReturnStatus.INSPECTING)
+                .inventoryProcessed(false)
+                .items(List.of(ReturnOrder.ReturnItem.builder()
+                        .productId("expected-product")
+                        .variantId("expected-variant")
+                        .quantity(1)
+                        .build()))
+                .build();
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
+
+        assertThatThrownBy(() -> service.updateReturnStatus(
+                "return-1",
+                ReturnOrder.ReturnStatus.RECEIVED,
+                null,
+                ReturnOrder.InventoryDisposition.RESTOCK,
+                null,
+                List.of()))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("Kho cần xác định");
         verify(returnInventoryClient, never()).process(any(), any());
     }
 

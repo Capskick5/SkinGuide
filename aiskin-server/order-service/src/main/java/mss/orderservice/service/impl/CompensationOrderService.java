@@ -67,11 +67,21 @@ public class CompensationOrderService implements ICompensationOrderService {
                 CompensationOrder.CompensationStatus.READY_TO_SHIP);
         Order original = orderRepository.findById(compensation.getOrderId())
                 .orElseThrow(() -> conflict("Không tìm thấy đơn hàng gốc"));
+        ReturnOrder returnOrder = returnOrderRepository.findById(compensation.getReturnOrderId())
+                .orElseThrow(() -> conflict("Không tìm thấy khiếu nại"));
+        // Không bao giờ dùng lại mã vận đơn gốc hoặc mã thu hồi cho chiều giao lại.
+        returnOrder.setRedeliveryTrackingCode(null);
+        returnOrder.setRedeliveryShippingFee(null);
+        returnOrderRepository.save(returnOrder);
         try {
             Map<String, Object> response = ghnService.createOrder(buildShipment(original, compensation));
             String trackingCode = response == null ? null : String.valueOf(response.get("order_code"));
             if (trackingCode == null || trackingCode.isBlank() || "null".equals(trackingCode)) {
                 throw new IllegalStateException("GHN không trả về mã vận đơn");
+            }
+            if (trackingCode.equals(original.getTrackingCode())
+                    || trackingCode.equals(returnOrder.getReturnTrackingCode())) {
+                throw new IllegalStateException("GHN trả về mã vận đơn đã được sử dụng cho chiều vận chuyển trước");
             }
             compensation.setCourier("GHN");
             compensation.setTrackingCode(trackingCode);
@@ -80,8 +90,6 @@ public class CompensationOrderService implements ICompensationOrderService {
             }
             compensation.setStatus(CompensationOrder.CompensationStatus.SHIPPING);
             compensation.setFailureReason(null);
-            ReturnOrder returnOrder = returnOrderRepository.findById(compensation.getReturnOrderId())
-                    .orElseThrow(() -> conflict("Không tìm thấy khiếu nại"));
             returnOrder.setStatus(ReturnOrder.ReturnStatus.REDELIVERING);
             returnOrder.setRedeliveryTrackingCode(trackingCode);
             returnOrder.setRedeliveryShippingFee(compensation.getShippingFee());
@@ -134,6 +142,8 @@ public class CompensationOrderService implements ICompensationOrderService {
         Map<String, Object> data = new HashMap<>();
         data.put("payment_type_id", 1);
         data.put("required_note", "KHONGCHOXEMHANG");
+        data.put("client_order_code", "REDL-" + compensation.getId());
+        data.put("note", "Giao lại cho khiếu nại của đơn " + original.getOrderCode());
         data.put("to_name", original.getCustomerName());
         data.put("to_phone", original.getCustomerPhone());
         data.put("to_address", original.getShippingAddress());
@@ -145,6 +155,7 @@ public class CompensationOrderService implements ICompensationOrderService {
         data.put("height", 10);
         data.put("service_type_id", 2);
         data.put("insurance_value", 0);
+        data.put("cod_amount", 0);
         List<Map<String, Object>> items = new ArrayList<>();
         for (CompensationOrder.CompensationItem item : compensation.getItems()) {
             Map<String, Object> row = new HashMap<>();

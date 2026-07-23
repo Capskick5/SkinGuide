@@ -411,6 +411,7 @@ export default function AdminOrdersPage() {
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [syncingGhn, setSyncingGhn] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const pageSize = 10
 
   const fetchOrders = useCallback(async () => {
@@ -420,12 +421,25 @@ export default function AdminOrdersPage() {
       const data = await httpClient.get(`/orders?page=${page}&size=${pageSize}&status=${activeTabObj.query}`)
       setOrders(data.content || [])
       setTotalPages(data.totalPages || 1)
+      return true
     } catch (err) {
       console.error('Fetch orders failed:', err)
+      message.error('Không thể tải danh sách đơn hàng')
+      return false
     } finally {
       setLoading(false)
     }
-  }, [filter, page])
+  }, [filter, message, page])
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      const refreshed = await fetchOrders()
+      if (refreshed) message.success('Đã làm mới danh sách đơn hàng')
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const handleSyncGhn = async () => {
     try {
@@ -513,10 +527,11 @@ export default function AdminOrdersPage() {
           </button>
           <button
             type="button"
-            onClick={fetchOrders}
+            onClick={handleRefresh}
+            disabled={loading || refreshing}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
           >
-            <Icon name="refresh" className={loading ? 'animate-spin text-lg' : 'text-lg'} />
+            <Icon name="refresh" className={refreshing ? 'animate-spin text-lg' : 'text-lg'} />
             Làm mới
           </button>
         </div>

@@ -73,7 +73,13 @@ public class ReturnOrderController {
             summary = "Update return status",
             description = "Admin manages approval and warehouse inspection. DELIVERING can only become DELIVERED through GHN. DELIVERED must enter INSPECTING before RECEIVED or INSPECTION_FAILED.")
     public ResponseEntity<ReturnOrder> updateReturnStatus(@PathVariable String id, @Valid @RequestBody ReturnStatusUpdateRequest request) {
-        return ResponseEntity.ok(returnOrderService.updateReturnStatus(id, request.status(), request.rejectReason(), request.inventoryDisposition(), request.inspectionNote()));
+        return ResponseEntity.ok(returnOrderService.updateReturnStatus(
+                id,
+                request.status(),
+                request.rejectReason(),
+                request.inventoryDisposition(),
+                request.inspectionNote(),
+                request.wrongItems()));
     }
 
     @PostMapping("/admin/{id}/resolve")
