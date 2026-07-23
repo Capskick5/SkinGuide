@@ -66,6 +66,13 @@ function stockTone(available, lowStock) {
 
 export default function AdminInventoryPage() {
   const [products, setProducts] = useState([])
+  const [totalElements, setTotalElements] = useState(0)
+  const [productPages, setProductPages] = useState(1)
+  const [brands, setBrands] = useState([])
+  const [categories, setCategories] = useState([])
+  const [summary, setSummary] = useState({ onHand: 0, reserved: 0, available: 0, productCount: 0, lowStockCount: 0, outOfStockCount: 0 })
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+
   const [movements, setMovements] = useState([])
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [query, setQuery] = useState('')
@@ -86,10 +93,49 @@ export default function AdminInventoryPage() {
   const [adjustment, setAdjustment] = useState({ operationType: 'RECEIPT', quantity: '', reason: '' })
   const [submitting, setSubmitting] = useState(false)
 
-  const loadProducts = useCallback(async () => {
-    const response = await productApi.listProducts({ auth: true })
-    setProducts(toArray(response))
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  const fetchConfig = useCallback(async () => {
+    try {
+      const [brandRes, catRes, sumRes] = await Promise.all([
+        productApi.listBrands(),
+        productApi.listCategories(),
+        productApi.getInventorySummary({ auth: true })
+      ])
+      setBrands(toArray(brandRes))
+      setCategories(toArray(catRes))
+      if (sumRes) setSummary(sumRes)
+    } catch {
+      message.error('Không tải được cấu hình kho')
+    }
   }, [])
+
+  const fetchProducts = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await productApi.searchAdvancedProducts({
+        query: debouncedQuery,
+        searchField: 'all',
+        categoryId: categoryFilter === 'all' ? '' : categoryFilter,
+        brandId: brandFilter === 'all' ? '' : brandFilter,
+        stockStatus: filter === 'all' ? '' : filter,
+        page: productPage,
+        size: PAGE_SIZE,
+      }, { auth: true })
+      setProducts(res?.content || [])
+      setProductPages(res?.totalPages || 1)
+      setTotalElements(res?.totalElements || 0)
+    } catch {
+      message.error('Không tải được danh sách sản phẩm')
+    } finally {
+      setLoading(false)
+    }
+  }, [debouncedQuery, categoryFilter, brandFilter, filter, productPage])
 
   const loadMovements = useCallback(async (productId = '', variantId = '', page = 0) => {
     setMovementLoading(true)
@@ -104,26 +150,25 @@ export default function AdminInventoryPage() {
   }, [])
 
   const loadPage = useCallback(async () => {
-    setLoading(true)
-    try {
-      await loadProducts()
-    } catch (error) {
-      message.error(error?.message || 'Không tải được dữ liệu kho')
-    } finally {
-      setLoading(false)
-    }
-  }, [loadProducts])
+    await fetchConfig()
+  }, [fetchConfig])
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadPage(), 0)
     return () => window.clearTimeout(timer)
   }, [loadPage])
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => void fetchProducts(), 0)
+    return () => window.clearTimeout(timer)
+  }, [fetchProducts])
+
   const refreshPage = async () => {
     setRefreshing(true)
     try {
       await Promise.all([
-        loadProducts(),
+        fetchConfig(),
+        fetchProducts(),
         loadMovements(selectedProduct?.id || '', selectedVariantId, movementPage),
       ])
       message.success('Đã làm mới dữ liệu kho')
@@ -134,43 +179,7 @@ export default function AdminInventoryPage() {
     }
   }
 
-  const summary = useMemo(() => products.reduce((result, product) => ({
-    onHand: result.onHand + (product.totalOnHandQuantity || 0),
-    reserved: result.reserved + (product.totalReservedQuantity || 0),
-    available: result.available + (product.totalAvailableQuantity || 0),
-    sku: result.sku + (product.variantCount || 1),
-    low: result.low + (product.hasLowStock ? 1 : 0),
-    out: result.out + ((product.totalAvailableQuantity || 0) <= 0 ? 1 : 0),
-  }), { onHand: 0, reserved: 0, available: 0, sku: 0, low: 0, out: 0 }), [products])
-
-  const brands = useMemo(() => [...new Map(products
-    .filter((product) => product.brandId)
-    .map((product) => [product.brandId, product.brandName || product.brandId])).entries()], [products])
-  const categories = useMemo(() => [...new Map(products
-    .filter((product) => product.categoryId)
-    .map((product) => [product.categoryId, product.categoryName || product.categoryId])).entries()], [products])
-
-  const filteredProducts = useMemo(() => {
-    const keyword = query.trim().toLowerCase()
-    return products.filter((product) => {
-      const variantSearchValues = (product.variants || []).flatMap((variant) => [variant.name, variant.sku])
-      const matchesQuery = !keyword || [product.name, product.slug, product.brandName, ...variantSearchValues]
-        .some((value) => String(value || '').toLowerCase().includes(keyword))
-      const available = product.totalAvailableQuantity || 0
-      const matchesFilter = filter === 'all'
-        || (filter === 'low' && product.hasLowStock)
-        || (filter === 'out' && available <= 0)
-      const matchesBrand = brandFilter === 'all' || product.brandId === brandFilter
-      const matchesCategory = categoryFilter === 'all' || product.categoryId === categoryFilter
-      return matchesQuery && matchesFilter && matchesBrand && matchesCategory
-    })
-  }, [brandFilter, categoryFilter, filter, products, query])
-
-  const productPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE))
-  const visibleProducts = filteredProducts.slice(
-    (productPage - 1) * PAGE_SIZE,
-    productPage * PAGE_SIZE,
-  )
+  const visibleProducts = products
 
   const selectProduct = async (product) => {
     setDetailLoading(true)
@@ -255,7 +264,7 @@ export default function AdminInventoryPage() {
       })
       message.success('Đã cập nhật kho và ghi lịch sử')
       setAdjustTarget(null)
-      await loadProducts()
+      await fetchProducts()
       const detail = await productApi.getProduct(adjustTarget.productId, { auth: true })
       setSelectedProduct(detail)
       if (historyOpen) {
@@ -303,12 +312,12 @@ export default function AdminInventoryPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-        <Metric label="Tổng SKU" value={summary.sku} icon="qr_code_2" />
-        <Metric label="Tồn vật lý" value={summary.onHand} icon="inventory_2" />
-        <Metric label="Đang giữ" value={summary.reserved} icon="lock_clock" />
-        <Metric label="Có thể bán" value={summary.available} icon="shopping_cart" />
-        <Metric label="Sắp hết" value={summary.low} icon="warning" tone="text-amber-600" />
-        <Metric label="Hết hàng" value={summary.out} icon="remove_shopping_cart" tone="text-red-600" />
+        <Metric label="Tổng sản phẩm" value={summary.productCount} icon="qr_code_2" />
+        <Metric label="Tồn vật lý" value={summary.totalOnHand || summary.onHand} icon="inventory_2" />
+        <Metric label="Đang giữ" value={summary.totalReserved || summary.reserved} icon="lock_clock" />
+        <Metric label="Có thể bán" value={summary.totalAvailable || summary.available} icon="shopping_cart" />
+        <Metric label="Sắp hết" value={summary.lowStockCount || summary.low} icon="warning" tone="text-amber-600" />
+        <Metric label="Hết hàng" value={summary.outOfStockCount || summary.out} icon="remove_shopping_cart" tone="text-red-600" />
       </div>
 
       <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
@@ -316,7 +325,7 @@ export default function AdminInventoryPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="font-bold text-gray-950">Danh sách sản phẩm</h2>
-              <p className="text-xs text-gray-500">{filteredProducts.length} sản phẩm phù hợp</p>
+              <p className="text-xs text-gray-500">{totalElements} sản phẩm phù hợp</p>
             </div>
             <span className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600">
               <Icon name="warehouse" className="text-sm" /> Kho chính
@@ -334,11 +343,11 @@ export default function AdminInventoryPage() {
           </div>
           <select value={brandFilter} onChange={(event) => { setBrandFilter(event.target.value); setProductPage(1) }} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-emerald-500">
             <option value="all">Tất cả thương hiệu</option>
-            {brands.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            {brands.map(({id, name}) => <option key={id} value={id}>{name}</option>)}
           </select>
           <select value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value); setProductPage(1) }} className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-emerald-500">
             <option value="all">Tất cả danh mục</option>
-            {categories.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+            {categories.map(({id, name}) => <option key={id} value={id}>{name}</option>)}
           </select>
           <div className="flex shrink-0 gap-2">
             {FILTERS.map((item) => (
@@ -360,7 +369,6 @@ export default function AdminInventoryPage() {
             <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
               <tr>
                 <th className="px-4 py-3">Sản phẩm</th>
-                <th className="px-4 py-3">Biến thể</th>
                 <th className="px-4 py-3">Tồn vật lý</th>
                 <th className="px-4 py-3">Đang giữ</th>
                 <th className="px-4 py-3">Có thể bán</th>
@@ -377,7 +385,6 @@ export default function AdminInventoryPage() {
                       <p className="font-semibold text-gray-900">{product.name}</p>
                       <p className="text-xs text-gray-400">{product.slug}</p>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{product.variantCount || 1}</td>
                     <td className="px-4 py-3 font-medium text-gray-800">{product.totalOnHandQuantity || 0}</td>
                     <td className="px-4 py-3 text-indigo-600">{product.totalReservedQuantity || 0}</td>
                     <td className="px-4 py-3 font-semibold text-gray-900">{available}</td>
@@ -399,13 +406,13 @@ export default function AdminInventoryPage() {
                   </tr>
                 )
               })}
-              {!loading && filteredProducts.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-400">Không có dữ liệu kho phù hợp</td></tr>
+              {!loading && products.length === 0 ? (
+                <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400">Không có dữ liệu kho phù hợp</td></tr>
               ) : null}
             </tbody>
           </table>
         </div>
-        {filteredProducts.length > 0 ? (
+        {products.length > 0 ? (
           <div className="border-t border-gray-100 bg-gray-50/30 p-5">
             <Pagination
               currentPage={productPage}

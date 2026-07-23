@@ -14,6 +14,7 @@ import mss.productservice.dto.response.ProductIngredientResponse;
 import mss.productservice.dto.response.ProductResponse;
 import mss.productservice.dto.response.ProductVariantResponse;
 import mss.productservice.dto.response.ProductSummaryResponse;
+import mss.productservice.dto.response.InventorySummaryResponse;
 import mss.productservice.dto.response.FlashDealResponse;
 import mss.productservice.exception.DuplicateResourceException;
 import mss.productservice.exception.ResourceNotFoundException;
@@ -65,6 +66,8 @@ public interface IProductService {
     List<ProductSummaryResponse> searchProducts(String keyword);
 
     Page<ProductSummaryResponse> searchAdvanced(ProductSearchRequest request, boolean includeInactive);
+
+    InventorySummaryResponse getInventorySummary();
 
     ProductResponse createProduct(ProductRequest request);
 

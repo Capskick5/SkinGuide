@@ -19,7 +19,7 @@ class AcneDetector:
             base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             model_path = os.path.join(base_dir, "models", "yolov8_acne.weights.h5")
 
-        print("Đang khởi tạo lõi AI YOLOv8...")
+        print("Dang khoi tao loi AI YOLOv8...")
         # Bắt buộc phải khai báo lại kiến trúc y hệt lúc huấn luyện
         backbone = keras_cv.models.YOLOV8Backbone.from_preset("yolo_v8_xs_backbone_coco")
         self.model = keras_cv.models.YOLOV8Detector(
@@ -29,12 +29,12 @@ class AcneDetector:
             fpn_depth=1
         )
         
-        print(f"Đang nạp bộ nhớ từ: {model_path}...")
+        print(f"Dang nap bo nho tu: {model_path}...")
         if os.path.exists(model_path):
             self.model.load_weights(model_path)
-            print("Nạp bộ nhớ thành công!")
+            print("Nap bo nho thanh cong!")
         else:
-            print(f"[CẢNH BÁO] Không tìm thấy file trọng số tại {model_path}. Mô hình sẽ dự đoán ngẫu nhiên!")
+            print(f"[CANH BAO] Khong tim thay file trong so tai {model_path}. Mo hinh se du doan ngau nhien!")
 
     def predict(self, image_bytes: bytes, confidence_threshold: float = 0.3):
         """

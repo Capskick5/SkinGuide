@@ -25,6 +25,7 @@ public class ProductSearchRequest {
     private String skinType; // "all" or specific skin type (khớp Product.targetSkinTypes)
     private String concern; // "all" or specific concern (khớp Product.targetConcerns)
     private Boolean inStockOnly; // true = chỉ trả sản phẩm còn hàng bán được (available > 0)
+    private String stockStatus; // "all", "low" (sắp hết), "out" (hết hàng)
     @Builder.Default
     private int page = 1;
     @Builder.Default

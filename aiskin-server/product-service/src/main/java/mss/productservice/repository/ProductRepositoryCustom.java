@@ -11,8 +11,10 @@ import org.springframework.data.domain.Page;
 import java.util.Optional;
 import java.util.Collection;
 import java.util.List;
+import mss.productservice.dto.response.InventorySummaryResponse;
 
 public interface ProductRepositoryCustom {
+    InventorySummaryResponse getInventorySummary();
     Page<Product> searchAdvanced(ProductSearchRequest request);
 
     Optional<Product> findByFlexibleId(String id);

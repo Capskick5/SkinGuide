@@ -256,11 +256,13 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
   const [width, setWidth] = useState(15)
   const [height, setHeight] = useState(10)
   const [requiredNote, setRequiredNote] = useState('CHOXEMHANGKHONGTHU')
+  const [hasRead, setHasRead] = useState(false)
 
   if (!change) return null
   const config = STATUS[change.newStatus]
   const isCancel = change.newStatus === 'CANCELLED'
   const isReadyToPick = change.newStatus === 'DELIVERING'
+  const isPending = change.currentStatus === 'PENDING'
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -359,6 +361,20 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
           </div>
         )}
 
+        {isPending && (
+          <div className="mt-4 p-3 border border-amber-200 bg-amber-50 rounded-lg text-left">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={hasRead} 
+                onChange={e => setHasRead(e.target.checked)} 
+                className="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+              />
+              <span className="text-sm text-amber-900 font-medium">Tôi xác nhận đã đọc và kiểm tra kỹ chi tiết đơn hàng này trước khi xử lý.</span>
+            </label>
+          </div>
+        )}
+
         <div className="mt-6 flex gap-3">
           <button
             type="button"
@@ -370,7 +386,7 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
           <button
             type="button"
             onClick={() => onConfirm(isCancel ? { cancelReason: reason } : isReadyToPick ? { weight, length, width, height, requiredNote } : {})}
-            disabled={(isCancel && !reason.trim()) || (isReadyToPick && (!weight || weight <= 0 || !length || !width || !height))}
+            disabled={(isCancel && !reason.trim()) || (isReadyToPick && (!weight || weight <= 0 || !length || !width || !height)) || (isPending && !hasRead)}
             className="flex-1 rounded-lg bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cập nhật
@@ -444,7 +460,7 @@ export default function AdminOrdersPage() {
       return
     }
 
-    setConfirmUpdate({ orderId: order.id, orderCode: order.orderCode, newStatus })
+    setConfirmUpdate({ orderId: order.id, orderCode: order.orderCode, currentStatus: order.status, newStatus })
   }
 
   async function executeUpdateStatus(payload) {

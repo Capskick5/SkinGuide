@@ -47,6 +47,6 @@ public final class VnpayUtils {
     }
 
     private static String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.US_ASCII);
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }

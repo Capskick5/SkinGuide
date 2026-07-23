@@ -133,6 +133,11 @@ public class ProductService implements IProductService {
         return productRepository.searchAdvanced(request).map(product -> toSummaryResponse(enrichProduct(product)));
     }
 
+    @Override
+    public mss.productservice.dto.response.InventorySummaryResponse getInventorySummary() {
+        return productRepository.getInventorySummary();
+    }
+
     private void requireVisible(Product product, boolean includeInactive) {
         if (!includeInactive && !Boolean.TRUE.equals(product.getIsActive())) {
             throw new ResourceNotFoundException("Product", "id", product.getId());

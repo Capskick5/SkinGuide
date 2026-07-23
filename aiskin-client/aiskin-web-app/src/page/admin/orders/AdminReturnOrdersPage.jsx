@@ -412,6 +412,9 @@ export default function AdminReturnOrdersPage() {
   const [updating, setUpdating] = useState(null)
   const [rejectingRequest, setRejectingRequest] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [hasReadReject, setHasReadReject] = useState(false)
+  const [approvingRequest, setApprovingRequest] = useState(null)
+  const [hasReadApprove, setHasReadApprove] = useState(false)
   const [syncingGhn, setSyncingGhn] = useState(false)
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -456,10 +459,16 @@ export default function AdminReturnOrdersPage() {
     setPage(0)
   }
 
-  const handleStatusChange = async (req, newStatus, reason = null, inventoryDisposition = null) => {
+  const handleStatusChange = async (req, newStatus, reason = null, inventoryDisposition = null, forceApprove = false) => {
     if (newStatus === 'REJECTED' && !reason) {
       setRejectingRequest(req)
       setRejectReason('')
+      setHasReadReject(false)
+      return
+    }
+    if (newStatus === 'DELIVERING' && !forceApprove) {
+      setApprovingRequest(req)
+      setHasReadApprove(false)
       return
     }
 
@@ -472,6 +481,7 @@ export default function AdminReturnOrdersPage() {
       })
       message.success('Cập nhật trạng thái thành công')
       setRejectingRequest(null)
+      setApprovingRequest(null)
       fetchReturns()
     } catch (err) {
       message.error(err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật')
@@ -784,23 +794,80 @@ export default function AdminReturnOrdersPage() {
                 rows={3}
                 placeholder="Hoặc nhập lý do chi tiết của bạn..."
               />
+              <div className="mt-4 p-3 border border-amber-200 bg-amber-50 rounded-lg text-left">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={hasReadReject} 
+                    onChange={e => setHasReadReject(e.target.checked)} 
+                    className="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <span className="text-sm text-amber-900 font-medium">Tôi xác nhận đã đọc và kiểm tra kỹ chi tiết khiếu nại này trước khi từ chối.</span>
+                </label>
+              </div>
+
+              <div className="mt-6 flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setRejectingRequest(null)}
+                  className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(rejectingRequest, 'REJECTED', rejectReason)}
+                  disabled={!rejectReason.trim() || !hasReadReject || updating === rejectingRequest.id}
+                  className="flex-1 rounded-lg bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updating === rejectingRequest.id ? 'Đang xử lý...' : 'Xác nhận'}
+                </button>
+              </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Xác nhận Duyệt */}
+      {approvingRequest && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <button type="button" className="absolute inset-0 bg-black/45" onClick={() => setApprovingRequest(null)} aria-label="Đóng" />
+          <div className="relative w-full max-w-sm rounded-lg bg-white p-6 text-center shadow-2xl">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <Icon name="check_circle" className="text-2xl" />
+            </div>
+            <h3 className="mt-4 text-lg font-bold text-gray-950">Duyệt & Tạo đơn hoàn</h3>
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              Chấp nhận khiếu nại của đơn <span className="font-semibold text-gray-800">{approvingRequest.orderCode}</span> và tạo mã vận đơn để khách trả hàng?
+            </p>
             
+            <div className="mt-4 p-3 border border-amber-200 bg-amber-50 rounded-lg text-left">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={hasReadApprove} 
+                  onChange={e => setHasReadApprove(e.target.checked)} 
+                  className="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                />
+                <span className="text-sm text-amber-900 font-medium">Tôi xác nhận đã đọc và kiểm tra kỹ chi tiết khiếu nại này trước khi duyệt.</span>
+              </label>
+            </div>
+
             <div className="mt-6 flex gap-3">
               <button 
                 type="button"
-                onClick={() => setRejectingRequest(null)}
+                onClick={() => setApprovingRequest(null)}
                 className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Hủy
               </button>
               <button
                 type="button"
-                onClick={() => handleStatusChange(rejectingRequest, 'REJECTED', rejectReason)}
-                disabled={!rejectReason.trim() || updating === rejectingRequest.id}
+                onClick={() => handleStatusChange(approvingRequest, 'DELIVERING', null, null, true)}
+                disabled={!hasReadApprove || updating === approvingRequest.id}
                 className="flex-1 rounded-lg bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {updating === rejectingRequest.id ? 'Đang xử lý...' : 'Xác nhận'}
+                {updating === approvingRequest.id ? 'Đang xử lý...' : 'Xác nhận duyệt'}
               </button>
             </div>
           </div>

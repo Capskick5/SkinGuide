@@ -54,6 +54,7 @@ const RETURN_STATUS_VN = {
 function ConfirmCancelModal({ orderCode, onClose, onConfirm }) {
   const [reason, setReason] = useState('')
   const [selectedTag, setSelectedTag] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const inputRef = useRef(null)
 
   const predefinedReasons = [
@@ -125,11 +126,22 @@ function ConfirmCancelModal({ orderCode, onClose, onConfirm }) {
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(reason)}
-            disabled={!reason.trim()}
-            className="flex-1 rounded-xl bg-error px-4 py-3 text-body-sm font-semibold text-white hover:bg-error/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={async () => {
+              setIsSubmitting(true)
+              try {
+                await onConfirm(reason)
+              } finally {
+                // Prevent state update on unmounted component if modal closes fast
+                if (document.body.contains(inputRef.current)) {
+                  setIsSubmitting(false)
+                }
+              }
+            }}
+            disabled={!reason.trim() || isSubmitting}
+            className="flex-1 rounded-xl bg-error px-4 py-3 text-body-sm font-semibold text-white hover:bg-error/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            Hủy đơn
+            {isSubmitting && <Icon name="progress_activity" className="animate-spin text-lg" />}
+            {isSubmitting ? 'Đang hủy...' : 'Hủy đơn'}
           </button>
         </div>
       </div>

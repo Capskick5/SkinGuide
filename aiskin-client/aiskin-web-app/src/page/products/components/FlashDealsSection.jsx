@@ -13,7 +13,7 @@ function countdownLabel(endsAt, now) {
 
 export default function FlashDealsSection({ deals, brandMap, categoryMap, favorites, compared }) {
   const trackRef = useRef(null)
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000)
