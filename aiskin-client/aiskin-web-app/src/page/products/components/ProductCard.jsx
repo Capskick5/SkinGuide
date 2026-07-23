@@ -73,15 +73,15 @@ export default function ProductCard({
   }
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-border-pink bg-surface-container-lowest shadow-[0_4px_20px_rgba(103,80,228,0.06)] transition-all hover:shadow-[0_8px_25px_rgba(103,80,228,0.12)]">
-      <div className="relative flex h-44 items-center justify-center overflow-hidden bg-primary-light">
+    <div className="group flex flex-col overflow-hidden rounded-2xl border border-outline-variant bg-white shadow-[0_8px_28px_rgba(23,32,38,0.055)] transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_16px_38px_rgba(23,32,38,0.09)]">
+      <div className="relative flex h-44 items-center justify-center overflow-hidden bg-[#f6f8f7]">
         {canRenderImage ? (
           <img
             src={imageUrl}
             alt={name}
             loading="lazy"
             decoding="async"
-            className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.03]"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]"
           />
         ) : (
           <Icon name="science" className="text-5xl text-primary/50" />
@@ -90,7 +90,7 @@ export default function ProductCard({
           {isSellable ? 'Còn hàng' : 'Hết hàng'}
         </span>
         {discountPercent ? (
-          <span className="absolute bottom-3 right-3 rounded-full bg-[#ff5a36] px-2.5 py-1 text-xs font-black text-white shadow-sm">
+          <span className="absolute bottom-3 right-3 rounded-lg bg-primary px-2.5 py-1 text-xs font-bold text-white shadow-sm">
             -{discountPercent}%
           </span>
         ) : null}
@@ -128,7 +128,7 @@ export default function ProductCard({
           </Link>
         </h3>
 
-        <span className="mb-2 self-start rounded-full bg-primary-light px-3 py-1 text-caption text-tertiary">
+        <span className="mb-2 self-start rounded-lg bg-secondary-fixed px-2.5 py-1 text-caption font-medium text-secondary">
           {category}
         </span>
 
@@ -149,7 +149,7 @@ export default function ProductCard({
 
         <div className="mb-4 mt-auto flex items-end justify-between gap-3">
           <span>
-            <span className={`block text-body-lg font-black ${discountPercent ? 'text-[#ef4b2f]' : 'text-on-surface'}`}>{price}</span>
+            <span className={`block text-body-lg font-bold ${discountPercent ? 'text-primary' : 'text-on-surface'}`}>{price}</span>
             {originalPrice ? <span className="text-xs text-on-surface-variant line-through">{originalPrice}</span> : null}
           </span>
           {sellableVariant ? (
@@ -162,7 +162,7 @@ export default function ProductCard({
         <div className="grid grid-cols-[1fr_auto] gap-2">
           <Link
             to={`/products/${slug}`}
-            className="min-h-11 rounded-full bg-primary px-4 py-2.5 text-center text-label-md font-semibold text-white shadow-[0_8px_24px_rgba(103,80,228,0.18)] transition-colors hover:bg-tertiary"
+            className="min-h-11 rounded-xl bg-primary px-4 py-2.5 text-center text-label-md font-semibold text-white shadow-[0_8px_22px_rgba(240,100,88,0.18)] transition-colors hover:bg-[#df574d]"
           >
             Xem chi tiết
           </Link>
@@ -171,7 +171,7 @@ export default function ProductCard({
             onClick={handleQuickAdd}
             disabled={!id || !isSellable}
             title={isSellable ? 'Thêm nhanh vào giỏ hàng' : 'Sản phẩm đang hết hàng'}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/30 bg-primary-light text-primary transition-all hover:bg-primary hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-primary/25 bg-primary-light text-primary transition-all hover:border-primary hover:bg-primary hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon name="add_shopping_cart" className="text-xl" />
           </button>
