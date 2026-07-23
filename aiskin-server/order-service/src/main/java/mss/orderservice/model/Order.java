@@ -51,6 +51,9 @@ public class Order {
     // Items & Pricing
     private List<OrderItem> items;
     private BigDecimal totalAmount;
+
+    @Builder.Default
+    private BigDecimal refundedAmount = BigDecimal.ZERO;
     private BigDecimal shippingFee;
 
     // Voucher (tùy chọn). discountAmount đã được trừ vào totalAmount lúc tạo đơn.
@@ -176,6 +179,6 @@ public class Order {
     }
 
     public enum PaymentStatus {
-        UNPAID, PAID, FAILED, REFUNDED
+        UNPAID, PAID, FAILED, PARTIALLY_REFUNDED, REFUNDED
     }
 }

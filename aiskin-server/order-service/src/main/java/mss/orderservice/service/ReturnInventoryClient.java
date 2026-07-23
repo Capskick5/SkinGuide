@@ -35,17 +35,33 @@ public class ReturnInventoryClient {
     }
 
     public void process(ReturnOrder returnOrder, ReturnOrder.InventoryDisposition disposition) {
+        java.util.List<ProductInventoryItemRequest> inventoryItems;
+        if (returnOrder.getClaimType() == ReturnOrder.ClaimType.WRONG_ITEM) {
+            if (returnOrder.getWrongItems() == null || returnOrder.getWrongItems().isEmpty()) {
+                throw new ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                        "Chưa xác định sản phẩm thực tế giao sai để nhập kho");
+            }
+            inventoryItems = returnOrder.getWrongItems().stream()
+                    .map(item -> ProductInventoryItemRequest.builder()
+                            .productId(item.getProductId())
+                            .variantId(item.getVariantId())
+                            .quantity(item.getQuantity())
+                            .build())
+                    .toList();
+        } else {
+            inventoryItems = returnOrder.getItems().stream()
+                    .map(item -> ProductInventoryItemRequest.builder()
+                            .productId(item.getProductId())
+                            .variantId(item.getVariantId())
+                            .quantity(item.getQuantity())
+                            .build())
+                    .toList();
+        }
         ProductReturnInventoryRequest request = ProductReturnInventoryRequest.builder()
                 .returnOrderId(returnOrder.getId())
                 .orderCode(returnOrder.getOrderCode())
                 .disposition(disposition.name())
-                .items(returnOrder.getItems().stream()
-                        .map(item -> ProductInventoryItemRequest.builder()
-                                .productId(item.getProductId())
-                                .variantId(item.getVariantId())
-                                .quantity(item.getQuantity())
-                                .build())
-                        .toList())
+                .items(inventoryItems)
                 .build();
 
         HttpHeaders headers = new HttpHeaders();

@@ -58,7 +58,8 @@ class RefundRequestServiceTest {
     void completingRefundUpdatesRefundReturnAndOriginalOrder() {
         RefundRequest refund = pendingRefund();
         ReturnOrder returnOrder = receivedReturn();
-        Order order = Order.builder().id("order-1").status(Order.OrderStatus.DELIVERED).paymentStatus(Order.PaymentStatus.PAID).build();
+        Order order = Order.builder().id("order-1").status(Order.OrderStatus.DELIVERED)
+                .totalAmount(BigDecimal.valueOf(150_000)).paymentStatus(Order.PaymentStatus.PAID).build();
         when(refundRequestRepository.findById("refund-1")).thenReturn(Optional.of(refund));
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
         when(orderRepository.findById("order-1")).thenReturn(Optional.of(order));
@@ -95,8 +96,26 @@ class RefundRequestServiceTest {
         verify(orderRepository, never()).findById(any());
     }
 
+    @Test
+    void redeliveryClaimCannotCreateRefundRequest() {
+        ReturnOrder returnOrder = receivedReturn();
+        returnOrder.setResolution(ReturnOrder.ResolutionType.REDELIVER);
+        returnOrder.setStatus(ReturnOrder.ReturnStatus.REDELIVERY_PENDING);
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
+
+        assertThatThrownBy(() -> service.createRefundRequest("customer-1",
+                new RefundCreateRequest("return-1", "Vietcombank", "0123456789", "NGUYEN VAN A")))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("giao lại");
+        verify(refundRequestRepository, never()).save(any());
+    }
+
     private ReturnOrder receivedReturn() {
-        return ReturnOrder.builder().id("return-1").orderId("order-1").orderCode("ORD-1").customerId("customer-1").customerName("Nguyen Van A").refundAmount(BigDecimal.valueOf(150_000)).status(ReturnOrder.ReturnStatus.RECEIVED).inventoryProcessed(true).inventoryDisposition(ReturnOrder.InventoryDisposition.RESTOCK).build();
+        return ReturnOrder.builder().id("return-1").orderId("order-1").orderCode("ORD-1")
+                .customerId("customer-1").customerName("Nguyen Van A")
+                .claimType(ReturnOrder.ClaimType.RETURN).resolution(ReturnOrder.ResolutionType.REFUND)
+                .refundAmount(BigDecimal.valueOf(150_000)).status(ReturnOrder.ReturnStatus.REFUND_PENDING)
+                .inventoryProcessed(true).inventoryDisposition(ReturnOrder.InventoryDisposition.RESTOCK).build();
     }
 
     private RefundRequest pendingRefund() {
@@ -104,6 +123,7 @@ class RefundRequestServiceTest {
         refund.setId("refund-1");
         refund.setReturnOrderId("return-1");
         refund.setOrderId("order-1");
+        refund.setAmount(BigDecimal.valueOf(150_000));
         refund.setStatus(RefundRequest.RefundStatus.PENDING);
         return refund;
     }

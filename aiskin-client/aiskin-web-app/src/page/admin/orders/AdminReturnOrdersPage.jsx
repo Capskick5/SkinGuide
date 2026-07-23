@@ -45,15 +45,21 @@ const RETURN_STATUS = {
   DELIVERED: { label: 'Đã giao đến kho', icon: 'done_all', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
   RECEIVED: { label: 'Đã nhận hàng trả', icon: 'inventory_2', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   INSPECTION_FAILED: { label: 'Từ chối sau kiểm tra', icon: 'gpp_bad', tone: 'bg-rose-50 text-rose-700 border-rose-200' },
+  REFUND_PENDING: { label: 'Chờ hoàn tiền', icon: 'payments', tone: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
   REFUNDED: { label: 'Đã hoàn tiền', icon: 'price_check', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
+  REDELIVERY_PENDING: { label: 'Chờ giao lại', icon: 'inventory_2', tone: 'bg-violet-50 text-violet-700 border-violet-100' },
+  REDELIVERING: { label: 'Đang giao lại', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  RESOLVED: { label: 'Đã giao lại', icon: 'task_alt', tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
   REJECTED: { label: 'Từ chối', icon: 'block', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
 }
 
 const TABS = [
   { key: 'PENDING', query: 'PENDING', label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
   { key: 'SHIPPING', query: 'DELIVERING,DELIVERED', label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  { key: 'RECEIVED', query: 'RECEIVED', label: 'Đã nhận trả', icon: 'inventory_2', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  { key: 'REFUND', query: 'REFUND_PENDING', label: 'Chờ hoàn tiền', icon: 'payments', tone: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
+  { key: 'REDELIVERY', query: 'REDELIVERY_PENDING,REDELIVERING', label: 'Giao lại', icon: 'local_shipping', tone: 'bg-violet-50 text-violet-700 border-violet-100' },
   { key: 'REFUNDED', query: 'REFUNDED', label: 'Đã hoàn tiền', icon: 'price_check', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
+  { key: 'RESOLVED', query: 'RESOLVED', label: 'Đã giao lại', icon: 'task_alt', tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
   { key: 'REJECTED', query: 'REJECTED,INSPECTION_FAILED', label: 'Từ chối', icon: 'block', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
 ]
 
@@ -106,6 +112,7 @@ function ReturnDetailsModal({ request, onClose }) {
   const [fullOrder, setFullOrder] = useState(null)
 
   const [refundRequest, setRefundRequest] = useState(null)
+  const [compensationOrder, setCompensationOrder] = useState(null)
   const [completing, setCompleting] = useState(false)
   const [receiptUrl, setReceiptUrl] = useState('')
 
@@ -115,12 +122,33 @@ function ReturnDetailsModal({ request, onClose }) {
         .then(res => setFullOrder(res))
         .catch(err => console.error(err))
     }
-    if (request?.id && (request.status === 'RECEIVED' || request.status === 'REFUNDED')) {
+    if (request?.id && (request.status === 'REFUND_PENDING' || request.status === 'REFUNDED')) {
       httpClient.get(`/refunds/return-order/${request.id}`)
         .then(res => setRefundRequest(res))
         .catch(err => console.error(err))
     }
+    if (request?.id && request.resolution === 'REDELIVER') {
+      httpClient.get(`/compensations/return-order/${request.id}`)
+        .then(res => setCompensationOrder(res))
+        .catch(() => setCompensationOrder(null))
+    }
   }, [request])
+
+  const handleCompensationAction = async (action) => {
+    if (!compensationOrder) return
+    setCompleting(true)
+    try {
+      const updated = await httpClient.put(`/compensations/admin/${compensationOrder.id}/${action}`)
+      setCompensationOrder(updated)
+      message.success(action === 'reserve'
+        ? 'Đã giữ tồn kho cho đơn giao lại'
+        : action === 'ship' ? 'Đã tạo vận đơn giao lại' : 'Đã xác nhận giao lại thành công')
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Không thể xử lý đơn giao lại')
+    } finally {
+      setCompleting(false)
+    }
+  }
 
   const handleCompleteRefund = async () => {
     setCompleting(true)
@@ -212,6 +240,20 @@ function ReturnDetailsModal({ request, onClose }) {
             <p className="mt-2 font-semibold text-gray-950">{fullOrder?.shippingAddress || 'Đang tải...'}</p>
           </div>
 
+          <div className={`mt-4 rounded-lg border p-4 ${
+            request.resolution === 'REFUND'
+              ? 'border-teal-200 bg-teal-50'
+              : 'border-indigo-200 bg-indigo-50'
+          }`}>
+            <p className="text-xs font-semibold uppercase opacity-70">Phương án khách hàng yêu cầu</p>
+            <p className="mt-2 flex items-center gap-2 font-bold">
+              <Icon name={request.resolution === 'REFUND' ? 'payments' : 'local_shipping'} />
+              {request.resolution === 'REFUND'
+                ? 'Hoàn tiền'
+                : request.claimType === 'MISSING_ITEM' ? 'Giao bù hàng thiếu' : 'Giao lại sản phẩm đúng'}
+            </p>
+          </div>
+
           <div className="mt-4 rounded-lg border border-gray-100 p-4">
             <p className="text-xs font-semibold uppercase text-gray-400">Lý do khiếu nại</p>
             <p className="mt-2 font-bold text-rose-600">{request.reason}</p>
@@ -247,7 +289,13 @@ function ReturnDetailsModal({ request, onClose }) {
           {request.items && request.items.length > 0 && (
             <div className="mt-4 overflow-hidden rounded-lg border border-gray-100">
               <div className="border-b border-gray-100 bg-gray-50 px-4 py-3">
-                <h3 className="font-semibold text-gray-950">Sản phẩm yêu cầu trả ({request.items.length})</h3>
+                <h3 className="font-semibold text-gray-950">
+                  {request.claimType === 'MISSING_ITEM'
+                    ? 'Sản phẩm bị giao thiếu'
+                    : request.claimType === 'WRONG_ITEM'
+                      ? 'Sản phẩm đáng lẽ khách phải nhận'
+                      : 'Sản phẩm khách gửi trả'} ({request.items.length})
+                </h3>
               </div>
               <div className="divide-y divide-gray-100">
                 {request.items.map((item, index) => {
@@ -271,6 +319,25 @@ function ReturnDetailsModal({ request, onClose }) {
                     </div>
                   )
                 })}
+              </div>
+            </div>
+          )}
+
+          {request.claimType === 'WRONG_ITEM' && request.wrongItems?.length > 0 && (
+            <div className="mt-4 overflow-hidden rounded-lg border border-orange-200">
+              <div className="border-b border-orange-200 bg-orange-50 px-4 py-3">
+                <h3 className="font-semibold text-orange-950">Hàng thực tế khách nhận sai và gửi trả</h3>
+              </div>
+              <div className="divide-y divide-orange-100">
+                {request.wrongItems.map((item, index) => (
+                  <div key={`${item.productId}-${item.variantId}-${index}`} className="flex justify-between gap-4 p-4">
+                    <div>
+                      <p className="font-semibold text-gray-950">{item.productName}</p>
+                      <p className="mt-1 text-xs text-gray-500">{item.variantName || item.sku}</p>
+                    </div>
+                    <span className="font-bold text-orange-800">×{item.quantity}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -412,6 +479,61 @@ function ReturnDetailsModal({ request, onClose }) {
               )}
             </div>
           )}
+
+          {compensationOrder && (
+            <div className="mt-6 rounded-lg border border-indigo-200 bg-indigo-50 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h4 className="flex items-center gap-2 font-bold text-indigo-950">
+                    <Icon name="local_shipping" /> Đơn giao lại
+                  </h4>
+                  <p className="mt-1 text-sm text-indigo-700">
+                    Trạng thái: <strong>{compensationOrder.status}</strong>
+                  </p>
+                </div>
+                {compensationOrder.trackingCode && (
+                  <div className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm">
+                    <span className="text-indigo-600">Mã GHN</span>
+                    <p className="font-bold text-indigo-950">{compensationOrder.trackingCode}</p>
+                  </div>
+                )}
+              </div>
+              {compensationOrder.failureReason && (
+                <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                  {compensationOrder.failureReason}
+                </p>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {compensationOrder.status === 'PENDING' && (
+                  <button
+                    onClick={() => handleCompensationAction('reserve')}
+                    disabled={completing}
+                    className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    Giữ tồn kho
+                  </button>
+                )}
+                {['INVENTORY_RESERVED', 'READY_TO_SHIP'].includes(compensationOrder.status) && (
+                  <button
+                    onClick={() => handleCompensationAction('ship')}
+                    disabled={completing}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    Tạo vận đơn giao lại
+                  </button>
+                )}
+                {compensationOrder.status === 'SHIPPING' && (
+                  <button
+                    onClick={() => handleCompensationAction('complete')}
+                    disabled={completing}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    Xác nhận đã giao thành công
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -533,7 +655,9 @@ export default function AdminReturnOrdersPage() {
 
     const nextStatuses = req.status === 'PENDING'
       ? (isMissingItem ? ['REJECTED'] : ['DELIVERING', 'REJECTED'])
-      : req.status === 'DELIVERED' ? ['RECEIVED', 'INSPECTION_FAILED'] : []
+      : req.status === 'DELIVERED'
+        ? ['RECEIVED', 'INSPECTION_FAILED']
+        : req.status === 'DELIVERING' ? ['RECEIVED'] : []
 
     const actions = nextStatuses.flatMap(status => {
       if (status === 'DELIVERING') {
@@ -608,55 +732,49 @@ export default function AdminReturnOrdersPage() {
       }]
     })
 
-    // Nếu đã RECEIVED và chưa có hướng giải quyết, cho Admin chọn REFUND / REDELIVER
+    // Giao thiếu không thu hồi hàng: duyệt đúng phương án khách đã chọn.
     if (req.status === 'RECEIVED' && !req.resolution) {
       actions.push(
         { type: 'divider' },
         {
-          key: 'RESOLVE_REFUND',
-          label: (
-            <div className="flex items-center gap-2 px-1">
-              <Icon name="payments" className="text-[15px] text-teal-700" />
-              <span className="text-sm font-semibold">Xác nhận: Hoàn tiền cho khách</span>
-            </div>
-          ),
+          key: 'LEGACY_REFUND',
+          label: 'Dữ liệu cũ: chọn hoàn tiền',
           onClick: () => handleResolve(req, 'REFUND'),
         },
         {
-          key: 'RESOLVE_REDELIVER',
-          label: (
-            <div className="flex items-center gap-2 px-1">
-              <Icon name="local_shipping" className="text-[15px] text-indigo-700" />
-              <span className="text-sm font-semibold">Xác nhận: Giao lại hàng cho khách</span>
-            </div>
-          ),
+          key: 'LEGACY_REDELIVER',
+          label: 'Dữ liệu cũ: chọn giao lại',
           onClick: () => handleResolve(req, 'REDELIVER'),
         },
       )
     }
-
-    // MISSING_ITEM ở PENDING: cho Admin giải quyết ngay mà không cần chờ vận chuyển
     if (req.status === 'PENDING' && isMissingItem && !req.resolution) {
       actions.unshift(
         {
-          key: 'RESOLVE_MISSING_REFUND',
-          label: (
-            <div className="flex items-center gap-2 px-1">
-              <Icon name="payments" className="text-[15px] text-teal-700" />
-              <span className="text-sm font-semibold">Duyệt &amp; Hoàn tiền (Giao thiếu)</span>
-            </div>
-          ),
+          key: 'LEGACY_MISSING_REFUND',
+          label: 'Dữ liệu cũ: duyệt hoàn tiền',
           onClick: () => handleResolve(req, 'REFUND'),
         },
         {
-          key: 'RESOLVE_MISSING_REDELIVER',
+          key: 'LEGACY_MISSING_REDELIVER',
+          label: 'Dữ liệu cũ: duyệt giao bù',
+          onClick: () => handleResolve(req, 'REDELIVER'),
+        },
+        { type: 'divider' },
+      )
+    } else if (req.status === 'PENDING' && isMissingItem) {
+      actions.unshift(
+        {
+          key: 'APPROVE_MISSING_RESOLUTION',
           label: (
             <div className="flex items-center gap-2 px-1">
-              <Icon name="local_shipping" className="text-[15px] text-indigo-700" />
-              <span className="text-sm font-semibold">Duyệt &amp; Giao bù hàng thiếu</span>
+              <Icon name={req.resolution === 'REFUND' ? 'payments' : 'local_shipping'} className="text-[15px] text-teal-700" />
+              <span className="text-sm font-semibold">
+                {req.resolution === 'REFUND' ? 'Duyệt để hoàn tiền' : 'Duyệt để giao bù hàng thiếu'}
+              </span>
             </div>
           ),
-          onClick: () => handleResolve(req, 'REDELIVER'),
+          onClick: () => handleResolve(req, req.resolution),
         },
         { type: 'divider' },
       )
@@ -738,7 +856,7 @@ export default function AdminReturnOrdersPage() {
                   <th className="px-5 py-3">Khách hàng</th>
                   <th className="px-5 py-3 max-w-[200px]">Lý do</th>
                   <th className="px-5 py-3">Trạng thái</th>
-                  {filter === 'RECEIVED' && <th className="px-5 py-3">Đơn hoàn tiền</th>}
+                  {filter === 'REFUND' && <th className="px-5 py-3">Đơn hoàn tiền</th>}
                   <th className="px-5 py-3 text-right">Thao tác</th>
                 </tr>
               </thead>
@@ -769,16 +887,16 @@ export default function AdminReturnOrdersPage() {
                               items: statusActions(req)
                             }}
                             trigger={['click']}
-                            disabled={['REFUNDED', 'REJECTED', 'DELIVERING'].includes(req.status) || (req.status === 'RECEIVED' && !!req.resolution)}
+                            disabled={['REFUNDED', 'REJECTED', 'INSPECTION_FAILED', 'REFUND_PENDING', 'REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(req.status)}
                           >
                             <button 
-                              className={`inline-flex items-center justify-between min-w-36 gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${!['REFUNDED', 'REJECTED', 'DELIVERING'].includes(req.status) ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${RETURN_STATUS[req.status]?.tone || 'bg-gray-100 text-gray-700 border-gray-200'}`}
+                              className={`inline-flex items-center justify-between min-w-36 gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${!['REFUNDED', 'REJECTED', 'INSPECTION_FAILED', 'REFUND_PENDING', 'REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(req.status) ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${RETURN_STATUS[req.status]?.tone || 'bg-gray-100 text-gray-700 border-gray-200'}`}
                             >
                               <div className="flex items-center gap-1.5">
                                 <Icon name={RETURN_STATUS[req.status]?.icon || 'info'} className="text-[15px]" />
                                 {RETURN_STATUS[req.status]?.label || req.status}
                               </div>
-                              {!['REFUNDED', 'REJECTED', 'INSPECTION_FAILED', 'DELIVERING'].includes(req.status) && !(req.status === 'RECEIVED' && !!req.resolution) && (
+                              {!['REFUNDED', 'REJECTED', 'INSPECTION_FAILED', 'REFUND_PENDING', 'REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(req.status) && (
                                 <Icon name="expand_more" className="text-lg opacity-60" />
                               )}
                             </button>
@@ -792,7 +910,7 @@ export default function AdminReturnOrdersPage() {
                         </div>
                       )}
                     </td>
-                    {filter === 'RECEIVED' && (
+                    {filter === 'REFUND' && (
                       <td className="px-5 py-4 align-top">
                         <RefundStatusCell returnId={req.id} />
                       </td>

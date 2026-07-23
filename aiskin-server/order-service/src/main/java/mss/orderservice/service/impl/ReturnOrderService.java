@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mss.orderservice.dto.ReturnItemRequest;
 import mss.orderservice.dto.ReturnRequest;
+import mss.orderservice.dto.WrongItemRequest;
 import mss.orderservice.model.CompensationOrder;
 import mss.orderservice.model.Order;
 import mss.orderservice.model.OrderItem;
@@ -19,10 +20,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -61,16 +64,19 @@ public class ReturnOrderService implements IReturnOrderService {
         ReturnCalculation calculation = calculateReturn(order, request.items());
         // Xác định loại khiếu nại, mặc định RETURN để tương thích ngược
         ReturnOrder.ClaimType claimType = request.claimType() != null ? request.claimType() : ReturnOrder.ClaimType.RETURN;
+        validateClaimDetails(claimType, request.wrongItems());
         ReturnOrder returnOrder = ReturnOrder.builder()
                 .orderId(order.getId())
                 .orderCode(order.getOrderCode())
                 .customerId(order.getCustomerId())
                 .customerName(order.getCustomerName())
                 .claimType(claimType)
+                .resolution(request.resolution())
                 .reason(request.reason().trim())
                 .description(request.description().trim())
                 .imageUrls(List.copyOf(request.imageUrls()))
                 .items(calculation.items())
+                .wrongItems(toWrongItems(request.wrongItems()))
                 .refundAmount(calculation.totalRefund())
                 .status(ReturnOrder.ReturnStatus.PENDING)
                 .build();
@@ -142,6 +148,11 @@ public class ReturnOrderService implements IReturnOrderService {
                 returnOrder.setInventoryDisposition(inventoryDisposition);
                 returnOrder.setInventoryProcessed(true);
             }
+            // Dữ liệu cũ có thể chưa có resolution; giữ RECEIVED để admin chọn
+            // một lần trong màn hình migration thay vì tự suy đoán phương án.
+            if (returnOrder.getResolution() != null) {
+                advanceToRequestedResolution(returnOrder, null);
+            }
         }
 
         // Chỉ tạo vận đơn GHN cho case có hàng thực sự cần lấy về
@@ -160,16 +171,27 @@ public class ReturnOrderService implements IReturnOrderService {
 
     /**
      * Admin quyết định cách giải quyết cuối cùng: hoàn tiền hoặc giao lại hàng.
-     * MISSING_ITEM: chỉ hỗ trợ REFUND, không hỗ trợ REDELIVER.
-     * RETURN / WRONG_ITEM: hỗ trợ cả REFUND và REDELIVER.
+     * Xác nhận phương án khách đã chọn. MISSING_ITEM được xử lý ngay, các case
+     * có hàng vật lý chỉ được rẽ nhánh sau khi kho nhận và kiểm tra.
      */
     public ReturnOrder resolveReturn(String id, ReturnOrder.ResolutionType resolutionType, String note) {
         ReturnOrder returnOrder = returnOrderRepository.findById(id).orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
 
+        if (returnOrder.getResolution() == resolutionType
+                && ((resolutionType == ReturnOrder.ResolutionType.REFUND
+                        && (returnOrder.getStatus() == ReturnOrder.ReturnStatus.REFUND_PENDING
+                            || returnOrder.getStatus() == ReturnOrder.ReturnStatus.REFUNDED))
+                    || (resolutionType == ReturnOrder.ResolutionType.REDELIVER
+                        && (returnOrder.getStatus() == ReturnOrder.ReturnStatus.REDELIVERY_PENDING
+                            || returnOrder.getStatus() == ReturnOrder.ReturnStatus.REDELIVERING
+                            || returnOrder.getStatus() == ReturnOrder.ReturnStatus.RESOLVED)))) {
+            return returnOrder;
+        }
+
         // Chỉ giải quyết khi đơn đang ở trạng thái phù hợp
         boolean canResolve = switch (returnOrder.getStatus()) {
-            case RECEIVED -> true;  // Đã nhận hàng về và kiểm tra OK
-            case PENDING -> returnOrder.getClaimType() == ReturnOrder.ClaimType.MISSING_ITEM; // Thiếu hàng: resolve ngay từ PENDING
+            case RECEIVED -> returnOrder.getClaimType() != ReturnOrder.ClaimType.MISSING_ITEM;
+            case PENDING -> returnOrder.getClaimType() == ReturnOrder.ClaimType.MISSING_ITEM;
             default -> false;
         };
         if (!canResolve) {
@@ -178,49 +200,12 @@ public class ReturnOrderService implements IReturnOrderService {
         if (resolutionType == null) {
             throw badRequest("Cần chọn hướng xử lý: hoàn tiền hoặc giao lại hàng");
         }
-        // MISSING_ITEM chỉ hỗ trợ REFUND, không giao lại để tránh phức tạp
-        if (returnOrder.getClaimType() == ReturnOrder.ClaimType.MISSING_ITEM
-                && resolutionType == ReturnOrder.ResolutionType.REDELIVER) {
-            throw badRequest("Đơn giao thiếu chỉ hỗ trợ hoàn tiền, không hỗ trợ giao lại");
+        if (returnOrder.getResolution() != null && returnOrder.getResolution() != resolutionType) {
+            throw conflict("Phương án xử lý không khớp với lựa chọn của khách hàng");
         }
 
         returnOrder.setResolution(resolutionType);
-
-        if (resolutionType == ReturnOrder.ResolutionType.REDELIVER) {
-            // Tạo đơn giao bù, nhân viên kho sẽ xử lý xuất hàng
-            CompensationOrder.CompensationType compensationType = returnOrder.getClaimType() == ReturnOrder.ClaimType.MISSING_ITEM
-                    ? CompensationOrder.CompensationType.REDELIVER_MISSING
-                    : CompensationOrder.CompensationType.REDELIVER_CORRECT;
-
-            List<CompensationOrder.CompensationItem> compensationItems = returnOrder.getItems().stream()
-                    .map(item -> CompensationOrder.CompensationItem.builder()
-                            .productId(item.getProductId())
-                            .variantId(item.getVariantId())
-                            .sku(item.getSku())
-                            .variantName(item.getVariantName())
-                            .productName(item.getProductName())
-                            .imageUrl(item.getImageUrl())
-                            .quantity(item.getQuantity())
-                            .unit(item.getUnit())
-                            .unitPrice(item.getUnitPrice())
-                            .build())
-                    .collect(Collectors.toList());
-
-            CompensationOrder compensationOrder = CompensationOrder.builder()
-                    .returnOrderId(returnOrder.getId())
-                    .orderId(returnOrder.getOrderId())
-                    .orderCode(returnOrder.getOrderCode())
-                    .customerId(returnOrder.getCustomerId())
-                    .customerName(returnOrder.getCustomerName())
-                    .type(compensationType)
-                    .items(compensationItems)
-                    .note(note != null ? note.trim() : null)
-                    .status(CompensationOrder.CompensationStatus.PENDING)
-                    .build();
-            compensationOrderRepository.save(compensationOrder);
-            log.info("Created CompensationOrder for ReturnOrder {} with type {}", returnOrder.getId(), compensationType);
-        }
-
+        advanceToRequestedResolution(returnOrder, note);
         return returnOrderRepository.save(returnOrder);
     }
 
@@ -293,10 +278,15 @@ public class ReturnOrderService implements IReturnOrderService {
         }
         Order order = orderRepository.findById(returnOrder.getOrderId()).orElseThrow(() -> notFound("Không tìm thấy đơn hàng gốc"));
         ReturnCalculation calculation = calculateReturn(order, request.items());
+        ReturnOrder.ClaimType claimType = request.claimType() != null ? request.claimType() : ReturnOrder.ClaimType.RETURN;
+        validateClaimDetails(claimType, request.wrongItems());
+        returnOrder.setClaimType(claimType);
+        returnOrder.setResolution(request.resolution());
         returnOrder.setReason(request.reason().trim());
         returnOrder.setDescription(request.description().trim());
         returnOrder.setImageUrls(List.copyOf(request.imageUrls()));
         returnOrder.setItems(calculation.items());
+        returnOrder.setWrongItems(toWrongItems(request.wrongItems()));
         returnOrder.setRefundAmount(calculation.totalRefund());
         if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.REJECTED) {
             returnOrder.setStatus(ReturnOrder.ReturnStatus.PENDING);
@@ -324,6 +314,17 @@ public class ReturnOrderService implements IReturnOrderService {
             BigDecimal subTotal = originalItem.getUnitPrice().multiply(BigDecimal.valueOf(requestedItem.quantity()));
             totalRefund = totalRefund.add(subTotal);
             returnItems.add(ReturnOrder.ReturnItem.builder().productId(originalItem.getProductId()).variantId(originalItem.getVariantId()).sku(originalItem.getSku()).variantName(originalItem.getVariantName()).productName(originalItem.getProductName()).imageUrl(originalItem.getImageUrl()).quantity(requestedItem.quantity()).unit(originalItem.getUnit()).unitPrice(originalItem.getUnitPrice()).subTotal(subTotal).build());
+        }
+        BigDecimal orderGross = order.getItems().stream()
+                .map(item -> item.getUnitPrice() == null || item.getQuantity() == null
+                        ? BigDecimal.ZERO
+                        : item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal discount = order.getDiscountAmount() == null ? BigDecimal.ZERO : order.getDiscountAmount();
+        if (orderGross.signum() > 0 && discount.signum() > 0) {
+            BigDecimal allocatedDiscount = discount.multiply(totalRefund)
+                    .divide(orderGross, 2, RoundingMode.HALF_UP);
+            totalRefund = totalRefund.subtract(allocatedDiscount).max(BigDecimal.ZERO);
         }
         return new ReturnCalculation(List.copyOf(returnItems), totalRefund);
     }
@@ -406,6 +407,81 @@ public class ReturnOrderService implements IReturnOrderService {
             item.setVariantId(original.getVariantId());
             item.setSku(original.getSku());
             item.setVariantName(original.getVariantName());
+        }
+    }
+
+    private void validateClaimDetails(ReturnOrder.ClaimType claimType, List<WrongItemRequest> wrongItems) {
+        if (claimType == ReturnOrder.ClaimType.WRONG_ITEM && (wrongItems == null || wrongItems.isEmpty())) {
+            throw badRequest("Cần khai báo sản phẩm thực tế đã nhận sai");
+        }
+    }
+
+    private List<ReturnOrder.WrongItem> toWrongItems(List<WrongItemRequest> wrongItems) {
+        if (wrongItems == null || wrongItems.isEmpty()) {
+            return List.of();
+        }
+        return wrongItems.stream()
+                .map(item -> ReturnOrder.WrongItem.builder()
+                        .productId(item.productId().trim())
+                        .variantId(item.variantId().trim())
+                        .sku(normalized(item.sku()))
+                        .productName(item.productName().trim())
+                        .variantName(normalized(item.variantName()))
+                        .quantity(item.quantity())
+                        .build())
+                .toList();
+    }
+
+    private void advanceToRequestedResolution(ReturnOrder returnOrder, String note) {
+        if (returnOrder.getResolution() == null) {
+            throw conflict("Khiếu nại chưa có phương án xử lý do khách hàng lựa chọn");
+        }
+        if (returnOrder.getResolution() == ReturnOrder.ResolutionType.REFUND) {
+            returnOrder.setStatus(ReturnOrder.ReturnStatus.REFUND_PENDING);
+            return;
+        }
+        createCompensationIfAbsent(returnOrder, note);
+        returnOrder.setStatus(ReturnOrder.ReturnStatus.REDELIVERY_PENDING);
+    }
+
+    private void createCompensationIfAbsent(ReturnOrder returnOrder, String note) {
+        if (compensationOrderRepository.findByReturnOrderId(returnOrder.getId()).isPresent()) {
+            return;
+        }
+        CompensationOrder.CompensationType type =
+                returnOrder.getClaimType() == ReturnOrder.ClaimType.MISSING_ITEM
+                        ? CompensationOrder.CompensationType.REDELIVER_MISSING
+                        : CompensationOrder.CompensationType.REDELIVER_CORRECT;
+        List<CompensationOrder.CompensationItem> items = returnOrder.getItems().stream()
+                .map(item -> CompensationOrder.CompensationItem.builder()
+                        .productId(item.getProductId())
+                        .variantId(item.getVariantId())
+                        .sku(item.getSku())
+                        .variantName(item.getVariantName())
+                        .productName(item.getProductName())
+                        .imageUrl(item.getImageUrl())
+                        .quantity(item.getQuantity())
+                        .unit(item.getUnit())
+                        .unitPrice(item.getUnitPrice())
+                        .build())
+                .toList();
+        try {
+            compensationOrderRepository.save(CompensationOrder.builder()
+                    .returnOrderId(returnOrder.getId())
+                    .orderId(returnOrder.getOrderId())
+                    .orderCode(returnOrder.getOrderCode())
+                    .customerId(returnOrder.getCustomerId())
+                    .customerName(returnOrder.getCustomerName())
+                    .type(type)
+                    .items(items)
+                    .note(note == null || note.isBlank() ? null : note.trim())
+                    .status(CompensationOrder.CompensationStatus.PENDING)
+                    .build());
+        } catch (DuplicateKeyException duplicateRequest) {
+            // Một request đồng thời đã tạo đơn giao bù cho cùng khiếu nại.
+            if (compensationOrderRepository.findByReturnOrderId(returnOrder.getId()).isEmpty()) {
+                throw duplicateRequest;
+            }
         }
     }
 

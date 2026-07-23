@@ -47,7 +47,12 @@ const RETURN_STATUS_VN = {
   DELIVERING: 'Đang trả hàng',
   DELIVERED: 'Đang trả hàng',
   RECEIVED: 'Hoàn tất trả hàng',
-  REFUNDED: 'Hoàn tất trả hàng',
+  REFUND_PENDING: 'Chờ hoàn tiền',
+  REFUNDED: 'Đã hoàn tiền',
+  REDELIVERY_PENDING: 'Chờ giao lại',
+  REDELIVERING: 'Đang giao lại',
+  RESOLVED: 'Đã giao lại thành công',
+  INSPECTION_FAILED: 'Không đạt kiểm tra',
   REJECTED: 'Bị từ chối'
 }
 
@@ -261,6 +266,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState(null)
   const [returnRequest, setReturnRequest] = useState(null)
   const [refundRequest, setRefundRequest] = useState(null)
+  const [compensationOrder, setCompensationOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmDeleteReturn, setConfirmDeleteReturn] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(null)
@@ -276,12 +282,20 @@ export default function OrderDetailPage() {
           const returnData = await httpClient.get(`/returns/order/${id}`)
           setReturnRequest(returnData)
           
-          if (returnData && (returnData.status === 'RECEIVED' || returnData.status === 'REFUNDED')) {
+          if (returnData && (returnData.status === 'REFUND_PENDING' || returnData.status === 'REFUNDED')) {
             try {
               const refundData = await httpClient.get(`/refunds/return-order/${returnData.id}`)
               setRefundRequest(refundData)
             } catch {
               // Ignore if no refund request exists yet
+            }
+          }
+          if (returnData?.resolution === 'REDELIVER') {
+            try {
+              const compensation = await httpClient.get(`/compensations/return-order/${returnData.id}`)
+              setCompensationOrder(compensation)
+            } catch {
+              // Đơn giao bù chỉ xuất hiện sau khi khiếu nại được duyệt/kiểm hàng.
             }
           }
         } catch {
@@ -377,6 +391,24 @@ export default function OrderDetailPage() {
                     {RETURN_STATUS_VN[returnRequest.status] || returnRequest.status}
                   </div>
                 </div>
+
+                <div>
+                  <p className="text-caption text-on-surface-variant mb-1">Phương án bạn đã chọn</p>
+                  <div className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold ${
+                    !returnRequest.resolution
+                      ? 'border-amber-200 bg-amber-50 text-amber-800'
+                      : returnRequest.resolution === 'REFUND'
+                      ? 'border-teal-200 bg-teal-50 text-teal-800'
+                      : 'border-indigo-200 bg-indigo-50 text-indigo-800'
+                  }`}>
+                    <Icon name={!returnRequest.resolution ? 'schedule' : returnRequest.resolution === 'REFUND' ? 'payments' : 'local_shipping'} />
+                    {!returnRequest.resolution
+                      ? 'Chờ xác nhận phương án'
+                      : returnRequest.resolution === 'REFUND'
+                      ? 'Hoàn tiền'
+                      : returnRequest.claimType === 'MISSING_ITEM' ? 'Giao bù hàng thiếu' : 'Giao lại sản phẩm đúng'}
+                  </div>
+                </div>
                 
                 <div>
                   <p className="text-caption text-on-surface-variant mb-1">Lý do khiếu nại</p>
@@ -418,7 +450,13 @@ export default function OrderDetailPage() {
               </div>
               
               <div>
-                <p className="text-caption text-on-surface-variant mb-2">Sản phẩm yêu cầu trả</p>
+                <p className="text-caption text-on-surface-variant mb-2">
+                  {returnRequest.claimType === 'MISSING_ITEM'
+                    ? 'Sản phẩm bị giao thiếu'
+                    : returnRequest.claimType === 'WRONG_ITEM'
+                      ? 'Sản phẩm đáng lẽ phải nhận'
+                      : 'Sản phẩm gửi trả'}
+                </p>
                 <div className="rounded-2xl border border-orange-100 overflow-hidden divide-y divide-orange-100">
                   {returnRequest.items?.map((item, idx) => (
                     <div key={idx} className="flex items-center gap-3 p-3 bg-orange-50/30">
@@ -433,19 +471,25 @@ export default function OrderDetailPage() {
                     </div>
                   ))}
                   <div className="p-3 bg-orange-50 flex justify-between items-center border-t border-orange-200">
-                    <span className="font-semibold text-sm text-gray-700">Tổng tiền hoàn dự kiến:</span>
+                    <span className="font-semibold text-sm text-gray-700">
+                      {returnRequest.resolution === 'REFUND' ? 'Tổng tiền hoàn dự kiến:' : 'Giá trị sản phẩm xử lý:'}
+                    </span>
                     <span className="font-bold text-lg text-primary">{money(returnRequest.refundAmount)}</span>
                   </div>
                 </div>
 
                 {/* Phần Nhập thông tin hoàn tiền */}
-                {returnRequest.status === 'RECEIVED' && !refundRequest && (
+                {returnRequest.status === 'REFUND_PENDING' && returnRequest.resolution === 'REFUND' && !refundRequest && (
                   <div className="mt-4 bg-teal-50 border border-teal-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                       <h4 className="font-bold text-teal-800 flex items-center gap-2 mb-1">
-                        <Icon name="account_balance" className="text-xl" /> Hàng đã về kho
+                        <Icon name="account_balance" className="text-xl" /> Yêu cầu đã đủ điều kiện hoàn tiền
                       </h4>
-                      <p className="text-sm text-teal-700">SkinGuide đã nhận được hàng trả của bạn. Vui lòng cung cấp số tài khoản để chúng tôi tiến hành hoàn tiền.</p>
+                      <p className="text-sm text-teal-700">
+                        {returnRequest.claimType === 'MISSING_ITEM'
+                          ? 'Khiếu nại giao thiếu đã được duyệt. Vui lòng cung cấp số tài khoản để chúng tôi tiến hành hoàn tiền.'
+                          : 'SkinGuide đã nhận và kiểm tra hàng trả. Vui lòng cung cấp số tài khoản để chúng tôi tiến hành hoàn tiền.'}
+                      </p>
                     </div>
                     <button
                       onClick={() => setShowRefundModal(true)}
@@ -453,6 +497,26 @@ export default function OrderDetailPage() {
                     >
                       Nhập thông tin nhận tiền
                     </button>
+                  </div>
+                )}
+
+                {returnRequest.resolution === 'REDELIVER' && ['REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(returnRequest.status) && (
+                  <div className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-5">
+                    <h4 className="flex items-center gap-2 font-bold text-indigo-900">
+                      <Icon name={returnRequest.status === 'RESOLVED' ? 'check_circle' : 'local_shipping'} />
+                      {returnRequest.status === 'REDELIVERY_PENDING' && 'Kho đang chuẩn bị sản phẩm giao lại'}
+                      {returnRequest.status === 'REDELIVERING' && 'Sản phẩm đang được giao lại'}
+                      {returnRequest.status === 'RESOLVED' && 'Đã giao lại sản phẩm thành công'}
+                    </h4>
+                    <p className="mt-2 text-sm text-indigo-700">SkinGuide chịu toàn bộ phí vận chuyển cho đơn giao lại này.</p>
+                    {(compensationOrder?.trackingCode || returnRequest.redeliveryTrackingCode) && (
+                      <div className="mt-3 rounded-xl border border-indigo-200 bg-white p-3 text-sm">
+                        <span className="text-indigo-600">Mã vận đơn giao lại:</span>
+                        <p className="mt-1 font-bold text-indigo-950">
+                          {compensationOrder?.trackingCode || returnRequest.redeliveryTrackingCode}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -731,8 +795,12 @@ export default function OrderDetailPage() {
               </div>
               <div className="flex justify-between text-body-sm font-medium mb-2">
                 <span className="text-on-surface-variant">Trạng thái thanh toán</span>
-                <span className={order.paymentStatus === 'PAID' ? 'text-teal-600 font-bold' : 'text-error font-bold'}>
-                  {order.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                <span className={['PAID', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(order.paymentStatus) ? 'text-teal-600 font-bold' : 'text-error font-bold'}>
+                  {order.paymentStatus === 'PAID'
+                    ? 'Đã thanh toán'
+                    : order.paymentStatus === 'PARTIALLY_REFUNDED'
+                      ? 'Đã hoàn một phần'
+                      : order.paymentStatus === 'REFUNDED' ? 'Đã hoàn tiền' : 'Chưa thanh toán'}
                 </span>
               </div>
               <div className="flex justify-between text-body-sm font-medium mb-3 border-b border-border-pink pb-3">

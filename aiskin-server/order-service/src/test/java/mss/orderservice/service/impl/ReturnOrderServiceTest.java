@@ -7,7 +7,9 @@ import mss.orderservice.dto.ReturnRequest;
 import mss.orderservice.model.Order;
 import mss.orderservice.model.OrderItem;
 import mss.orderservice.model.ReturnOrder;
+import mss.orderservice.model.CompensationOrder;
 import mss.orderservice.repository.OrderRepository;
+import mss.orderservice.repository.CompensationOrderRepository;
 import mss.orderservice.repository.ReturnOrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.times;
 
 class ReturnOrderServiceTest {
 
@@ -29,6 +32,7 @@ class ReturnOrderServiceTest {
     private OrderRepository orderRepository;
 
     private ReturnInventoryClient returnInventoryClient;
+    private CompensationOrderRepository compensationOrderRepository;
 
     private IGhnService ghnService;
 
@@ -39,8 +43,9 @@ class ReturnOrderServiceTest {
         returnOrderRepository = mock(ReturnOrderRepository.class);
         orderRepository = mock(OrderRepository.class);
         returnInventoryClient = mock(ReturnInventoryClient.class);
+        compensationOrderRepository = mock(CompensationOrderRepository.class);
         ghnService = mock(GhnService.class);
-        service = new ReturnOrderService(returnOrderRepository, orderRepository, ghnService, returnInventoryClient);
+        service = new ReturnOrderService(returnOrderRepository, compensationOrderRepository, orderRepository, ghnService, returnInventoryClient);
         when(returnOrderRepository.save(any(ReturnOrder.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
@@ -58,7 +63,10 @@ class ReturnOrderServiceTest {
 
     @Test
     void receivingReturnProcessesInventoryOnceWithSelectedDisposition() {
-        ReturnOrder returnOrder = ReturnOrder.builder().id("return-1").orderId("order-1").orderCode("ORD-1").status(ReturnOrder.ReturnStatus.DELIVERED).inventoryProcessed(false).items(List.of(ReturnOrder.ReturnItem.builder().productId("product-1").variantId("variant-2").sku("SKU-2").quantity(1).build())).build();
+        ReturnOrder returnOrder = ReturnOrder.builder().id("return-1").orderId("order-1").orderCode("ORD-1")
+                .claimType(ReturnOrder.ClaimType.RETURN).resolution(ReturnOrder.ResolutionType.REFUND)
+                .status(ReturnOrder.ReturnStatus.DELIVERED).inventoryProcessed(false)
+                .items(List.of(ReturnOrder.ReturnItem.builder().productId("product-1").variantId("variant-2").sku("SKU-2").quantity(1).build())).build();
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
         ReturnOrder result = service.updateReturnStatus("return-1", ReturnOrder.ReturnStatus.RECEIVED, null, ReturnOrder.InventoryDisposition.DAMAGED);
         verify(returnInventoryClient).process(returnOrder, ReturnOrder.InventoryDisposition.DAMAGED);
@@ -72,7 +80,7 @@ class ReturnOrderServiceTest {
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
         service.updateReturnStatus("return-1", ReturnOrder.ReturnStatus.RECEIVED, null, ReturnOrder.InventoryDisposition.RESTOCK);
         verify(returnInventoryClient).process(returnOrder, ReturnOrder.InventoryDisposition.RESTOCK);
-        assertThat(returnOrder.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.RECEIVED);
+        assertThat(returnOrder.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.REFUND_PENDING);
     }
 
     @Test
@@ -97,12 +105,58 @@ class ReturnOrderServiceTest {
         verify(returnOrderRepository, never()).save(any());
     }
 
+    @Test
+    void missingItemRefundSkipsPhysicalReturnAndMovesToRefund() {
+        ReturnOrder claim = ReturnOrder.builder()
+                .id("return-1").orderId("order-1").orderCode("ORD-1")
+                .claimType(ReturnOrder.ClaimType.MISSING_ITEM)
+                .resolution(ReturnOrder.ResolutionType.REFUND)
+                .status(ReturnOrder.ReturnStatus.PENDING)
+                .items(List.of(ReturnOrder.ReturnItem.builder().productId("product-1").quantity(1).build()))
+                .build();
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(claim));
+
+        ReturnOrder result = service.resolveReturn("return-1", ReturnOrder.ResolutionType.REFUND, null);
+
+        assertThat(result.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.REFUND_PENDING);
+        verify(returnInventoryClient, never()).process(any(), any());
+        verify(compensationOrderRepository, never()).save(any());
+    }
+
+    @Test
+    void missingItemRedeliveryCreatesOnlyOneCompensationOrder() {
+        ReturnOrder claim = ReturnOrder.builder()
+                .id("return-1").orderId("order-1").orderCode("ORD-1")
+                .customerId("customer-1").customerName("Customer")
+                .claimType(ReturnOrder.ClaimType.MISSING_ITEM)
+                .resolution(ReturnOrder.ResolutionType.REDELIVER)
+                .status(ReturnOrder.ReturnStatus.PENDING)
+                .items(List.of(ReturnOrder.ReturnItem.builder()
+                        .productId("product-1").variantId("variant-1").quantity(1).build()))
+                .build();
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(claim));
+        when(compensationOrderRepository.findByReturnOrderId("return-1")).thenReturn(Optional.empty());
+
+        service.resolveReturn("return-1", ReturnOrder.ResolutionType.REDELIVER, "Giao bù");
+        service.resolveReturn("return-1", ReturnOrder.ResolutionType.REDELIVER, "Gọi lặp");
+
+        assertThat(claim.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.REDELIVERY_PENDING);
+        verify(compensationOrderRepository, times(1)).save(any(CompensationOrder.class));
+    }
+
     private ReturnRequest returnRequest() {
-        return new ReturnRequest("Không phù hợp", "Sản phẩm gây kích ứng khi sử dụng", List.of("/api/orders/uploads/123e4567-e89b-12d3-a456-426614174000.jpg"), List.of(new ReturnItemRequest("product-1", "variant-2", "SKU-2", "100 ml", 1)));
+        return new ReturnRequest(ReturnOrder.ClaimType.RETURN, ReturnOrder.ResolutionType.REFUND,
+                "Không phù hợp", "Sản phẩm gây kích ứng khi sử dụng",
+                List.of("/api/orders/uploads/123e4567-e89b-12d3-a456-426614174000.jpg"),
+                List.of(new ReturnItemRequest("product-1", "variant-2", "SKU-2", "100 ml", 1)),
+                List.of());
     }
 
     private ReturnOrder returnOrder(ReturnOrder.ReturnStatus status) {
-        return ReturnOrder.builder().id("return-1").orderId("order-1").orderCode("ORD-1").status(status).inventoryProcessed(false).items(List.of(ReturnOrder.ReturnItem.builder().productId("product-1").variantId("variant-2").sku("SKU-2").quantity(1).build())).build();
+        return ReturnOrder.builder().id("return-1").orderId("order-1").orderCode("ORD-1")
+                .claimType(ReturnOrder.ClaimType.RETURN).resolution(ReturnOrder.ResolutionType.REFUND)
+                .status(status).inventoryProcessed(false)
+                .items(List.of(ReturnOrder.ReturnItem.builder().productId("product-1").variantId("variant-2").sku("SKU-2").quantity(1).build())).build();
     }
 
     private Order deliveredOrder() {

@@ -12,11 +12,13 @@ import java.util.Optional;
 
 public interface CompensationOrderRepository extends MongoRepository<CompensationOrder, String> {
 
-    List<CompensationOrder> findByReturnOrderId(String returnOrderId);
+    Optional<CompensationOrder> findByReturnOrderId(String returnOrderId);
 
     Optional<CompensationOrder> findByOrderId(String orderId);
 
     List<CompensationOrder> findByCustomerId(String customerId);
 
     List<CompensationOrder> findByStatus(CompensationOrder.CompensationStatus status);
+
+    Optional<CompensationOrder> findByTrackingCode(String trackingCode);
 }

@@ -84,15 +84,18 @@ function StatusBadge({ status }) {
 
 function PaymentBadge({ status }) {
   const paid = status === 'PAID'
-  const failed = status === 'FAILED' || status === 'REFUNDED'
+  const refunded = status === 'REFUNDED' || status === 'PARTIALLY_REFUNDED'
+  const failed = status === 'FAILED'
   return (
     <span
       className={[
         'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold',
-        paid ? 'bg-emerald-50 text-emerald-700' : failed ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700',
+        paid ? 'bg-emerald-50 text-emerald-700'
+          : refunded ? 'bg-cyan-50 text-cyan-700'
+            : failed ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700',
       ].join(' ')}
     >
-      {status || 'UNPAID'}
+      {status === 'PARTIALLY_REFUNDED' ? 'HOÀN MỘT PHẦN' : status === 'REFUNDED' ? 'ĐÃ HOÀN TIỀN' : status || 'UNPAID'}
     </span>
   )
 }

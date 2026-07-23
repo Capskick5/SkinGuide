@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.math.BigDecimal;
@@ -28,6 +29,7 @@ public class CompensationOrder {
     private String id;
 
     // Liên kết đến đơn khiếu nại gốc
+    @Indexed(unique = true)
     private String returnOrderId;
     private String orderId;
     private String orderCode;
@@ -47,6 +49,18 @@ public class CompensationOrder {
     // Trạng thái xử lý bởi kho
     private CompensationStatus status;
 
+    private String courier;
+    private String trackingCode;
+    private BigDecimal shippingFee;
+
+    @Builder.Default
+    private Boolean inventoryReserved = false;
+
+    @Builder.Default
+    private Boolean inventoryCommitted = false;
+
+    private String failureReason;
+
     @CreatedDate
     private LocalDateTime createdAt;
 
@@ -59,8 +73,13 @@ public class CompensationOrder {
     }
 
     public enum CompensationStatus {
-        PENDING,    // Chờ kho xử lý
-        COMPLETED   // Kho đã xuất hàng và giao bù xong
+        PENDING,
+        INVENTORY_RESERVED,
+        READY_TO_SHIP,
+        SHIPPING,
+        COMPLETED,
+        FAILED,
+        CANCELLED
     }
 
     @Data

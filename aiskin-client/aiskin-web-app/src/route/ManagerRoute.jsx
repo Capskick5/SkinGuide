@@ -24,7 +24,7 @@ export default function ManagerRoute() {
     return <Navigate to={PATHS.LOGIN} replace />
   }
 
-  const hasAdminAccess = user?.roles?.some(role => role !== 'USER')
+  const hasAdminAccess = user?.roles?.some(role => ['ADMIN', 'MANAGER'].includes(role))
   if (!hasAdminAccess) {
     return <Navigate to={PATHS.PRODUCTS} replace />
   }

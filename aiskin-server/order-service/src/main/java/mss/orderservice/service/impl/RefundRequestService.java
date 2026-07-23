@@ -37,8 +37,11 @@ public class RefundRequestService implements IRefundRequestService {
         if (!returnOrder.getCustomerId().equals(customerId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không có quyền tạo yêu cầu hoàn tiền cho đơn này");
         }
-        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.RECEIVED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn khiếu nại chưa hoàn tất trả hàng, không thể tạo yêu cầu hoàn tiền");
+        if (returnOrder.getResolution() != ReturnOrder.ResolutionType.REFUND) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Khiếu nại này đã chọn phương án giao lại, không thể yêu cầu hoàn tiền");
+        }
+        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.REFUND_PENDING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Khiếu nại chưa đến giai đoạn hoàn tiền");
         }
         if (refundRequestRepository.findByReturnOrderId(returnOrder.getId()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn này đã có yêu cầu hoàn tiền");
@@ -72,18 +75,30 @@ public class RefundRequestService implements IRefundRequestService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Chỉ có thể hoàn tất yêu cầu đang chờ xử lý");
         }
         ReturnOrder returnOrder = returnOrderRepository.findById(request.getReturnOrderId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Không tìm thấy yêu cầu trả hàng tương ứng"));
-        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.RECEIVED && returnOrder.getStatus() != ReturnOrder.ReturnStatus.REFUNDED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Kho chưa xác nhận nhận hàng trả nên chưa thể hoàn tiền");
+        if (returnOrder.getResolution() != ReturnOrder.ResolutionType.REFUND) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Khiếu nại không được giải quyết bằng hoàn tiền");
         }
-        if (!Boolean.TRUE.equals(returnOrder.getInventoryProcessed())) {
+        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.REFUND_PENDING && returnOrder.getStatus() != ReturnOrder.ReturnStatus.REFUNDED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Khiếu nại chưa đến giai đoạn hoàn tiền");
+        }
+        boolean needsReturnedInventory = returnOrder.getClaimType() != ReturnOrder.ClaimType.MISSING_ITEM;
+        if (needsReturnedInventory && !Boolean.TRUE.equals(returnOrder.getInventoryProcessed())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Hàng trả chưa được kho phân loại nên chưa thể hoàn tiền");
         }
         Order order = orderRepository.findById(request.getOrderId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Không tìm thấy đơn hàng gốc"));
-        if (order.getPaymentStatus() != Order.PaymentStatus.PAID && order.getPaymentStatus() != Order.PaymentStatus.REFUNDED) {
+        if (order.getPaymentStatus() != Order.PaymentStatus.PAID
+                && order.getPaymentStatus() != Order.PaymentStatus.PARTIALLY_REFUNDED
+                && order.getPaymentStatus() != Order.PaymentStatus.REFUNDED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Trạng thái thanh toán của đơn hàng không cho phép hoàn tiền");
         }
         if (order.getPaymentStatus() != Order.PaymentStatus.REFUNDED) {
-            order.setPaymentStatus(Order.PaymentStatus.REFUNDED);
+            java.math.BigDecimal alreadyRefunded = order.getRefundedAmount() == null
+                    ? java.math.BigDecimal.ZERO : order.getRefundedAmount();
+            java.math.BigDecimal newRefunded = alreadyRefunded.add(request.getAmount());
+            order.setRefundedAmount(newRefunded);
+            order.setPaymentStatus(newRefunded.compareTo(order.getTotalAmount()) >= 0
+                    ? Order.PaymentStatus.REFUNDED
+                    : Order.PaymentStatus.PARTIALLY_REFUNDED);
             orderRepository.save(order);
         }
         if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.REFUNDED) {

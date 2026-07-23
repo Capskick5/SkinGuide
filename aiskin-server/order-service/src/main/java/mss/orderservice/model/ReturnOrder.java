@@ -44,6 +44,9 @@ public class ReturnOrder {
     // Danh sách sản phẩm trả lại
     private List<ReturnItem> items;
 
+    // Chỉ dùng cho WRONG_ITEM: hàng khách thực tế nhận nhầm và gửi trả về kho.
+    private List<WrongItem> wrongItems;
+
     // Số tiền hoàn trả (Thường bằng hoặc thấp hơn tổng tiền đơn hàng)
     private BigDecimal refundAmount;
 
@@ -54,6 +57,8 @@ public class ReturnOrder {
     private String returnCourier; // Đơn vị vận chuyển (VD: GHN, Viettel Post)
     private String returnTrackingCode; // Mã vận đơn trả hàng
     private String returnShipmentError; // Lỗi tạo vận đơn gần nhất, để admin biết cần xử lý thủ công
+    private String redeliveryTrackingCode;
+    private BigDecimal redeliveryShippingFee;
 
     // Loại khiếu nại - phân biệt nghiệp vụ từ đầu
     private ClaimType claimType;
@@ -91,7 +96,11 @@ public class ReturnOrder {
         REJECTED,           // Admin từ chối trả hàng (trước khi nhận hàng)
         RECEIVED,           // Kho đã nhận và kiểm tra hàng OK (Admin xác nhận)
         INSPECTION_FAILED,  // Hàng trả về không đúng/tráo hàng - từ chối sau kiểm tra
-        REFUNDED            // Đã hoàn tiền cho khách xong
+        REFUND_PENDING,     // Đã duyệt, chờ khách cung cấp/chờ xử lý hoàn tiền
+        REFUNDED,           // Đã hoàn tiền cho khách xong
+        REDELIVERY_PENDING, // Chờ kho xuất hàng giao lại
+        REDELIVERING,       // Đang giao sản phẩm đúng/thay thế
+        RESOLVED            // Đã giao lại thành công
     }
 
     public enum InventoryDisposition {
@@ -120,5 +129,18 @@ public class ReturnOrder {
         private String unit;
         private BigDecimal unitPrice;
         private BigDecimal subTotal; // quantity * unitPrice
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class WrongItem {
+        private String productId;
+        private String variantId;
+        private String sku;
+        private String productName;
+        private String variantName;
+        private Integer quantity;
     }
 }

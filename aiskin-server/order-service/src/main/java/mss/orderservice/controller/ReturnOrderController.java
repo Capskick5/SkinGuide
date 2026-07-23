@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import mss.orderservice.dto.ReturnRequest;
 import mss.orderservice.dto.ReturnStatusUpdateRequest;
 import mss.orderservice.dto.ReturnTrackingRequest;
+import mss.orderservice.dto.ReturnResolutionRequest;
 import mss.orderservice.model.ReturnOrder;
 import mss.orderservice.security.OrderAuthorizationService;
 import mss.orderservice.service.impl.ReturnOrderService;
@@ -76,14 +77,9 @@ public class ReturnOrderController {
     @PostMapping("/admin/{id}/resolve")
     @PreAuthorize("hasPermission('/api/returns/admin/{id}/resolve', 'POST')")
     @Operation(summary = "Resolve return", description = "Admin decides final resolution: REFUND or REDELIVER for missing/wrong item cases")
-    public ResponseEntity<ReturnOrder> resolveReturn(@PathVariable String id, @RequestBody Map<String, String> body) {
-        String resolutionStr = body.get("resolution");
-        String note = body.get("note");
-        if (resolutionStr == null || resolutionStr.isBlank()) {
-            return ResponseEntity.badRequest().build();
-        }
-        ReturnOrder.ResolutionType resolutionType = ReturnOrder.ResolutionType.valueOf(resolutionStr.toUpperCase());
-        return ResponseEntity.ok(returnOrderService.resolveReturn(id, resolutionType, note));
+    public ResponseEntity<ReturnOrder> resolveReturn(@PathVariable String id,
+                                                     @Valid @RequestBody ReturnResolutionRequest request) {
+        return ResponseEntity.ok(returnOrderService.resolveReturn(id, request.resolution(), request.note()));
     }
 
     @PutMapping("/{id}")

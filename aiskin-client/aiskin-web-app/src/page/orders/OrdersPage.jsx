@@ -317,7 +317,7 @@ export default function OrdersPage() {
                       Mã đơn: <span className="text-primary">{order.orderCode}</span>
                     </h3>
                     
-                    {returnRequests.find(r => r.orderId === order.id && r.status !== 'REFUNDED' && r.status !== 'REJECTED') && (
+                    {returnRequests.find(r => r.orderId === order.id && !['REFUNDED', 'RESOLVED', 'REJECTED', 'INSPECTION_FAILED'].includes(r.status)) && (
                       <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
                         <Icon name="gavel" className="text-[13px]" />
                         Đang khiếu nại
@@ -327,6 +327,12 @@ export default function OrdersPage() {
                       <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         <Icon name="price_check" className="text-[13px]" />
                         Đã trả hàng & Hoàn tiền
+                      </span>
+                    )}
+                    {returnRequests.find(r => r.orderId === order.id && r.status === 'RESOLVED') && (
+                      <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        <Icon name="local_shipping" className="text-[13px]" />
+                        Đã giao lại thành công
                       </span>
                     )}
 
