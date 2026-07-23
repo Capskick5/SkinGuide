@@ -46,6 +46,7 @@ export const PATHS = {
   ADMIN_INVENTORY: '/admin/inventory',
   ADMIN_ORDERS: '/admin/orders',
   ADMIN_RETURNS: '/admin/returns',
+  ADMIN_MISSING_ITEMS: '/admin/missing-items',
   ADMIN_SCANS: '/admin/scans',
   ADMIN_BRANDS: '/admin/brands',
   ADMIN_CATEGORIES: '/admin/categories',

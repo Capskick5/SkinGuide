@@ -24,12 +24,22 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import mss.productservice.service.IInventoryService;
 
+import mss.productservice.dto.response.InventorySummaryResponse;
+import mss.productservice.service.IProductService;
+
 @RestController
 @RequestMapping("/api/products/inventory")
 @RequiredArgsConstructor
 public class InventoryController {
 
     private final IInventoryService inventoryService;
+    private final IProductService productService;
+
+    @GetMapping("/summary")
+    @PreAuthorize("hasPermission('/api/products/inventory', 'GET')")
+    public ResponseEntity<ApiResponse<InventorySummaryResponse>> getSummary() {
+        return ResponseEntity.ok(ApiResponse.ok(productService.getInventorySummary()));
+    }
 
     @GetMapping("/movements")
     @PreAuthorize("hasPermission('/api/products/inventory/movements', 'GET')")
@@ -61,5 +71,11 @@ public class InventoryController {
     @PostMapping("/internal/process-return")
     public ResponseEntity<ApiResponse<InventoryReservationResponse>> processReturn(@Valid @RequestBody InventoryReturnRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(inventoryService.processReturn(request)));
+    }
+
+    @PostMapping("/internal/process-reserved-return")
+    public ResponseEntity<ApiResponse<InventoryReservationResponse>> processReservedReturn(
+            @Valid @RequestBody InventoryReturnRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(inventoryService.processReservedReturn(request)));
     }
 }

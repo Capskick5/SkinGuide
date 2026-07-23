@@ -16,11 +16,14 @@ import java.util.Optional;
 @Repository
 public interface ReturnOrderRepository extends MongoRepository<ReturnOrder, String> {
     List<ReturnOrder> findByCustomerId(String customerId);
-    Optional<ReturnOrder> findByOrderId(String orderId);
+    Optional<ReturnOrder> findFirstByOrderIdOrderByCreatedAtDesc(String orderId);
+    boolean existsByOrderIdAndSourceCompensationOrderIdIsNull(String orderId);
+    Optional<ReturnOrder> findBySourceCompensationOrderId(String sourceCompensationOrderId);
+    List<ReturnOrder> findByOrderIdOrderByCreatedAtAsc(String orderId);
     List<ReturnOrder> findByStatus(ReturnOrder.ReturnStatus status);
     Optional<ReturnOrder> findByReturnTrackingCode(String returnTrackingCode);
 
-    @org.springframework.data.mongodb.repository.Query("{ 'returnTrackingCode': { $exists: true, $ne: null }, 'status': { $nin: ['RECEIVED', 'REFUNDED', 'REJECTED'] } }")
+    @org.springframework.data.mongodb.repository.Query("{ 'returnTrackingCode': { $exists: true, $ne: null }, 'status': 'DELIVERING' }")
     List<ReturnOrder> findActiveGhnReturns();
 
     Page<ReturnOrder> findAll(Pageable pageable);

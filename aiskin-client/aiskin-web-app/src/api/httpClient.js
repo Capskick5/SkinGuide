@@ -47,6 +47,8 @@ export async function request(path, { method = 'GET', body, auth = true, headers
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    // API quản trị phải luôn lấy trạng thái mới nhất khi người dùng bấm làm mới.
+    cache: method === 'GET' ? 'no-store' : 'default',
   })
 
   // Access token hết hạn -> thử refresh một lần rồi gọi lại.

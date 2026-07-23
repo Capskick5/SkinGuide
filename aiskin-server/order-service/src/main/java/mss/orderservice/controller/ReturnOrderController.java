@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import mss.orderservice.dto.ReturnRequest;
 import mss.orderservice.dto.ReturnStatusUpdateRequest;
 import mss.orderservice.dto.ReturnTrackingRequest;
+import mss.orderservice.dto.ReturnResolutionRequest;
 import mss.orderservice.model.ReturnOrder;
 import mss.orderservice.security.OrderAuthorizationService;
 import mss.orderservice.service.impl.ReturnOrderService;
@@ -21,6 +22,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 import mss.orderservice.security.IOrderAuthorizationService;
+import mss.orderservice.security.IJwtService;
+import mss.orderservice.service.ICompensationOrderService;
 import mss.orderservice.service.IReturnOrderService;
 
 @RestController
@@ -32,13 +35,31 @@ public class ReturnOrderController {
 
     private final IReturnOrderService returnOrderService;
 
+    private final ICompensationOrderService compensationOrderService;
+
     private final IOrderAuthorizationService authorizationService;
+
+    private final IJwtService jwtService;
 
     @PostMapping("/order/{orderId}")
     @Operation(summary = "Create a return request", description = "Customer creates a return request for a delivered order")
     public ResponseEntity<ReturnOrder> createReturnRequest(@PathVariable String orderId, @Valid @RequestBody ReturnRequest request, Authentication authentication) {
         authorizationService.requireOrderAccess(orderId, authentication);
         return ResponseEntity.ok(returnOrderService.createReturnRequest(orderId, request));
+    }
+
+    @PostMapping("/compensation/{compensationOrderId}")
+    @Operation(
+            summary = "Create a complaint after redelivery",
+            description = "Customer reports a problem with a delivered compensation order. The only resolution is bank-transfer refund.")
+    public ResponseEntity<ReturnOrder> createCompensationReturnRequest(
+            @PathVariable String compensationOrderId,
+            @Valid @RequestBody ReturnRequest request,
+            Authentication authentication) {
+        var compensation = compensationOrderService.getById(compensationOrderId);
+        authorizationService.requireReturnAccess(compensation.getReturnOrderId(), authentication);
+        return ResponseEntity.ok(
+                returnOrderService.createCompensationReturnRequest(compensationOrderId, request));
     }
 
     @GetMapping("/order/{orderId}")
@@ -66,11 +87,62 @@ public class ReturnOrderController {
         return ResponseEntity.ok(returnOrderService.getAllReturns(page, size, status));
     }
 
+    @PutMapping("/admin/{id}/review")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER') and hasPermission('/api/returns/admin/{id}/status', 'PUT')")
+    @Operation(summary = "Mark return request as reviewed", description = "Admin/Manager confirms the complaint details were reviewed before making an approval decision.")
+    public ResponseEntity<ReturnOrder> reviewReturn(
+            @PathVariable String id,
+            Authentication authentication,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        return ResponseEntity.ok(returnOrderService.reviewReturn(
+                id,
+                authentication.getName(),
+                reviewerDisplayName(authorizationHeader)));
+    }
+
+    private String reviewerDisplayName(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            return "Tài khoản quản trị";
+        }
+        try {
+            var claims = jwtService.parse(authorizationHeader.substring(7));
+            String fullName = claims.get("fullName", String.class);
+            if (fullName != null && !fullName.isBlank()) {
+                return fullName.trim();
+            }
+            String email = claims.get("email", String.class);
+            return email == null || email.isBlank() ? "Tài khoản quản trị" : email.trim();
+        } catch (RuntimeException invalidToken) {
+            return "Tài khoản quản trị";
+        }
+    }
+
     @PutMapping("/admin/{id}/status")
     @PreAuthorize("hasPermission('/api/returns/admin/{id}/status', 'PUT')")
-    @Operation(summary = "Update return status", description = "Admin updates status of a return request")
-    public ResponseEntity<ReturnOrder> updateReturnStatus(@PathVariable String id, @Valid @RequestBody ReturnStatusUpdateRequest request) {
-        return ResponseEntity.ok(returnOrderService.updateReturnStatus(id, request.status(), request.rejectReason(), request.inventoryDisposition()));
+    @Operation(
+            summary = "Update return status",
+            description = "Admin manages approval and warehouse inspection. DELIVERING can only become DELIVERED through GHN. DELIVERED must enter INSPECTING before RECEIVED or INSPECTION_FAILED.")
+    public ResponseEntity<ReturnOrder> updateReturnStatus(@PathVariable String id,
+                                                          @Valid @RequestBody ReturnStatusUpdateRequest request,
+                                                          Authentication authentication) {
+        return ResponseEntity.ok(returnOrderService.updateReturnStatus(
+                id,
+                request.status(),
+                request.rejectReason(),
+                request.inventoryDisposition(),
+                request.inspectionNote(),
+                request.wrongItems(),
+                authentication.getName()));
+    }
+
+    @PostMapping("/admin/{id}/resolve")
+    @PreAuthorize("hasPermission('/api/returns/admin/{id}/resolve', 'POST')")
+    @Operation(summary = "Resolve return", description = "Admin decides final resolution: REFUND or REDELIVER for missing/wrong item cases")
+    public ResponseEntity<ReturnOrder> resolveReturn(@PathVariable String id,
+                                                     @Valid @RequestBody ReturnResolutionRequest request,
+                                                     Authentication authentication) {
+        return ResponseEntity.ok(returnOrderService.resolveReturn(
+                id, request.resolution(), request.note(), authentication.getName()));
     }
 
     @PutMapping("/{id}")
@@ -101,9 +173,10 @@ public class ReturnOrderController {
     public ResponseEntity<?> syncGhnReturnOrderStatusManual() {
         try {
             returnOrderService.syncGhnReturnOrderStatus();
+            compensationOrderService.syncGhnCompensationOrderStatus();
             return ResponseEntity.ok(Map.of("message", "Đồng bộ thành công"));
         } catch (Exception exception) {
-            log.error("Failed to synchronize GHN return statuses", exception);
+            log.error("Failed to synchronize GHN return and redelivery statuses", exception);
             return ResponseEntity.internalServerError().body(Map.of("message", "Không thể đồng bộ trạng thái GHN"));
         }
     }

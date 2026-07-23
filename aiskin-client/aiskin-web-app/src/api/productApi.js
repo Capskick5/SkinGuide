@@ -61,6 +61,7 @@ export const productApi = {
       skinType = '',
       concern = '',
       inStockOnly = '',
+      stockStatus = '',
       page = 1,
       size = 12,
     },
@@ -78,9 +79,13 @@ export const productApi = {
     if (skinType) params.append('skinType', skinType)
     if (concern) params.append('concern', concern)
     if (inStockOnly !== '' && inStockOnly !== null && inStockOnly !== undefined) params.append('inStockOnly', inStockOnly)
+    if (stockStatus) params.append('stockStatus', stockStatus)
     params.append('page', page)
     params.append('size', size)
     return request(`/products/search/advanced?${params.toString()}`, { auth })
+  },
+  async getInventorySummary({ auth = false } = {}) {
+    return request('/products/inventory/summary', { auth })
   },
   async listInventoryMovements({ productId = '', variantId = '', page = 0, size = 20 } = {}) {
     const params = new URLSearchParams({ page: String(page), size: String(size) })

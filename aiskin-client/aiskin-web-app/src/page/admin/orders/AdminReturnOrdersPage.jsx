@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { App as AntApp, Dropdown } from 'antd'
+import { App as AntApp, Dropdown, InputNumber } from 'antd'
 import Icon from '@/components/common/Icon'
 import ProtectedImage from '@/components/common/ProtectedImage'
 import httpClient from '@/api/httpClient'
 import { resolveImageUrl } from '@/page/products/productUtils'
+import { productApi } from '@/api/productApi'
+import { adminApi } from '@/api/adminApi'
+import { useAuth } from '@/hook/useAuth'
 
 function money(value) {
   if (value === null || value === undefined) return '0đ'
@@ -33,22 +36,52 @@ function getVisiblePages(currentPage, totalPages) {
   return pages
 }
 
+const CLAIM_TYPE = {
+  RETURN: { label: 'Trả hàng', icon: 'assignment_return', tone: 'bg-gray-100 text-gray-700 border-gray-200' },
+  MISSING_ITEM: { label: 'Giao thiếu', icon: 'remove_shopping_cart', tone: 'bg-amber-50 text-amber-700 border-amber-200' },
+  WRONG_ITEM: { label: 'Giao sai', icon: 'swap_horiz', tone: 'bg-orange-50 text-orange-700 border-orange-200' },
+}
+
 const RETURN_STATUS = {
   PENDING: { label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-  DELIVERING: { label: 'Đang vận chuyển hoàn', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  DELIVERED: { label: 'Đã giao đến kho', icon: 'done_all', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
+  DELIVERING: { label: 'Vận chuyển trả hàng', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  DELIVERED: { label: 'Đã về kho - Chờ kiểm hàng', icon: 'warehouse', tone: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
+  INSPECTING: { label: 'Đang kiểm hàng', icon: 'fact_check', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
   RECEIVED: { label: 'Đã nhận hàng trả', icon: 'inventory_2', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  INSPECTION_FAILED: { label: 'Từ chối sau kiểm tra', icon: 'gpp_bad', tone: 'bg-rose-50 text-rose-700 border-rose-200' },
+  REFUND_PENDING: { label: 'Chờ khách cung cấp STK', icon: 'payments', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
+  REFUND_PROCESSING: { label: 'Đã nhận STK - Chờ chuyển khoản', icon: 'account_balance', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
   REFUNDED: { label: 'Đã hoàn tiền', icon: 'price_check', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
+  REDELIVERY_PENDING: { label: 'Chờ giao lại', icon: 'inventory_2', tone: 'bg-violet-50 text-violet-700 border-violet-100' },
+  REDELIVERING: { label: 'Đang giao lại', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  RESOLVED: { label: 'Đã giao lại', icon: 'task_alt', tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
   REJECTED: { label: 'Từ chối', icon: 'block', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
 }
 
 const TABS = [
   { key: 'PENDING', query: 'PENDING', label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
-  { key: 'SHIPPING', query: 'DELIVERING,DELIVERED', label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  { key: 'RECEIVED', query: 'RECEIVED', label: 'Đã nhận trả', icon: 'inventory_2', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  { key: 'SHIPPING', query: 'DELIVERING', label: 'Vận chuyển trả hàng', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  { key: 'INSPECTION', query: 'DELIVERED,INSPECTING', label: 'Kiểm hàng', icon: 'fact_check', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
+  { key: 'REFUND', query: 'REFUND_PENDING,REFUND_PROCESSING', label: 'Chờ hoàn tiền', icon: 'payments', tone: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
+  { key: 'REDELIVERY', query: 'REDELIVERY_PENDING,REDELIVERING', label: 'Giao lại', icon: 'local_shipping', tone: 'bg-violet-50 text-violet-700 border-violet-100' },
   { key: 'REFUNDED', query: 'REFUNDED', label: 'Đã hoàn tiền', icon: 'price_check', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
-  { key: 'REJECTED', query: 'REJECTED', label: 'Từ chối', icon: 'block', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
+  { key: 'RESOLVED', query: 'RESOLVED', label: 'Đã giao lại', icon: 'task_alt', tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+  { key: 'REJECTED', query: 'REJECTED,INSPECTION_FAILED', label: 'Từ chối', icon: 'block', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
 ]
+
+const COMPENSATION_STATUS = {
+  PENDING: 'Chờ giữ tồn kho',
+  INVENTORY_RESERVED: 'Đã giữ tồn kho',
+  READY_TO_SHIP: 'Sẵn sàng tạo vận đơn',
+  SHIPPING: 'GHN đang giao lại',
+  WAITING_TO_RETURN: 'Khách từ chối - Chờ hoàn về kho',
+  RETURNING: 'Đang hoàn đơn giao lại về kho',
+  RETURNED_INSPECTION: 'Đã về kho - Chờ kiểm hàng',
+  REFUND_PENDING: 'Đã xử lý kho - Chờ hoàn tiền',
+  COMPLETED: 'Đã giao lại thành công',
+  FAILED: 'Xử lý thất bại',
+  CANCELLED: 'Đã hủy',
+}
 
 function StatusBadge({ status }) {
   const config = RETURN_STATUS[status] || { label: status, icon: 'info', tone: 'bg-gray-100 text-gray-700 border-gray-200' }
@@ -94,26 +127,59 @@ function RefundStatusCell({ returnId }) {
   )
 }
 
-function ReturnDetailsModal({ request, onClose }) {
+function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewer }) {
   const { message } = AntApp.useApp()
   const [fullOrder, setFullOrder] = useState(null)
-
+  const [reviewerProfile, setReviewerProfile] = useState(null)
   const [refundRequest, setRefundRequest] = useState(null)
   const [completing, setCompleting] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
   const [receiptUrl, setReceiptUrl] = useState('')
 
   useEffect(() => {
+    let active = true
+
     if (request?.orderId) {
       httpClient.get(`/orders/${request.orderId}`)
-        .then(res => setFullOrder(res))
+        .then(res => {
+          if (active) setFullOrder(res)
+        })
         .catch(err => console.error(err))
     }
-    if (request?.id && (request.status === 'RECEIVED' || request.status === 'REFUNDED')) {
+    if (request?.id && ['REFUND_PENDING', 'REFUND_PROCESSING', 'REFUNDED'].includes(request.status)) {
       httpClient.get(`/refunds/return-order/${request.id}`)
-        .then(res => setRefundRequest(res))
+        .then(res => {
+          if (active) setRefundRequest(res)
+        })
         .catch(err => console.error(err))
     }
-  }, [request])
+    if (request?.reviewedBy && !request.reviewedByDisplay
+        && request.reviewedBy !== currentReviewer?.id) {
+      adminApi.getUser(request.reviewedBy)
+        .then(res => {
+          if (active) setReviewerProfile(res)
+        })
+        .catch(() => {
+          if (active) setReviewerProfile(null)
+        })
+    }
+    return () => {
+      active = false
+    }
+  }, [request, currentReviewer?.id])
+
+  const handleReview = async () => {
+    setReviewing(true)
+    try {
+      const updated = await httpClient.put(`/returns/admin/${request.id}/review`)
+      message.success('Đã ghi nhận review khiếu nại')
+      onReviewed?.(updated)
+    } catch (err) {
+      message.error(err.response?.data?.message || err?.message || 'Không thể ghi nhận review')
+    } finally {
+      setReviewing(false)
+    }
+  }
 
   const handleCompleteRefund = async () => {
     setCompleting(true)
@@ -142,16 +208,40 @@ function ReturnDetailsModal({ request, onClose }) {
   }
 
   if (!request) return null
+  const reviewerLabel = request.reviewedByDisplay
+    || reviewerProfile?.fullName
+    || reviewerProfile?.email
+    || (request.reviewedBy === currentReviewer?.id
+      ? currentReviewer?.fullName || currentReviewer?.email
+      : null)
+    || 'Tài khoản quản trị'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button type="button" className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} aria-label="Đóng" />
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+        onMouseDown={event => event.stopPropagation()}
+        onClick={event => {
+          event.stopPropagation()
+          onClose()
+        }}
+        aria-label="Đóng"
+      />
       <div className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
           <div>
             <p className="text-sm font-semibold text-primary">{request.orderCode}</p>
             <h2 className="mt-1 text-xl font-bold text-gray-950">Chi tiết khiếu nại</h2>
-            <p className="mt-1 text-sm text-gray-500">{formatDate(request.createdAt)}</p>
+            <div className="mt-1.5 flex items-center gap-2">
+              <p className="text-sm text-gray-500">{formatDate(request.createdAt)}</p>
+              {request.claimType && CLAIM_TYPE[request.claimType] && (
+                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${CLAIM_TYPE[request.claimType].tone}`}>
+                  <Icon name={CLAIM_TYPE[request.claimType].icon} className="text-[13px]" />
+                  {CLAIM_TYPE[request.claimType].label}
+                </span>
+              )}
+            </div>
           </div>
           <button
             type="button"
@@ -197,6 +287,51 @@ function ReturnDetailsModal({ request, onClose }) {
             <p className="mt-2 font-semibold text-gray-950">{fullOrder?.shippingAddress || 'Đang tải...'}</p>
           </div>
 
+          <div className={`mt-4 rounded-lg border p-4 ${
+            request.resolution === 'REFUND'
+              ? 'border-teal-200 bg-teal-50'
+              : 'border-indigo-200 bg-indigo-50'
+          }`}>
+            <p className="text-xs font-semibold uppercase opacity-70">Phương án khách hàng yêu cầu</p>
+            <p className="mt-2 flex items-center gap-2 font-bold">
+              <Icon name={request.resolution === 'REFUND' ? 'payments' : 'local_shipping'} />
+              {request.resolution === 'REFUND'
+                ? 'Hoàn tiền'
+                : request.claimType === 'MISSING_ITEM' ? 'Giao bù hàng thiếu' : 'Giao lại sản phẩm'}
+            </p>
+          </div>
+
+          <div className={`mt-4 rounded-lg border p-4 ${
+            request.reviewedAt
+              ? 'border-emerald-200 bg-emerald-50'
+              : 'border-amber-200 bg-amber-50'
+          }`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className={`font-bold ${request.reviewedAt ? 'text-emerald-900' : 'text-amber-900'}`}>
+                  {request.reviewedAt ? 'Đã review chi tiết khiếu nại' : 'Chưa review chi tiết khiếu nại'}
+                </p>
+                <p className={`mt-1 text-sm ${request.reviewedAt ? 'text-emerald-700' : 'text-amber-700'}`}>
+                  {request.reviewedAt
+                    ? `Người review: ${reviewerLabel} · ${formatDate(request.reviewedAt)}`
+                    : 'Admin/Manager phải đọc đầy đủ thông tin và đánh dấu đã review trước khi duyệt hoặc từ chối.'}
+                </p>
+              </div>
+              {request.status === 'PENDING' && request.reviewedBy !== currentReviewer?.id && (
+                <button
+                  type="button"
+                  onClick={handleReview}
+                  disabled={reviewing}
+                  className="shrink-0 rounded-lg bg-amber-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-800 disabled:opacity-50"
+                >
+                  {reviewing
+                    ? 'Đang ghi nhận...'
+                    : request.reviewedAt ? 'Review lại bằng tài khoản này' : 'Đã đọc và review'}
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="mt-4 rounded-lg border border-gray-100 p-4">
             <p className="text-xs font-semibold uppercase text-gray-400">Lý do khiếu nại</p>
             <p className="mt-2 font-bold text-rose-600">{request.reason}</p>
@@ -232,7 +367,13 @@ function ReturnDetailsModal({ request, onClose }) {
           {request.items && request.items.length > 0 && (
             <div className="mt-4 overflow-hidden rounded-lg border border-gray-100">
               <div className="border-b border-gray-100 bg-gray-50 px-4 py-3">
-                <h3 className="font-semibold text-gray-950">Sản phẩm yêu cầu trả ({request.items.length})</h3>
+                <h3 className="font-semibold text-gray-950">
+                  {request.claimType === 'MISSING_ITEM'
+                    ? 'Sản phẩm bị giao thiếu'
+                    : request.claimType === 'WRONG_ITEM'
+                      ? 'Sản phẩm đáng lẽ khách phải nhận'
+                      : 'Sản phẩm khách gửi trả'} ({request.items.length})
+                </h3>
               </div>
               <div className="divide-y divide-gray-100">
                 {request.items.map((item, index) => {
@@ -247,15 +388,46 @@ function ReturnDetailsModal({ request, onClose }) {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-gray-950">{item.productName}</p>
-                        <p className="mt-1 text-xs text-gray-500">
-                          Số lượng trả: <span className="font-bold text-gray-900">{item.quantity}</span> x {money(item.unitPrice)}
-                        </p>
+                        <p className="break-words text-sm font-semibold text-gray-950">{item.productName}</p>
+                        <div className="mt-1 space-y-0.5 text-xs text-gray-500">
+                          {item.unit && <p className="break-words">Đơn vị: <strong>{item.unit}</strong></p>}
+                          <p>Số lượng: <strong>{item.quantity}</strong> × {money(item.unitPrice)}</p>
+                        </div>
                       </div>
                       <p className="text-sm font-bold text-gray-950">{money(item.subTotal)}</p>
                     </div>
                   )
                 })}
+              </div>
+            </div>
+          )}
+
+          {request.claimType === 'WRONG_ITEM' && request.wrongItems?.length > 0 && (
+            <div className="mt-4 overflow-hidden rounded-lg border border-orange-200">
+              <div className="border-b border-orange-200 bg-orange-50 px-4 py-3">
+                <h3 className="font-semibold text-orange-950">Hàng thực tế khách nhận sai và gửi trả</h3>
+              </div>
+              <div className="divide-y divide-orange-100">
+                {request.wrongItems.map((item, index) => (
+                  <div key={`${item.productId}-${index}`} className="flex justify-between gap-4 p-4">
+                    <div>
+                      <p className="break-words font-semibold text-gray-950">{item.productName}</p>
+                    </div>
+                    <span className="font-bold text-orange-800">×{item.quantity}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {request.claimType === 'WRONG_ITEM' && !request.wrongItems?.length && (
+            <div className="mt-4 flex gap-3 rounded-lg border border-orange-200 bg-orange-50 p-4">
+              <Icon name="fact_check" className="mt-0.5 shrink-0 text-xl text-orange-600" />
+              <div>
+                <p className="font-semibold text-orange-950">Chưa xác định sản phẩm thực tế nhận sai</p>
+                <p className="mt-1 text-sm text-orange-800">
+                  Khách chỉ cung cấp mô tả và hình ảnh. Nhân viên kho sẽ chọn đúng sản phẩm trong bước kiểm hàng.
+                </p>
               </div>
             </div>
           )}
@@ -278,9 +450,12 @@ function ReturnDetailsModal({ request, onClose }) {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-semibold text-gray-950">{item.productName}</p>
+                        <p className="break-words text-xs font-semibold text-gray-950">{item.productName}</p>
+                        <p className="mt-0.5 break-words text-xs text-gray-500">
+                          {item.unit || 'Sản phẩm'}
+                        </p>
                         <p className="mt-0.5 text-xs text-gray-500">
-                          SL đã mua: <span className="font-bold text-gray-900">{item.quantity}</span> x {money(item.unitPrice)}
+                          SL đã mua: <span className="font-bold text-gray-900">{item.quantity}</span> × {money(item.unitPrice)}
                         </p>
                       </div>
                     </div>
@@ -397,6 +572,338 @@ function ReturnDetailsModal({ request, onClose }) {
               )}
             </div>
           )}
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CompensationManagementModal({ request, onClose, onChanged }) {
+  const { message } = AntApp.useApp()
+  const [fullOrder, setFullOrder] = useState(null)
+  const [compensation, setCompensation] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [processing, setProcessing] = useState(false)
+  const [returnDisposition, setReturnDisposition] = useState(null)
+
+  const loadDetails = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [orderData, compensationData] = await Promise.all([
+        httpClient.get(`/orders/${request.orderId}`),
+        httpClient.get(`/compensations/return-order/${request.id}`),
+      ])
+      setFullOrder(orderData)
+      setCompensation(compensationData)
+    } catch (err) {
+      console.error('Load redelivery management failed:', err)
+      message.error(err?.message || 'Không thể tải đầy đủ thông tin đơn giao lại')
+    } finally {
+      setLoading(false)
+    }
+  }, [message, request.id, request.orderId])
+
+  useEffect(() => {
+    const timer = setTimeout(() => void loadDetails(), 0)
+    return () => clearTimeout(timer)
+  }, [loadDetails])
+
+  const handleAction = async (action) => {
+    if (!compensation) return
+    setProcessing(true)
+    try {
+      const updated = await httpClient.put(`/compensations/admin/${compensation.id}/${action}`)
+      setCompensation(updated)
+      message.success(action === 'reserve'
+        ? 'Đã giữ tồn kho cho đơn giao lại'
+        : 'Đã tạo vận đơn GHN mới cho đơn giao lại')
+      onChanged?.()
+    } catch (err) {
+      message.error(err?.message || 'Không thể xử lý đơn giao lại')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const handleReturnedInspection = async () => {
+    if (!compensation || !returnDisposition) return
+    setProcessing(true)
+    try {
+      const updated = await httpClient.put(
+        `/compensations/admin/${compensation.id}/return-inspection`,
+        { inventoryDisposition: returnDisposition },
+      )
+      setCompensation(updated)
+      message.success('Đã kiểm hàng hoàn và cập nhật tồn kho')
+      onChanged?.()
+    } catch (err) {
+      message.error(err?.message || 'Không thể cập nhật kho cho kiện giao lại hoàn về')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  if (!request) return null
+
+  return (
+    <div className="fixed inset-0 z-[75] flex items-center justify-center p-4">
+      <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label="Đóng" />
+      <div className="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5">
+          <div>
+            <p className="text-sm font-semibold text-indigo-700">Quản lý đơn giao lại</p>
+            <h2 className="mt-1 break-words text-2xl font-bold text-gray-950">{request.orderCode}</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Phiếu khiếu nại: <span className="break-all font-medium text-gray-700">{request.id}</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+          >
+            <Icon name="close" className="text-xl" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="flex min-h-72 items-center justify-center">
+              <Icon name="sync" className="animate-spin text-4xl text-indigo-600" />
+            </div>
+          ) : (
+            <div className="space-y-5">
+              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500">Trạng thái giao lại</p>
+                  <p className="mt-2 break-words font-bold text-indigo-900">
+                    {COMPENSATION_STATUS[compensation?.status] || compensation?.status || 'Chưa tạo đơn giao lại'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500">Loại xử lý</p>
+                  <p className="mt-2 break-words font-bold text-gray-950">
+                    {compensation?.type === 'REDELIVER_MISSING' ? 'Giao bù hàng thiếu' : 'Giao lại sản phẩm'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500">Phí giao lại</p>
+                  <p className="mt-2 font-bold text-rose-600">{money(compensation?.shippingFee)}</p>
+                  <p className="mt-1 text-xs text-gray-500">SkinGuide thanh toán</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs font-semibold uppercase text-gray-500">Cập nhật gần nhất</p>
+                  <p className="mt-2 break-words font-semibold text-gray-950">
+                    {formatDate(compensation?.updatedAt || request.updatedAt)}
+                  </p>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-gray-200 p-5">
+                <h3 className="flex items-center gap-2 font-bold text-gray-950">
+                  <Icon name="person_pin_circle" className="text-indigo-600" />
+                  Người nhận và địa chỉ giao lại
+                </h3>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-gray-500">Khách hàng</p>
+                    <p className="mt-1 break-words font-semibold text-gray-950">{fullOrder?.customerName || request.customerName}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-gray-500">Số điện thoại</p>
+                    <p className="mt-1 break-words font-semibold text-gray-950">{fullOrder?.customerPhone || 'Chưa có dữ liệu'}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <p className="text-xs font-semibold uppercase text-gray-500">Địa chỉ đầy đủ</p>
+                    <p className="mt-1 whitespace-pre-wrap break-words font-semibold leading-6 text-gray-950">
+                      {fullOrder?.shippingAddress || 'Chưa có dữ liệu'}
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-gray-200 p-5">
+                <h3 className="flex items-center gap-2 font-bold text-gray-950">
+                  <Icon name="inventory_2" className="text-indigo-600" />
+                  Sản phẩm giao lại ({compensation?.items?.length || 0})
+                </h3>
+                <div className="mt-4 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
+                  {compensation?.items?.map((item, index) => {
+                    const image = resolveImageUrl(item.imageUrl)
+                    return (
+                      <div key={`${item.productId}-${index}`} className="flex items-start gap-4 p-4">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                          {image
+                            ? <img src={image} alt={item.productName} className="h-full w-full object-cover" />
+                            : <Icon name="inventory_2" className="text-2xl text-gray-400" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-words font-bold text-gray-950">{item.productName}</p>
+                          <div className="mt-2 grid gap-1 text-sm text-gray-600 sm:grid-cols-2">
+                            {item.unit && <p className="break-words">Đơn vị: <strong>{item.unit}</strong></p>}
+                            <p>Số lượng: <strong>{item.quantity}</strong></p>
+                            <p>Giá trị tham chiếu: <strong>{money(item.unitPrice)}</strong></p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-gray-200 p-5">
+                <h3 className="flex items-center gap-2 font-bold text-gray-950">
+                  <Icon name="local_shipping" className="text-indigo-600" />
+                  Thông tin vận chuyển đầy đủ
+                </h3>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="rounded-lg bg-gray-50 p-3">
+                    <p className="text-xs font-semibold uppercase text-gray-500">Mã vận đơn gốc</p>
+                    <p className="mt-1 break-all font-bold text-gray-950">{fullOrder?.trackingCode || 'Chưa có'}</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-3">
+                    <p className="text-xs font-semibold uppercase text-gray-500">Mã thu hồi về kho</p>
+                    <p className="mt-1 break-all font-bold text-gray-950">{request.returnTrackingCode || 'Không áp dụng'}</p>
+                  </div>
+                  <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                    <p className="text-xs font-semibold uppercase text-indigo-600">Mã GHN giao lại mới</p>
+                    <p className="mt-1 break-all font-bold text-indigo-950">{compensation?.trackingCode || 'Chưa tạo'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-gray-500">Đơn vị vận chuyển</p>
+                    <p className="mt-1 break-words font-semibold text-gray-950">{compensation?.courier || 'GHN'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-gray-500">Mã đơn giao lại nội bộ</p>
+                    <p className="mt-1 break-all font-semibold text-gray-950">{compensation?.id || 'Chưa có'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-gray-500">Mã đơn gốc</p>
+                    <p className="mt-1 break-all font-semibold text-gray-950">{request.orderCode}</p>
+                  </div>
+                </div>
+                {compensation?.status === 'SHIPPING' && (
+                  <p className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                    GHN sẽ tự động cập nhật khi giao thành công; không cần xác nhận thủ công.
+                  </p>
+                )}
+                {compensation?.failureReason && (
+                  <p className="mt-4 whitespace-pre-wrap break-words rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                    {compensation.failureReason}
+                  </p>
+                )}
+                {(compensation?.ghnStatus || compensation?.ghnReason) && (
+                  <div className="mt-4 grid gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-gray-500">Trạng thái GHN gần nhất</p>
+                      <p className="mt-1 font-bold text-gray-950">{compensation.ghnStatus || 'Chưa có'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-gray-500">Lý do từ GHN</p>
+                      <p className="mt-1 break-words font-semibold text-gray-950">
+                        {compensation.ghnReason || 'Không có'}
+                        {compensation.ghnReasonCode ? ` (${compensation.ghnReasonCode})` : ''}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              {compensation?.status === 'RETURNED_INSPECTION' && (
+                <section className="rounded-lg border-2 border-amber-300 bg-amber-50 p-5">
+                  <h3 className="flex items-center gap-2 font-bold text-amber-950">
+                    <Icon name="fact_check" className="text-amber-700" />
+                    Kiểm hàng giao lại đã hoàn về
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-amber-900">
+                    Khách đã từ chối nhận hoặc GHN báo sự cố. Chọn tình trạng thực tế để hệ thống
+                    giải phóng hàng đang giữ, chuyển kho hỏng hoặc ghi nhận tiêu hủy. Sau bước này
+                    hồ sơ sẽ tiếp tục hoàn tiền chuyển khoản cho khách.
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    {[
+                      { value: 'RESTOCK', icon: 'inventory_2', title: 'Về kho bán', note: 'Hàng còn bán được' },
+                      { value: 'DAMAGED', icon: 'report', title: 'Vào kho hỏng', note: 'Hàng đã hư hỏng' },
+                      { value: 'DISCARD', icon: 'delete_forever', title: 'Tiêu hủy', note: 'Mất hoặc không thể nhập' },
+                    ].map(option => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setReturnDisposition(option.value)}
+                        className={`rounded-lg border-2 p-3 text-left transition ${
+                          returnDisposition === option.value
+                            ? 'border-amber-700 bg-white text-amber-950'
+                            : 'border-amber-200 bg-amber-50 text-amber-900 hover:border-amber-400'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2 font-bold">
+                          <Icon name={option.icon} />
+                          {option.title}
+                        </span>
+                        <span className="mt-1 block text-xs opacity-75">{option.note}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleReturnedInspection}
+                    disabled={!returnDisposition || processing}
+                    className="mt-4 w-full rounded-lg bg-amber-800 px-4 py-3 text-sm font-bold text-white hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {processing ? 'Đang cập nhật...' : 'Xác nhận kiểm hàng và cập nhật kho'}
+                  </button>
+                </section>
+              )}
+
+              <section className="rounded-lg border border-gray-200 p-5">
+                <h3 className="font-bold text-gray-950">Nguồn phát sinh giao lại</h3>
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-gray-500">Lý do khiếu nại</p>
+                    <p className="mt-1 whitespace-pre-wrap break-words font-semibold text-rose-700">{request.reason}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-gray-500">Mô tả đầy đủ</p>
+                    <p className="mt-1 whitespace-pre-wrap break-words leading-6 text-gray-700">{request.description}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-gray-500">Ghi chú nội bộ</p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-gray-700">{compensation?.note || 'Không có'}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-indigo-200 bg-indigo-50 p-5">
+                <div>
+                  <p className="font-bold text-indigo-950">Thao tác đơn giao lại</p>
+                  <p className="mt-1 text-sm text-indigo-700">Mỗi bước chỉ được thực hiện theo đúng thứ tự nghiệp vụ.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {compensation?.status === 'PENDING' && (
+                    <button
+                      type="button"
+                      onClick={() => handleAction('reserve')}
+                      disabled={processing}
+                      className="rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-violet-800 disabled:opacity-50"
+                    >
+                      {processing ? 'Đang xử lý...' : 'Giữ tồn kho'}
+                    </button>
+                  )}
+                  {['INVENTORY_RESERVED', 'READY_TO_SHIP'].includes(compensation?.status) && (
+                    <button
+                      type="button"
+                      onClick={() => handleAction('ship')}
+                      disabled={processing}
+                      className="rounded-lg bg-indigo-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-800 disabled:opacity-50"
+                    >
+                      {processing ? 'Đang tạo...' : 'Tạo vận đơn GHN mới'}
+                    </button>
+                  )}
+                </div>
+              </section>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -405,14 +912,27 @@ function ReturnDetailsModal({ request, onClose }) {
 
 export default function AdminReturnOrdersPage() {
   const { message } = AntApp.useApp()
+  const { user } = useAuth()
   const [returns, setReturns] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('PENDING')
   const [selectedRequest, setSelectedRequest] = useState(null)
+  const [managingRedelivery, setManagingRedelivery] = useState(null)
   const [updating, setUpdating] = useState(null)
   const [rejectingRequest, setRejectingRequest] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [hasReadReject, setHasReadReject] = useState(false)
+  const [approvingRequest, setApprovingRequest] = useState(null)
+  const [hasReadApprove, setHasReadApprove] = useState(false)
+  const [inspectionFailRequest, setInspectionFailRequest] = useState(null)
+  const [inspectionNote, setInspectionNote] = useState('')
+  const [receivingRequest, setReceivingRequest] = useState(null)
+  const [receivingDisposition, setReceivingDisposition] = useState(null)
+  const [inspectionProducts, setInspectionProducts] = useState([])
+  const [identifiedWrongItems, setIdentifiedWrongItems] = useState([])
+  const [inspectionCatalogLoading, setInspectionCatalogLoading] = useState(false)
   const [syncingGhn, setSyncingGhn] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const pageSize = 10
@@ -424,13 +944,25 @@ export default function AdminReturnOrdersPage() {
       const data = await httpClient.get(`/returns?page=${page}&size=${pageSize}&status=${activeTabObj.query}`)
       setReturns(data.content || [])
       setTotalPages(data.totalPages || 1)
+      return true
     } catch (err) {
       console.error('Fetch returns failed:', err)
       message.error('Lỗi khi tải danh sách')
+      return false
     } finally {
       setLoading(false)
     }
   }, [filter, message, page])
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      const refreshed = await fetchReturns()
+      if (refreshed) message.success('Đã làm mới danh sách khiếu nại')
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const handleSyncGhn = async () => {
     try {
@@ -456,10 +988,29 @@ export default function AdminReturnOrdersPage() {
     setPage(0)
   }
 
-  const handleStatusChange = async (req, newStatus, reason = null, inventoryDisposition = null) => {
+  const handleStatusChange = async (
+    req,
+    newStatus,
+    reason = null,
+    inventoryDisposition = null,
+    forceApprove = false,
+    inspNote = null,
+    wrongItems = null,
+  ) => {
     if (newStatus === 'REJECTED' && !reason) {
       setRejectingRequest(req)
       setRejectReason('')
+      setHasReadReject(false)
+      return
+    }
+    if (newStatus === 'DELIVERING' && !forceApprove) {
+      setApprovingRequest(req)
+      setHasReadApprove(false)
+      return
+    }
+    if (newStatus === 'INSPECTION_FAILED' && !inspNote) {
+      setInspectionFailRequest(req)
+      setInspectionNote('')
       return
     }
 
@@ -469,9 +1020,14 @@ export default function AdminReturnOrdersPage() {
         status: newStatus,
         rejectReason: reason,
         inventoryDisposition,
+        inspectionNote: inspNote,
+        wrongItems,
       })
       message.success('Cập nhật trạng thái thành công')
       setRejectingRequest(null)
+      setApprovingRequest(null)
+      setInspectionFailRequest(null)
+      setReceivingRequest(null)
       fetchReturns()
     } catch (err) {
       message.error(err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật')
@@ -480,47 +1036,133 @@ export default function AdminReturnOrdersPage() {
     }
   }
 
-  const statusActions = (req) => {
-    const nextStatuses = req.status === 'PENDING'
-      ? ['DELIVERING', 'REJECTED']
-      : req.status === 'DELIVERED' ? ['RECEIVED'] : []
+  const openWarehouseDecision = async (req, disposition = null) => {
+    setReceivingRequest(req)
+    setReceivingDisposition(disposition)
+    setIdentifiedWrongItems([])
+    if (req.claimType !== 'WRONG_ITEM') return
+    setIdentifiedWrongItems([{
+      productId: '',
+      productName: '',
+      quantity: 1,
+    }])
 
-    return nextStatuses.flatMap(status => {
+    setInspectionCatalogLoading(true)
+    try {
+      const result = await productApi.listProducts({ auth: true })
+      setInspectionProducts(Array.isArray(result) ? result : (result?.content || result?.data || []))
+    } catch (err) {
+      console.error('Load inspection products failed:', err)
+      setInspectionProducts([])
+      message.error('Không thể tải danh mục sản phẩm để kiểm hàng')
+    } finally {
+      setInspectionCatalogLoading(false)
+    }
+  }
+
+  const selectInspectedProduct = (index, productId) => {
+    const product = inspectionProducts.find(item => item.id === productId)
+    setIdentifiedWrongItems(previous => previous.map((item, itemIndex) =>
+      itemIndex === index
+        ? {
+            ...item,
+            productId: product?.id || '',
+            productName: product?.name || '',
+          }
+        : item))
+  }
+
+  const confirmWarehouseDecision = () => {
+    if (!receivingRequest || !receivingDisposition) return
+    const wrongItems = receivingRequest.claimType === 'WRONG_ITEM'
+      ? identifiedWrongItems.map(item => ({
+          productId: item.productId,
+          productName: item.productName,
+          quantity: item.quantity,
+        }))
+      : null
+    handleStatusChange(
+      receivingRequest,
+      'RECEIVED',
+      null,
+      receivingDisposition,
+      false,
+      null,
+      wrongItems,
+    )
+  }
+
+  const handleResolve = async (req, resolutionType, note = null) => {
+    try {
+      setUpdating(req.id)
+      await httpClient.post(`/returns/admin/${req.id}/resolve`, { resolution: resolutionType, note })
+      message.success(resolutionType === 'REFUND' ? 'Đã chọn hoàn tiền cho khách' : 'Đã tạo đơn giao bù hàng')
+      fetchReturns()
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Có lỗi xảy ra')
+    } finally {
+      setUpdating(null)
+    }
+  }
+
+  const statusActions = (req) => {
+    // MISSING_ITEM: không có hàng vật lý cần vận chuyển, bỏ qua bước DELIVERING
+    const isMissingItem = req.claimType === 'MISSING_ITEM'
+
+    const nextStatuses = req.status === 'PENDING'
+      ? (isMissingItem ? ['REJECTED'] : ['DELIVERING', 'REJECTED'])
+      : req.status === 'DELIVERED'
+        ? ['INSPECTING']
+        : req.status === 'INSPECTING' ? ['RECEIVED', 'INSPECTION_FAILED'] : []
+
+    const actions = nextStatuses.flatMap(status => {
       if (status === 'DELIVERING') {
         return [{
           key: 'DELIVERING',
           label: (
             <div className="flex items-center gap-2 px-1">
               <Icon name="check_circle" className="text-[15px] text-emerald-700" />
-              <span className="text-sm font-semibold">Duyệt & Tạo đơn hoàn</span>
+              <span className="text-sm font-semibold">Duyệt &amp; Tạo đơn hoàn</span>
             </div>
           ),
           onClick: () => handleStatusChange(req, 'DELIVERING'),
         }]
       }
+      if (status === 'INSPECTING') {
+        return [{
+          key: 'INSPECTING',
+          label: (
+            <div className="flex items-center gap-2 px-1">
+              <Icon name="fact_check" className="text-[15px] text-blue-700" />
+              <span className="text-sm font-semibold">Bắt đầu kiểm hàng</span>
+            </div>
+          ),
+          onClick: () => handleStatusChange(req, 'INSPECTING'),
+        }]
+      }
       if (status === 'RECEIVED') {
-        return [
-          {
-            key: 'RECEIVED_RESTOCK',
-            label: (
-              <div className="flex items-center gap-2 px-1">
-                <Icon name="inventory_2" className="text-[15px] text-emerald-700" />
-                <span className="text-sm font-semibold">Nhận hàng và nhập lại kho</span>
-              </div>
-            ),
-            onClick: () => handleStatusChange(req, 'RECEIVED', null, 'RESTOCK'),
-          },
-          {
-            key: 'RECEIVED_DAMAGED',
-            label: (
-              <div className="flex items-center gap-2 px-1">
-                <Icon name="report" className="text-[15px] text-rose-700" />
-                <span className="text-sm font-semibold">Nhận hàng và đánh dấu hỏng</span>
-              </div>
-            ),
-            onClick: () => handleStatusChange(req, 'RECEIVED', null, 'DAMAGED'),
-          },
-        ]
+        return [{
+          key: 'RECEIVED_INVENTORY',
+          label: (
+            <div className="flex items-center gap-2 px-1">
+              <Icon name="inventory_2" className="text-[15px] text-blue-700" />
+              <span className="text-sm font-semibold">Ghi nhận kiểm hàng &amp; cập nhật kho</span>
+            </div>
+          ),
+          onClick: () => openWarehouseDecision(req),
+        }]
+      }
+      if (status === 'INSPECTION_FAILED') {
+        return [{
+          key: 'INSPECTION_FAILED',
+          label: (
+            <div className="flex items-center gap-2 px-1">
+              <Icon name="gpp_bad" className="text-[15px] text-rose-700" />
+              <span className="text-sm font-semibold text-rose-700">Từ chối - Hàng trả không đúng</span>
+            </div>
+          ),
+          onClick: () => handleStatusChange(req, 'INSPECTION_FAILED'),
+        }]
       }
       return [{
         key: status,
@@ -535,6 +1177,68 @@ export default function AdminReturnOrdersPage() {
         onClick: () => handleStatusChange(req, status),
       }]
     })
+
+    // Giao thiếu không thu hồi hàng: duyệt đúng phương án khách đã chọn.
+    if (req.status === 'RECEIVED' && !req.resolution) {
+      actions.push(
+        { type: 'divider' },
+        {
+          key: 'LEGACY_REFUND',
+          label: 'Dữ liệu cũ: chọn hoàn tiền',
+          onClick: () => handleResolve(req, 'REFUND'),
+        },
+        {
+          key: 'LEGACY_REDELIVER',
+          label: 'Dữ liệu cũ: chọn giao lại',
+          onClick: () => handleResolve(req, 'REDELIVER'),
+        },
+      )
+    }
+    if (req.status === 'PENDING' && isMissingItem && !req.resolution) {
+      actions.unshift(
+        {
+          key: 'LEGACY_MISSING_REFUND',
+          label: 'Dữ liệu cũ: duyệt hoàn tiền',
+          onClick: () => handleResolve(req, 'REFUND'),
+        },
+        {
+          key: 'LEGACY_MISSING_REDELIVER',
+          label: 'Dữ liệu cũ: duyệt giao bù',
+          onClick: () => handleResolve(req, 'REDELIVER'),
+        },
+        { type: 'divider' },
+      )
+    } else if (req.status === 'PENDING' && isMissingItem) {
+      actions.unshift(
+        {
+          key: 'APPROVE_MISSING_RESOLUTION',
+          label: (
+            <div className="flex items-center gap-2 px-1">
+              <Icon name={req.resolution === 'REFUND' ? 'payments' : 'local_shipping'} className="text-[15px] text-teal-700" />
+              <span className="text-sm font-semibold">
+                {req.resolution === 'REFUND' ? 'Duyệt để hoàn tiền' : 'Duyệt để giao bù hàng thiếu'}
+              </span>
+            </div>
+          ),
+          onClick: () => handleResolve(req, req.resolution),
+        },
+        { type: 'divider' },
+      )
+    }
+
+    return actions
+  }
+
+  const canManageStatus = (req) => {
+    if (req.status === 'PENDING') {
+      return Boolean(req.reviewedAt && req.reviewedBy && req.reviewedBy === user?.id)
+    }
+    return ['DELIVERED', 'INSPECTING', 'RECEIVED'].includes(req.status)
+  }
+
+  const handleReviewed = (updated) => {
+    setSelectedRequest(updated)
+    setReturns(current => current.map(item => item.id === updated.id ? updated : item))
   }
 
   return (
@@ -559,11 +1263,11 @@ export default function AdminReturnOrdersPage() {
           </button>
           <button
             type="button"
-            onClick={fetchReturns}
-            disabled={loading}
+            onClick={handleRefresh}
+            disabled={loading || refreshing}
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-wait disabled:opacity-50 sm:flex-none"
           >
-            <Icon name="refresh" className={loading ? 'animate-spin text-lg' : 'text-lg'} />
+            <Icon name="refresh" className={refreshing ? 'animate-spin text-lg' : 'text-lg'} />
             Làm mới
           </button>
         </div>
@@ -610,7 +1314,10 @@ export default function AdminReturnOrdersPage() {
                   <th className="px-5 py-3">Khách hàng</th>
                   <th className="px-5 py-3 max-w-[200px]">Lý do</th>
                   <th className="px-5 py-3">Trạng thái</th>
-                  {filter === 'RECEIVED' && <th className="px-5 py-3">Đơn hoàn tiền</th>}
+                  {filter === 'REFUND' && <th className="px-5 py-3">Đơn hoàn tiền</th>}
+                  {['REDELIVERY', 'RESOLVED', 'REFUND'].includes(filter) && (
+                    <th className="px-5 py-3">Quản lý giao lại</th>
+                  )}
                   <th className="px-5 py-3 text-right">Thao tác</th>
                 </tr>
               </thead>
@@ -641,32 +1348,78 @@ export default function AdminReturnOrdersPage() {
                               items: statusActions(req)
                             }}
                             trigger={['click']}
-                            disabled={['REFUNDED', 'REJECTED', 'RECEIVED', 'DELIVERING'].includes(req.status)}
+                            disabled={!canManageStatus(req)}
                           >
                             <button 
-                              className={`inline-flex items-center justify-between min-w-36 gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${!['REFUNDED', 'REJECTED', 'RECEIVED', 'DELIVERING'].includes(req.status) ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${RETURN_STATUS[req.status]?.tone || 'bg-gray-100 text-gray-700 border-gray-200'}`}
+                              className={`inline-flex items-center justify-between min-w-36 gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${canManageStatus(req) ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${RETURN_STATUS[req.status]?.tone || 'bg-gray-100 text-gray-700 border-gray-200'}`}
                             >
                               <div className="flex items-center gap-1.5">
                                 <Icon name={RETURN_STATUS[req.status]?.icon || 'info'} className="text-[15px]" />
                                 {RETURN_STATUS[req.status]?.label || req.status}
                               </div>
-                              {!['REFUNDED', 'REJECTED', 'RECEIVED', 'DELIVERING'].includes(req.status) && (
+                              {canManageStatus(req) && (
                                 <Icon name="expand_more" className="text-lg opacity-60" />
                               )}
                             </button>
                           </Dropdown>
-                          {['DELIVERING', 'DELIVERED'].includes(req.status) && req.returnTrackingCode && (
+                          {req.status === 'DELIVERING' && req.returnTrackingCode && (
                             <p className="text-xs text-blue-600 flex items-center gap-1 ml-1 mt-1">
                               <Icon name="sync" className="text-[14px]" /> 
-                              GHN tự động cập nhật
+                              GHN tự động cập nhật khi giao về kho
                             </p>
+                          )}
+                          {req.status === 'INSPECTING' && (
+                            <button
+                              type="button"
+                              onClick={() => openWarehouseDecision(req)}
+                              className="ml-1 mt-1 inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-left text-xs font-bold text-blue-800 hover:bg-blue-100"
+                            >
+                              <Icon name="inventory_2" className="text-sm" />
+                              Điều chỉnh kho &amp; hoàn tất kiểm hàng
+                            </button>
+                          )}
+                          {req.status === 'PENDING' && !req.reviewedAt && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedRequest(req)}
+                              className="ml-1 flex items-center gap-1 text-left text-xs font-semibold text-amber-700 hover:underline"
+                            >
+                              <Icon name="visibility" className="text-sm" />
+                              Review chi tiết để mở khóa duyệt
+                            </button>
+                          )}
+                          {req.status === 'PENDING' && req.reviewedAt && req.reviewedBy !== user?.id && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedRequest(req)}
+                              className="ml-1 flex items-center gap-1 text-left text-xs font-semibold text-amber-700 hover:underline"
+                            >
+                              <Icon name="person_search" className="text-sm" />
+                              Review bằng tài khoản của bạn để duyệt
+                            </button>
                           )}
                         </div>
                       )}
                     </td>
-                    {filter === 'RECEIVED' && (
+                    {filter === 'REFUND' && (
                       <td className="px-5 py-4 align-top">
                         <RefundStatusCell returnId={req.id} />
+                      </td>
+                    )}
+                    {['REDELIVERY', 'RESOLVED', 'REFUND'].includes(filter) && (
+                      <td className="px-5 py-4 align-top">
+                        {filter !== 'REFUND' || req.redeliveryTrackingCode ? (
+                          <button
+                            type="button"
+                            onClick={() => setManagingRedelivery(req)}
+                            className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+                          >
+                            <Icon name="local_shipping" className="text-base" />
+                            {filter === 'RESOLVED' ? 'Xem đơn giao lại' : 'Mở quản lý giao lại'}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400">Không có đơn giao lại</span>
+                        )}
                       </td>
                     )}
                     <td className="px-5 py-4 text-right align-top">
@@ -737,9 +1490,20 @@ export default function AdminReturnOrdersPage() {
       )}
 
       <ReturnDetailsModal 
+        key={selectedRequest?.id || 'closed'}
         request={selectedRequest} 
         onClose={() => setSelectedRequest(null)} 
+        onReviewed={handleReviewed}
+        currentReviewer={user}
       />
+
+      {managingRedelivery && (
+        <CompensationManagementModal
+          request={managingRedelivery}
+          onClose={() => setManagingRedelivery(null)}
+          onChanged={() => void fetchReturns()}
+        />
+      )}
 
       {/* Modal Nhập lý do từ chối */}
       {rejectingRequest && (
@@ -784,23 +1548,342 @@ export default function AdminReturnOrdersPage() {
                 rows={3}
                 placeholder="Hoặc nhập lý do chi tiết của bạn..."
               />
+              <div className="mt-4 p-3 border border-amber-200 bg-amber-50 rounded-lg text-left">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={hasReadReject} 
+                    onChange={e => setHasReadReject(e.target.checked)} 
+                    className="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <span className="text-sm text-amber-900 font-medium">Tôi xác nhận đã đọc và kiểm tra kỹ chi tiết khiếu nại này trước khi từ chối.</span>
+                </label>
+              </div>
+
+              <div className="mt-6 flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setRejectingRequest(null)}
+                  className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(rejectingRequest, 'REJECTED', rejectReason)}
+                  disabled={!rejectReason.trim() || !hasReadReject || updating === rejectingRequest.id}
+                  className="flex-1 rounded-lg bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updating === rejectingRequest.id ? 'Đang xử lý...' : 'Xác nhận'}
+                </button>
+              </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Xác nhận Duyệt */}
+      {approvingRequest && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <button type="button" className="absolute inset-0 bg-black/45" onClick={() => setApprovingRequest(null)} aria-label="Đóng" />
+          <div className="relative w-full max-w-sm rounded-lg bg-white p-6 text-center shadow-2xl">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+              <Icon name="check_circle" className="text-2xl" />
+            </div>
+            <h3 className="mt-4 text-lg font-bold text-gray-950">Duyệt & Tạo đơn hoàn</h3>
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              Chấp nhận khiếu nại của đơn <span className="font-semibold text-gray-800">{approvingRequest.orderCode}</span> và tạo mã vận đơn để khách trả hàng?
+            </p>
             
+            <div className="mt-4 p-3 border border-amber-200 bg-amber-50 rounded-lg text-left">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={hasReadApprove} 
+                  onChange={e => setHasReadApprove(e.target.checked)} 
+                  className="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                />
+                <span className="text-sm text-amber-900 font-medium">Tôi xác nhận đã đọc và kiểm tra kỹ chi tiết khiếu nại này trước khi duyệt.</span>
+              </label>
+            </div>
+
             <div className="mt-6 flex gap-3">
               <button 
                 type="button"
-                onClick={() => setRejectingRequest(null)}
+                onClick={() => setApprovingRequest(null)}
                 className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Hủy
               </button>
               <button
                 type="button"
-                onClick={() => handleStatusChange(rejectingRequest, 'REJECTED', rejectReason)}
-                disabled={!rejectReason.trim() || updating === rejectingRequest.id}
+                onClick={() => handleStatusChange(approvingRequest, 'DELIVERING', null, null, true)}
+                disabled={!hasReadApprove || updating === approvingRequest.id}
                 className="flex-1 rounded-lg bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {updating === rejectingRequest.id ? 'Đang xử lý...' : 'Xác nhận'}
+                {updating === approvingRequest.id ? 'Đang xử lý...' : 'Xác nhận duyệt'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xác nhận kết quả kiểm hàng và nhận diện hàng giao sai */}
+      {receivingRequest && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/45"
+            onClick={() => setReceivingRequest(null)}
+            aria-label="Đóng"
+          />
+          <div className="relative max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                <Icon name="fact_check" className="text-2xl" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-950">Xác nhận kết quả kiểm hàng</h3>
+                <p className="mt-0.5 text-xs text-gray-500">{receivingRequest.orderCode}</p>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <p className="text-sm font-bold text-gray-900">
+                Chọn cách cập nhật kho <span className="text-rose-500">*</span>
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                Lựa chọn này sẽ cập nhật tồn kho ngay khi xác nhận kết quả kiểm hàng.
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {[
+                  { value: 'RESTOCK', icon: 'inventory_2', title: 'Kho bán', note: 'Hàng còn nguyên vẹn' },
+                  { value: 'DAMAGED', icon: 'report', title: 'Kho hỏng', note: 'Hàng không thể bán' },
+                  { value: 'DISCARD', icon: 'delete_forever', title: 'Tiêu hủy', note: 'Không nhập kho' },
+                ].map(option => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setReceivingDisposition(option.value)}
+                    className={`rounded-lg border-2 p-3 text-left transition ${
+                      receivingDisposition === option.value
+                        ? 'border-blue-600 bg-blue-50 text-blue-950'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 font-bold">
+                      <Icon name={option.icon} />
+                      {option.title}
+                    </span>
+                    <span className="mt-1 block text-xs opacity-75">{option.note}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {receivingRequest.claimType === 'WRONG_ITEM' ? (
+              <div className="mt-5 space-y-4">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-amber-800">
+                    Sản phẩm đáng lẽ giao
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {receivingRequest.items?.map((item, index) => (
+                      <div key={`${item.productId}-${index}`} className="flex justify-between gap-3 text-sm">
+                        <span className="font-semibold text-amber-950">
+                          {item.productName}
+                        </span>
+                        <span className="shrink-0 text-amber-800">x{item.quantity}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-amber-800">
+                    Hệ thống sẽ hoàn tác số lượng đã ghi nhận bán của các sản phẩm này.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">
+                      Sản phẩm thực tế kho nhận được <span className="text-rose-500">*</span>
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Thêm đủ từng sản phẩm có trong kiện hàng trả về.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIdentifiedWrongItems(previous => [...previous, {
+                      productId: '',
+                      productName: '',
+                      quantity: 1,
+                    }])}
+                    className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100"
+                  >
+                    + Thêm sản phẩm
+                  </button>
+                </div>
+
+                <div className="max-h-[48vh] space-y-3 overflow-y-auto pr-1">
+                  {identifiedWrongItems.map((identifiedItem, index) => (
+                    <div key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <p className="text-sm font-bold text-gray-800">Sản phẩm thực nhận #{index + 1}</p>
+                        {identifiedWrongItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setIdentifiedWrongItems(previous =>
+                              previous.filter((_, itemIndex) => itemIndex !== index))}
+                            className="text-xs font-semibold text-rose-600 hover:text-rose-700"
+                          >
+                            Xóa
+                          </button>
+                        )}
+                      </div>
+                        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-gray-700">Sản phẩm</label>
+                            <select
+                              value={identifiedItem.productId}
+                              onChange={event => selectInspectedProduct(index, event.target.value)}
+                              disabled={inspectionCatalogLoading}
+                              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 disabled:bg-gray-100"
+                          >
+                            <option value="">
+                              {inspectionCatalogLoading ? 'Đang tải danh mục...' : 'Chọn theo tên và bao bì thực nhận'}
+                            </option>
+                            {inspectionProducts.map(product => (
+                              <option key={product.id} value={product.id}>{product.name}</option>
+                            ))}
+                          </select>
+                          </div>
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-gray-700">Số lượng</label>
+                            <InputNumber
+                              min={1}
+                              max={100}
+                              value={identifiedItem.quantity}
+                              onChange={value => setIdentifiedWrongItems(previous =>
+                                previous.map((item, itemIndex) =>
+                                  itemIndex === index ? { ...item, quantity: value || 1 } : item))}
+                              className="w-full sm:w-24"
+                            />
+                          </div>
+                        </div>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-xs leading-5 text-gray-500">
+                  Thông tin này do kho xác định từ sản phẩm thực tế, không lấy theo lựa chọn của khách hàng.
+                </p>
+                <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-5 text-sky-900">
+                  Khi xác nhận, hệ thống sẽ hoàn tác tồn kho của sản phẩm đáng lẽ giao và xử lý các sản phẩm thực nhận theo kết quả ở trên. Nếu khách chọn giao lại, sản phẩm đúng sẽ được giữ tồn và xuất riêng trong mục quản lý đơn giao lại.
+                </div>
+              </div>
+            ) : (
+              <p className="mt-5 text-sm leading-6 text-gray-600">
+                Xác nhận sản phẩm thực nhận khớp yêu cầu trả hàng và tình trạng đã được kiểm tra đúng với cách xử lý kho ở trên.
+              </p>
+            )}
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setReceivingRequest(null)}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={confirmWarehouseDecision}
+                disabled={
+                  updating === receivingRequest.id
+                  || !receivingDisposition
+                  || (receivingRequest.claimType === 'WRONG_ITEM'
+                    && (identifiedWrongItems.length === 0
+                      || identifiedWrongItems.some(item => !item.productId || !item.quantity)))
+                }
+                className="flex-1 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {updating === receivingRequest.id ? 'Đang xử lý...' : 'Xác nhận kiểm hàng'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ghi chú từ chối sau kiểm tra (INSPECTION_FAILED) */}
+      {inspectionFailRequest && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <button type="button" className="absolute inset-0 bg-black/45" onClick={() => setInspectionFailRequest(null)} aria-label="Đóng" />
+          <div className="relative w-full max-w-sm rounded-lg bg-white p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+                <Icon name="gpp_bad" className="text-2xl" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-950">Từ chối sau kiểm tra</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{inspectionFailRequest.orderCode}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-rose-100 bg-rose-50 p-3 text-sm text-rose-800">
+              <p className="font-semibold flex items-center gap-1.5">
+                <Icon name="warning" className="text-base" /> Hàng trả về không đúng / không hợp lệ
+              </p>
+              <p className="mt-1 text-xs">Chỉ dùng lựa chọn này khi sản phẩm thực nhận không khớp hồ sơ trả hàng. Hãy ghi rõ lý do để lưu hồ sơ.</p>
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Ghi chú kiểm tra <span className="text-rose-500">*</span>
+              </label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[
+                  'Hàng gửi về không phải hàng đã mua',
+                  'Sai sản phẩm đã khai báo',
+                  'Số lượng thực nhận không khớp yêu cầu trả hàng',
+                  'Có dấu hiệu tráo đổi sản phẩm',
+                ].map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setInspectionNote(option)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      inspectionNote === option
+                        ? 'border-rose-700 bg-rose-700 text-white'
+                        : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={inspectionNote}
+                onChange={e => setInspectionNote(e.target.value)}
+                className="w-full rounded-md border border-gray-300 p-3 text-sm outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                rows={3}
+                placeholder="Mô tả vấn đề phát hiện khi kiểm tra hàng trả..."
+              />
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setInspectionFailRequest(null)}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStatusChange(inspectionFailRequest, 'INSPECTION_FAILED', null, null, false, inspectionNote)}
+                disabled={!inspectionNote.trim() || updating === inspectionFailRequest.id}
+                className="flex-1 rounded-lg bg-rose-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {updating === inspectionFailRequest.id ? 'Đang xử lý...' : 'Xác nhận từ chối'}
               </button>
             </div>
           </div>

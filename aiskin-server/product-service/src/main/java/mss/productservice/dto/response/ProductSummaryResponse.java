@@ -36,6 +36,7 @@ public class ProductSummaryResponse {
     private Integer totalOnHandQuantity;
     private Integer totalReservedQuantity;
     private Integer totalAvailableQuantity;
+    private Integer totalDamagedQuantity;
     private Boolean hasLowStock;
 
     private Instant createdAt;

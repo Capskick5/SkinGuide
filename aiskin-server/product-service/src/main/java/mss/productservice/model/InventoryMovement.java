@@ -62,6 +62,10 @@ public class InventoryMovement {
 
     private Integer soldAfter;
 
+    private Integer damagedBefore;
+
+    private Integer damagedAfter;
+
     @Indexed
     private String referenceType;
 
@@ -79,6 +83,14 @@ public class InventoryMovement {
         COMMIT_SALE,
         RETURN_RESTOCK,
         RETURN_DAMAGED,
+        RETURN_DISCARD,
+        WRONG_DELIVERY_EXPECTED_REVERSAL,
+        WRONG_DELIVERY_ACTUAL_RESTOCK,
+        WRONG_DELIVERY_ACTUAL_DAMAGED,
+        WRONG_DELIVERY_ACTUAL_DISCARD,
+        COMPENSATION_RETURN_RESTOCK,
+        COMPENSATION_RETURN_DAMAGED,
+        COMPENSATION_RETURN_DISCARD,
         STOCK_RECEIPT,
         STOCK_COUNT,
         STOCK_WRITE_OFF,

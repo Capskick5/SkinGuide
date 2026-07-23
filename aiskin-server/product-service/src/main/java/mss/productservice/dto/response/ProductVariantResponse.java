@@ -45,6 +45,8 @@ public class ProductVariantResponse {
 
     private Integer soldQuantity;
 
+    private Integer damagedQuantity;
+
     private Boolean lowStock;
 
     private List<InventoryLevelResponse> inventoryLevels;

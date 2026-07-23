@@ -24,6 +24,9 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import mss.productservice.dto.response.InventorySummaryResponse;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import java.util.Optional;
 import java.util.Collection;
 import java.time.Instant;
@@ -40,6 +43,14 @@ public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
     // Mirror chính xác cách totalAvailable() ở ProductService tính toán (không lọc theo variant.isActive)
     // để "inStockOnly" nhất quán với số liệu tồn kho hiển thị cho người dùng.
     private static final String IN_STOCK_EXPR = "{ '$gt': [ { '$sum': { '$map': { "
+            + "'input': { '$ifNull': ['$variants', []] }, 'as': 'v', "
+            + "'in': { '$sum': { '$map': { "
+            + "'input': { '$ifNull': ['$$v.inventoryLevels', []] }, 'as': 'lvl', "
+            + "'in': { '$subtract': [ { '$ifNull': ['$$lvl.onHandQuantity', 0] }, { '$ifNull': ['$$lvl.reservedQuantity', 0] } ] } "
+            + "} } } "
+            + "} } }, 0 ] }";
+
+    private static final String OUT_OF_STOCK_EXPR = "{ '$lte': [ { '$sum': { '$map': { "
             + "'input': { '$ifNull': ['$variants', []] }, 'as': 'v', "
             + "'in': { '$sum': { '$map': { "
             + "'input': { '$ifNull': ['$$v.inventoryLevels', []] }, 'as': 'lvl', "
@@ -116,6 +127,47 @@ public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
     }
 
     @Override
+    public InventorySummaryResponse getInventorySummary() {
+        Aggregation agg = Aggregation.newAggregation(
+                Aggregation.unwind("variants", true),
+                Aggregation.unwind("variants.inventoryLevels", true),
+                Aggregation.group()
+                        .sum("variants.inventoryLevels.onHandQuantity").as("totalOnHand")
+                        .sum("variants.inventoryLevels.reservedQuantity").as("totalReserved")
+        );
+        AggregationResults<Document> results = mongoTemplate.aggregate(agg, Product.class, Document.class);
+        Document doc = results.getUniqueMappedResult();
+        
+        long totalOnHand = 0;
+        long totalReserved = 0;
+        if (doc != null) {
+            Number onHandNum = doc.get("totalOnHand", Number.class);
+            Number reservedNum = doc.get("totalReserved", Number.class);
+            totalOnHand = onHandNum != null ? onHandNum.longValue() : 0;
+            totalReserved = reservedNum != null ? reservedNum.longValue() : 0;
+        }
+
+        long productCount = mongoTemplate.count(new Query(), Product.class);
+        
+        Query outQuery = new Query();
+        outQuery.addCriteria(Criteria.expr(MongoExpression.create(OUT_OF_STOCK_EXPR)));
+        long outOfStockCount = mongoTemplate.count(outQuery, Product.class);
+        
+        Query lowQuery = new Query();
+        lowQuery.addCriteria(Criteria.where("hasLowStock").is(true));
+        long lowStockCount = mongoTemplate.count(lowQuery, Product.class);
+
+        return InventorySummaryResponse.builder()
+                .totalOnHand(totalOnHand)
+                .totalReserved(totalReserved)
+                .totalAvailable(totalOnHand - totalReserved)
+                .productCount(productCount)
+                .lowStockCount(lowStockCount)
+                .outOfStockCount(outOfStockCount)
+                .build();
+    }
+
+    @Override
     public Page<Product> searchAdvanced(ProductSearchRequest request) {
         validateSearchRequest(request);
         Query query = new Query();
@@ -162,6 +214,15 @@ public class ProductRepositoryCustomImpl implements ProductRepositoryCustom {
         // 2e. Filter by inStockOnly - chỉ trả sản phẩm có tổng số lượng còn bán được > 0
         if (Boolean.TRUE.equals(request.getInStockOnly())) {
             andCriteriaList.add(Criteria.expr(MongoExpression.create(IN_STOCK_EXPR)));
+        }
+
+        // 2f. Filter by stockStatus ("low" or "out")
+        if (StringUtils.hasText(request.getStockStatus()) && !"all".equals(request.getStockStatus())) {
+            if ("low".equals(request.getStockStatus())) {
+                andCriteriaList.add(Criteria.where("hasLowStock").is(true));
+            } else if ("out".equals(request.getStockStatus())) {
+                andCriteriaList.add(Criteria.expr(MongoExpression.create(OUT_OF_STOCK_EXPR)));
+            }
         }
 
         // 3. Search query

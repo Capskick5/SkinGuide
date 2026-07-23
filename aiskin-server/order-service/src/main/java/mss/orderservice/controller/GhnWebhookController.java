@@ -11,6 +11,8 @@ import mss.orderservice.model.Order;
 import mss.orderservice.model.ReturnOrder;
 import mss.orderservice.repository.OrderRepository;
 import mss.orderservice.repository.ReturnOrderRepository;
+import mss.orderservice.repository.CompensationOrderRepository;
+import mss.orderservice.model.CompensationOrder;
 import mss.orderservice.config.GhnConfig;
 import mss.orderservice.service.impl.OrderService;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +24,7 @@ import java.util.Map;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import mss.orderservice.service.IOrderService;
+import mss.orderservice.service.ICompensationOrderService;
 
 @Slf4j
 @RestController
@@ -36,12 +39,21 @@ public class GhnWebhookController {
     private final IOrderService orderService;
 
     private final GhnConfig ghnConfig;
+    private final CompensationOrderRepository compensationOrderRepository;
+    private final ICompensationOrderService compensationOrderService;
 
-    public GhnWebhookController(OrderRepository orderRepository, ReturnOrderRepository returnOrderRepository, IOrderService orderService, GhnConfig ghnConfig) {
+    public GhnWebhookController(OrderRepository orderRepository,
+                                ReturnOrderRepository returnOrderRepository,
+                                IOrderService orderService,
+                                GhnConfig ghnConfig,
+                                CompensationOrderRepository compensationOrderRepository,
+                                ICompensationOrderService compensationOrderService) {
         this.orderRepository = orderRepository;
         this.returnOrderRepository = returnOrderRepository;
         this.orderService = orderService;
         this.ghnConfig = ghnConfig;
+        this.compensationOrderRepository = compensationOrderRepository;
+        this.compensationOrderService = compensationOrderService;
     }
 
     @PostMapping
@@ -72,6 +84,17 @@ public class GhnWebhookController {
                 ReturnOrder returnOrder = returnOrderRepository.findByReturnTrackingCode(ghnOrderCode).orElse(null);
                 if (returnOrder != null) {
                     handleReturnOrderWebhook(returnOrder, status);
+                    return ResponseEntity.ok("OK");
+                }
+                CompensationOrder compensation = compensationOrderRepository.findByTrackingCode(ghnOrderCode).orElse(null);
+                if (compensation != null) {
+                    compensationOrderService.applyGhnStatus(
+                            compensation.getId(),
+                            status,
+                            stringValue(payload.get("Reason")) != null
+                                    ? stringValue(payload.get("Reason"))
+                                    : stringValue(payload.get("Description")),
+                            stringValue(payload.get("ReasonCode")));
                     return ResponseEntity.ok("OK");
                 }
                 log.warn("Không tìm thấy Order hay ReturnOrder trong hệ thống với GHN code: {} hoặc Client code: {}", ghnOrderCode, clientOrderCode);
@@ -117,8 +140,8 @@ public class GhnWebhookController {
     }
 
     private void handleReturnOrderWebhook(ReturnOrder returnOrder, String status) {
-        // Nếu đã hoàn thành quy trình rồi thì bỏ qua
-        if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.RECEIVED || returnOrder.getStatus() == ReturnOrder.ReturnStatus.REFUNDED || returnOrder.getStatus() == ReturnOrder.ReturnStatus.REJECTED) {
+        // Webhook cũ/đến trễ không được kéo lùi đơn đã sang hoàn tiền/giao lại.
+        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.DELIVERING) {
             return;
         }
         ReturnOrder.ReturnStatus newStatus = null;
@@ -136,7 +159,9 @@ public class GhnWebhookController {
                 newStatus = ReturnOrder.ReturnStatus.DELIVERED;
                 break;
         }
-        if (newStatus != null && returnOrder.getStatus() != newStatus) {
+        // Chỉ GHN được phép xác nhận kiện hoàn đã đến kho. Webhook vận chuyển
+        // đến trễ hoặc trùng lặp không được kéo lùi trạng thái.
+        if (newStatus == ReturnOrder.ReturnStatus.DELIVERED) {
             returnOrder.setStatus(newStatus);
             returnOrderRepository.save(returnOrder);
             log.info("Đã cập nhật trạng thái ReturnOrder {} thành {}", returnOrder.getId(), newStatus);

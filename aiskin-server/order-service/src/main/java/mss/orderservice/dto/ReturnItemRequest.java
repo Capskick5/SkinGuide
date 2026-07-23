@@ -17,7 +17,7 @@ public record ReturnItemRequest(
         @Size(max = 100, message = "variantId không hợp lệ")
         String variantId,
 
-        @Size(max = 100, message = "SKU không hợp lệ")
+        @Size(max = 100, message = "Mã biến thể nội bộ không hợp lệ")
         String sku,
 
         @Size(max = 100, message = "Đơn vị sản phẩm không hợp lệ")

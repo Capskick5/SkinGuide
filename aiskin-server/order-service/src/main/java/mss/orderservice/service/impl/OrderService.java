@@ -319,7 +319,7 @@ public class OrderService implements IOrderService {
         parameters.put("vnp_TmnCode", vnpayConfig.getTmnCode().trim());
         parameters.put("vnp_Amount", String.valueOf(amount));
         parameters.put("vnp_CurrCode", "VND");
-        parameters.put("vnp_TxnRef", order.getOrderCode());
+        parameters.put("vnp_TxnRef", order.getOrderCode().replace("-", "") + System.currentTimeMillis());
         parameters.put("vnp_OrderInfo", "ThanhToanDonHang_" + order.getOrderCode());
         parameters.put("vnp_OrderType", "210000");
         if (vnpayConfig.getBankCode() != null && !vnpayConfig.getBankCode().isBlank()) {
@@ -398,7 +398,13 @@ public class OrderService implements IOrderService {
     }
 
     public PaymentProcessingResult processVnpayIpn(String orderId, String responseCode, String transactionStatus, long amountTimes100, String transactionId) {
-        Order order = findPaymentOrder(orderId, Order.PaymentMethod.VNPAY);
+        String originalOrderCode = orderId;
+        if (orderId.startsWith("ORD") && orderId.length() >= 11 && !orderId.contains("-")) {
+            originalOrderCode = "ORD-" + orderId.substring(3, 11);
+        } else if (orderId.contains("_")) {
+            originalOrderCode = orderId.substring(0, orderId.lastIndexOf('_'));
+        }
+        Order order = findPaymentOrder(originalOrderCode, Order.PaymentMethod.VNPAY);
         validatePaymentAmount(order, BigDecimal.valueOf(amountTimes100, 2));
         if (order.getPaymentStatus() != Order.PaymentStatus.UNPAID) {
             return existingPaymentResult(order);
@@ -633,6 +639,13 @@ public class OrderService implements IOrderService {
                         Map<String, Object> ghnResponse = ghnService.createOrder(ghnData);
                         String trackingCode = ghnResponse != null ? (String) ghnResponse.get("order_code") : null;
                         order.setTrackingCode(trackingCode);
+                        if (trackingCode != null && !trackingCode.isBlank()) {
+                            order.setShipmentCreatedAt(LocalDateTime.now());
+                        }
+                        if (ghnResponse != null && ghnResponse.get("total_fee") != null) {
+                            order.setActualShippingFee(
+                                    new BigDecimal(ghnResponse.get("total_fee").toString()));
+                        }
                     } catch (Exception e) {
                         log.error("Không thể tạo vận đơn GHN cho đơn {}", order.getOrderCode(), e);
                         throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Chưa thể tạo vận đơn GHN lúc này, vui lòng thử lại sau");

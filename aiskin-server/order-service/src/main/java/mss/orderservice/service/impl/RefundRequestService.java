@@ -13,6 +13,8 @@ import mss.orderservice.model.ReturnOrder;
 import mss.orderservice.repository.OrderRepository;
 import mss.orderservice.repository.RefundRequestRepository;
 import mss.orderservice.repository.ReturnOrderRepository;
+import mss.orderservice.repository.CompensationOrderRepository;
+import mss.orderservice.model.CompensationOrder;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,13 +34,19 @@ public class RefundRequestService implements IRefundRequestService {
 
     private final OrderRepository orderRepository;
 
+    private final CompensationOrderRepository compensationOrderRepository;
+
+    @Transactional
     public RefundRequest createRefundRequest(String customerId, RefundCreateRequest request) {
         ReturnOrder returnOrder = returnOrderRepository.findById(request.returnOrderId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn khiếu nại"));
         if (!returnOrder.getCustomerId().equals(customerId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Không có quyền tạo yêu cầu hoàn tiền cho đơn này");
         }
-        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.RECEIVED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn khiếu nại chưa hoàn tất trả hàng, không thể tạo yêu cầu hoàn tiền");
+        if (returnOrder.getResolution() != ReturnOrder.ResolutionType.REFUND) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Khiếu nại này đã chọn phương án giao lại, không thể yêu cầu hoàn tiền");
+        }
+        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.REFUND_PENDING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Khiếu nại chưa đến giai đoạn hoàn tiền");
         }
         if (refundRequestRepository.findByReturnOrderId(returnOrder.getId()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Đơn này đã có yêu cầu hoàn tiền");
@@ -59,7 +67,10 @@ public class RefundRequestService implements IRefundRequestService {
         refundRequest.setAmount(amount);
         applyBankDetails(refundRequest, request.bankName(), request.accountNumber(), request.accountName());
         refundRequest.setStatus(RefundRequest.RefundStatus.PENDING);
-        return refundRequestRepository.save(refundRequest);
+        RefundRequest saved = refundRequestRepository.save(refundRequest);
+        returnOrder.setStatus(ReturnOrder.ReturnStatus.REFUND_PROCESSING);
+        returnOrderRepository.save(returnOrder);
+        return saved;
     }
 
     @Transactional
@@ -72,18 +83,40 @@ public class RefundRequestService implements IRefundRequestService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Chỉ có thể hoàn tất yêu cầu đang chờ xử lý");
         }
         ReturnOrder returnOrder = returnOrderRepository.findById(request.getReturnOrderId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Không tìm thấy yêu cầu trả hàng tương ứng"));
-        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.RECEIVED && returnOrder.getStatus() != ReturnOrder.ReturnStatus.REFUNDED) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Kho chưa xác nhận nhận hàng trả nên chưa thể hoàn tiền");
+        if (returnOrder.getResolution() != ReturnOrder.ResolutionType.REFUND) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Khiếu nại không được giải quyết bằng hoàn tiền");
         }
-        if (!Boolean.TRUE.equals(returnOrder.getInventoryProcessed())) {
+        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.REFUND_PENDING
+                && returnOrder.getStatus() != ReturnOrder.ReturnStatus.REFUND_PROCESSING
+                && returnOrder.getStatus() != ReturnOrder.ReturnStatus.REFUNDED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Khiếu nại chưa đến giai đoạn hoàn tiền");
+        }
+        boolean needsReturnedInventory = returnOrder.getClaimType() != ReturnOrder.ClaimType.MISSING_ITEM;
+        if (needsReturnedInventory && !Boolean.TRUE.equals(returnOrder.getInventoryProcessed())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Hàng trả chưa được kho phân loại nên chưa thể hoàn tiền");
         }
+        compensationOrderRepository.findByReturnOrderId(returnOrder.getId())
+                .filter(compensation -> compensation.getStatus()
+                        == CompensationOrder.CompensationStatus.RETURNED_INSPECTION)
+                .filter(compensation -> !Boolean.TRUE.equals(compensation.getReturnInventoryProcessed()))
+                .ifPresent(compensation -> {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Kiện giao lại đã hoàn về nhưng chưa được kho kiểm tra");
+                });
         Order order = orderRepository.findById(request.getOrderId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Không tìm thấy đơn hàng gốc"));
-        if (order.getPaymentStatus() != Order.PaymentStatus.PAID && order.getPaymentStatus() != Order.PaymentStatus.REFUNDED) {
+        if (order.getPaymentStatus() != Order.PaymentStatus.PAID
+                && order.getPaymentStatus() != Order.PaymentStatus.PARTIALLY_REFUNDED
+                && order.getPaymentStatus() != Order.PaymentStatus.REFUNDED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Trạng thái thanh toán của đơn hàng không cho phép hoàn tiền");
         }
         if (order.getPaymentStatus() != Order.PaymentStatus.REFUNDED) {
-            order.setPaymentStatus(Order.PaymentStatus.REFUNDED);
+            java.math.BigDecimal alreadyRefunded = order.getRefundedAmount() == null
+                    ? java.math.BigDecimal.ZERO : order.getRefundedAmount();
+            java.math.BigDecimal newRefunded = alreadyRefunded.add(request.getAmount());
+            order.setRefundedAmount(newRefunded);
+            order.setPaymentStatus(newRefunded.compareTo(order.getTotalAmount()) >= 0
+                    ? Order.PaymentStatus.REFUNDED
+                    : Order.PaymentStatus.PARTIALLY_REFUNDED);
             orderRepository.save(order);
         }
         if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.REFUNDED) {
@@ -107,6 +140,7 @@ public class RefundRequestService implements IRefundRequestService {
         return refundRequestRepository.findByReturnOrderId(returnOrderId);
     }
 
+    @Transactional
     public RefundRequest rejectRefund(String id) {
         RefundRequest request = refundRequestRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu hoàn tiền"));
         if (request.getStatus() == RefundRequest.RefundStatus.REJECTED) {
@@ -116,9 +150,16 @@ public class RefundRequestService implements IRefundRequestService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Không thể từ chối yêu cầu hoàn tiền đã hoàn tất");
         }
         request.setStatus(RefundRequest.RefundStatus.REJECTED);
-        return refundRequestRepository.save(request);
+        RefundRequest saved = refundRequestRepository.save(request);
+        ReturnOrder returnOrder = returnOrderRepository.findById(request.getReturnOrderId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Không tìm thấy yêu cầu trả hàng tương ứng"));
+        returnOrder.setStatus(ReturnOrder.ReturnStatus.REFUND_PENDING);
+        returnOrderRepository.save(returnOrder);
+        return saved;
     }
 
+    @Transactional
     public RefundRequest resubmitRefund(String id, RefundBankDetailsRequest requestDetails) {
         RefundRequest request = refundRequestRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy yêu cầu hoàn tiền"));
         if (request.getStatus() != RefundRequest.RefundStatus.REJECTED) {
@@ -126,7 +167,13 @@ public class RefundRequestService implements IRefundRequestService {
         }
         applyBankDetails(request, requestDetails.bankName(), requestDetails.accountNumber(), requestDetails.accountName());
         request.setStatus(RefundRequest.RefundStatus.PENDING);
-        return refundRequestRepository.save(request);
+        RefundRequest saved = refundRequestRepository.save(request);
+        ReturnOrder returnOrder = returnOrderRepository.findById(request.getReturnOrderId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Không tìm thấy yêu cầu trả hàng tương ứng"));
+        returnOrder.setStatus(ReturnOrder.ReturnStatus.REFUND_PROCESSING);
+        returnOrderRepository.save(returnOrder);
+        return saved;
     }
 
     private void applyBankDetails(RefundRequest request, String bankName, String accountNumber, String accountName) {

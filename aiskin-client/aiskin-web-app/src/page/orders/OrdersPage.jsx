@@ -43,9 +43,21 @@ function getStatusLabel(status) {
     RETURNED: { label: 'Đã hoàn hàng về kho', color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'keyboard_return' },
     
     // 6. Đã hủy
-    CANCELLED: { label: 'Đã hủy', color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'block' }
+    CANCELLED: { label: 'Đã hủy', color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'block' },
+
+    // Tab nghiệp vụ giao lại
+    REDELIVERY: { label: 'Đơn giao lại', color: 'text-violet-600 bg-violet-50 border-violet-200', icon: 'move_to_inbox' }
   }
   return map[status] || { label: status, color: 'text-gray-600 bg-gray-100 border-gray-200', icon: 'info' }
+}
+
+function getRedeliveryStatusLabel(status) {
+  const map = {
+    REDELIVERY_PENDING: { label: 'Chờ chuẩn bị giao lại', color: 'text-amber-700 bg-amber-50 border-amber-200', icon: 'inventory_2' },
+    REDELIVERING: { label: 'Đang giao lại', color: 'text-indigo-700 bg-indigo-50 border-indigo-200', icon: 'local_shipping' },
+    RESOLVED: { label: 'Đã giao lại', color: 'text-emerald-700 bg-emerald-50 border-emerald-200', icon: 'task_alt' },
+  }
+  return map[status] || { label: 'Đơn giao lại', color: 'text-violet-700 bg-violet-50 border-violet-200', icon: 'move_to_inbox' }
 }
 
 const TABS = [
@@ -53,9 +65,12 @@ const TABS = [
   { key: 'PROCESSING', query: 'PROCESSING', label: 'Đang chuẩn bị' },
   { key: 'TRANSPORTING', query: 'READY_TO_PICK,PICKING,PICKED,STORING,TRANSPORTING,SORTING,DELIVERING,DELIVERY_FAIL', label: 'Đang vận chuyển' },
   { key: 'DELIVERED', query: 'DELIVERED,RECEIVED', label: 'Thành công' },
+  { key: 'REDELIVERY', query: null, label: 'Đơn giao lại' },
   { key: 'REFUSED', query: 'WAITING_TO_RETURN,RETURN,RETURN_TRANSPORTING,RETURNING,RETURN_FAIL,RETURNED,REFUSED', label: 'Từ chối nhận hàng' },
   { key: 'CANCELLED', query: 'CANCELLED', label: 'Đã hủy' },
 ]
+
+const REDELIVERY_STATUSES = new Set(['REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'])
 
 /* ─────────────────────────────────────────────
    Modal Xác nhận Hủy đơn hàng
@@ -63,6 +78,7 @@ const TABS = [
 function ConfirmCancelModal({ orderCode, onClose, onConfirm }) {
   const [reason, setReason] = useState('')
   const [selectedTag, setSelectedTag] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const inputRef = useRef(null)
 
   const predefinedReasons = [
@@ -134,11 +150,21 @@ function ConfirmCancelModal({ orderCode, onClose, onConfirm }) {
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(reason)}
-            disabled={!reason.trim()}
-            className="flex-1 rounded-xl bg-error px-4 py-3 text-body-sm font-semibold text-white hover:bg-error/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={async () => {
+              setIsSubmitting(true)
+              try {
+                await onConfirm(reason)
+              } finally {
+                if (document.body.contains(inputRef.current)) {
+                  setIsSubmitting(false)
+                }
+              }
+            }}
+            disabled={!reason.trim() || isSubmitting}
+            className="flex-1 rounded-xl bg-error px-4 py-3 text-body-sm font-semibold text-white hover:bg-error/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            Hủy đơn
+            {isSubmitting && <Icon name="progress_activity" className="animate-spin text-lg" />}
+            {isSubmitting ? 'Đang hủy...' : 'Hủy đơn'}
           </button>
         </div>
       </div>
@@ -196,6 +222,40 @@ export default function OrdersPage() {
     async function loadOrders() {
       setLoading(true)
       try {
+        if (activeTab === 'REDELIVERY') {
+          const returnsData = await httpClient.get(`/returns/user/${user.id}`)
+          if (cancelled) return
+
+          const redeliveries = (returnsData || [])
+            .filter(request => request.resolution === 'REDELIVER' && REDELIVERY_STATUSES.has(request.status))
+            .sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0))
+          const start = page * pageSize
+          const visibleRedeliveries = redeliveries.slice(start, start + pageSize)
+          const orderResults = await Promise.allSettled(
+            visibleRedeliveries.map(request =>
+              httpClient.get(`/orders/${encodeURIComponent(request.orderId)}`),
+            ),
+          )
+          if (cancelled) return
+
+          const redeliveryOrders = visibleRedeliveries.map((request, index) => {
+            const result = orderResults[index]
+            const originalOrder = result.status === 'fulfilled' ? result.value : null
+            return {
+              ...(originalOrder || {}),
+              id: request.orderId,
+              orderCode: originalOrder?.orderCode || request.orderCode,
+              createdAt: originalOrder?.createdAt || request.createdAt,
+              items: originalOrder?.items || request.items || [],
+              redeliveryRequest: request,
+            }
+          })
+          setOrders(redeliveryOrders)
+          setReturnRequests(redeliveries)
+          setTotalPages(Math.max(1, Math.ceil(redeliveries.length / pageSize)))
+          return
+        }
+
         const activeTabObj = TABS.find(t => t.key === activeTab) || TABS[0]
         const data = await httpClient.get(`/orders/user/${user.id}?page=${page}&size=${pageSize}&status=${activeTabObj.query}`)
         if (cancelled) return
@@ -213,7 +273,12 @@ export default function OrdersPage() {
           setReturnRequests([])
         }
       } catch (err) {
-        if (!cancelled) console.error(err)
+        if (!cancelled) {
+          console.error(err)
+          setOrders([])
+          setReturnRequests([])
+          setTotalPages(1)
+        }
       } finally {
         if (!cancelled) {
           setLoading(false)
@@ -280,8 +345,14 @@ export default function OrdersPage() {
             <Icon name="receipt_long" className="text-5xl text-primary/50" />
           </div>
           <div className="text-center">
-            <p className="text-headline-sm text-on-surface font-semibold mb-2">Chưa có đơn hàng nào</p>
-            <p className="text-body-md text-on-surface-variant">Bạn chưa thực hiện giao dịch nào.</p>
+            <p className="text-headline-sm text-on-surface font-semibold mb-2">
+              {activeTab === 'REDELIVERY' ? 'Chưa có đơn giao lại nào' : 'Chưa có đơn hàng nào'}
+            </p>
+            <p className="text-body-md text-on-surface-variant">
+              {activeTab === 'REDELIVERY'
+                ? 'Các đơn được xử lý bằng phương án giao lại sẽ xuất hiện tại đây.'
+                : 'Bạn chưa thực hiện giao dịch nào.'}
+            </p>
           </div>
           <Link
             to="/products"
@@ -293,7 +364,10 @@ export default function OrdersPage() {
       ) : (
         <div className="flex flex-col gap-3 w-full">
           {orders.map(order => {
-            const statusConfig = getStatusLabel(order.status)
+            const redeliveryRequest = order.redeliveryRequest
+            const statusConfig = activeTab === 'REDELIVERY'
+              ? getRedeliveryStatusLabel(redeliveryRequest?.status)
+              : getStatusLabel(order.status)
             const firstItem = order.items[0]
             const remainingCount = order.items.length - 1
 
@@ -306,16 +380,28 @@ export default function OrdersPage() {
                       Mã đơn: <span className="text-primary">{order.orderCode}</span>
                     </h3>
                     
-                    {returnRequests.find(r => r.orderId === order.id && r.status !== 'REFUNDED' && r.status !== 'REJECTED') && (
+                    {activeTab === 'REDELIVERY' && (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-violet-50 text-violet-700 border border-violet-200">
+                        <Icon name="move_to_inbox" className="text-[13px]" />
+                        Đơn giao lại
+                      </span>
+                    )}
+                    {activeTab !== 'REDELIVERY' && returnRequests.find(r => r.orderId === order.id && !['REFUNDED', 'RESOLVED', 'REJECTED', 'INSPECTION_FAILED'].includes(r.status)) && (
                       <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
                         <Icon name="gavel" className="text-[13px]" />
                         Đang khiếu nại
                       </span>
                     )}
-                    {returnRequests.find(r => r.orderId === order.id && r.status === 'REFUNDED') && (
+                    {activeTab !== 'REDELIVERY' && returnRequests.find(r => r.orderId === order.id && r.status === 'REFUNDED') && (
                       <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         <Icon name="price_check" className="text-[13px]" />
                         Đã trả hàng & Hoàn tiền
+                      </span>
+                    )}
+                    {activeTab !== 'REDELIVERY' && returnRequests.find(r => r.orderId === order.id && r.status === 'RESOLVED') && (
+                      <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        <Icon name="local_shipping" className="text-[13px]" />
+                        Đã giao lại thành công
                       </span>
                     )}
 
@@ -369,10 +455,19 @@ export default function OrdersPage() {
 
                   {/* Right: Total and Button */}
                   <div className="flex items-center shrink-0 w-full sm:w-auto sm:border-l sm:border-border-pink sm:pl-4 mt-2 sm:mt-0 pt-2 sm:pt-0 border-t border-border-pink sm:border-t-0 gap-3 justify-between sm:justify-start">
-                    <div className="text-right flex flex-col sm:block">
-                      <span className="text-caption text-on-surface-variant sm:mr-1">Tổng thanh toán:</span>
-                      <span className="font-bold text-primary text-body-lg">{money(order.totalAmount)}</span>
-                    </div>
+                    {activeTab === 'REDELIVERY' ? (
+                      <div className="text-left sm:text-right">
+                        <span className="block text-caption text-on-surface-variant">Mã vận đơn giao lại</span>
+                        <span className="block max-w-[210px] break-all font-bold text-indigo-700 text-body-sm">
+                          {redeliveryRequest?.redeliveryTrackingCode || 'Chưa tạo vận đơn'}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="text-right flex flex-col sm:block">
+                        <span className="text-caption text-on-surface-variant sm:mr-1">Tổng thanh toán:</span>
+                        <span className="font-bold text-primary text-body-lg">{money(order.totalAmount)}</span>
+                      </div>
+                    )}
                     <Link
                       to={`/orders/${order.id}`}
                       className="px-3 py-1.5 rounded-lg border border-primary text-primary font-bold text-sm hover:bg-primary hover:text-white transition-colors shrink-0"

@@ -26,4 +26,6 @@ public class InventoryLevelResponse {
     private Integer availableQuantity;
 
     private Integer soldQuantity;
+
+    private Integer damagedQuantity;
 }

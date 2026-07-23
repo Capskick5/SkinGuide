@@ -45,6 +45,8 @@ public interface IInventoryService {
 
     InventoryReservationResponse processReturn(InventoryReturnRequest request);
 
+    InventoryReservationResponse processReservedReturn(InventoryReturnRequest request);
+
     InventoryMovementResponse adjust(InventoryAdjustmentRequest request);
 
     Page<InventoryMovementResponse> getMovements(String productId, String variantId, int page, int size);

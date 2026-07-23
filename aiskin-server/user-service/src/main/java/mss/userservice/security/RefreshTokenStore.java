@@ -84,7 +84,16 @@ public class RefreshTokenStore {
 
     /** Rotate: revoke the old token and issue a new one for the same user. */
     public String rotate(String oldToken, String userId) {
-        revoke(oldToken);
+        // Áp dụng "Grace Period" 60 giây thay vì xóa ngay lập tức
+        // Điều này giúp tránh lỗi race condition khi người dùng mở nhiều tab
+        try {
+            redis.expire(TOKEN_PREFIX + oldToken, Duration.ofSeconds(60));
+        } catch (DataAccessException ex) {
+            InMemoryToken stored = fallbackTokens.get(oldToken);
+            if (stored != null) {
+                fallbackTokens.put(oldToken, new InMemoryToken(userId, Instant.now().plusSeconds(60)));
+            }
+        }
         return issue(userId);
     }
 

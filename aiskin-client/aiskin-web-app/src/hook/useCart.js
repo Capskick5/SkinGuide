@@ -12,6 +12,10 @@ import {
 
 const LEGACY_CART_KEY = 'aiskin.cart'
 const CHANGE_EVENT = 'aiskin:cart-change'
+const memoryCache = new Map()
+
+let globalLoadedUserId = null
+let globalInitPromise = null
 
 function readCart(storageKey = GUEST_CART_STORAGE_KEY) {
   if (typeof window === 'undefined') return []
@@ -21,8 +25,17 @@ function readCart(storageKey = GUEST_CART_STORAGE_KEY) {
       raw = localStorage.getItem(LEGACY_CART_KEY)
     }
     if (!raw) return []
+    
+    const cached = memoryCache.get(storageKey)
+    if (cached && cached.raw === raw) {
+      return cached.parsed
+    }
+
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed.map(normalizeCartItem) : []
+    const normalized = Array.isArray(parsed) ? parsed.map(normalizeCartItem) : []
+    
+    memoryCache.set(storageKey, { raw, parsed: normalized })
+    return normalized
   } catch {
     return []
   }
@@ -30,9 +43,11 @@ function readCart(storageKey = GUEST_CART_STORAGE_KEY) {
 
 function writeCart(items, storageKey = GUEST_CART_STORAGE_KEY) {
   if (typeof window === 'undefined') return
-  localStorage.setItem(storageKey, JSON.stringify(items))
+  const raw = JSON.stringify(items)
+  memoryCache.set(storageKey, { raw, parsed: items })
+  localStorage.setItem(storageKey, raw)
   if (storageKey === GUEST_CART_STORAGE_KEY) localStorage.removeItem(LEGACY_CART_KEY)
-  window.dispatchEvent(new Event(CHANGE_EVENT))
+  window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: items }))
 }
 
 function clearStoredCart(storageKey) {
@@ -66,20 +81,25 @@ export function useCart() {
   }, [])
 
   useEffect(() => {
-    const sync = () => setItems(readCart(storageKeyRef.current))
-    window.addEventListener('storage', sync)
-    window.addEventListener(CHANGE_EVENT, sync)
+    const syncStorage = () => setItems(readCart(storageKeyRef.current))
+    const syncLocal = (e) => {
+      if (e && e.detail) {
+        setItems(e.detail)
+      } else {
+        syncStorage()
+      }
+    }
+    window.addEventListener('storage', syncStorage)
+    window.addEventListener(CHANGE_EVENT, syncLocal)
     return () => {
-      window.removeEventListener('storage', sync)
-      window.removeEventListener(CHANGE_EVENT, sync)
+      window.removeEventListener('storage', syncStorage)
+      window.removeEventListener(CHANGE_EVENT, syncLocal)
     }
   }, [])
 
-  // Keep guest carts separate, then merge them into only the user who signs in.
   useEffect(() => {
     let alive = true
     if (!isAuthenticated || !userId) {
-      loadedForRef.current = null
       storageKeyRef.current = GUEST_CART_STORAGE_KEY
       queueMicrotask(() => {
         if (alive) setItems(readCart(GUEST_CART_STORAGE_KEY))
@@ -91,27 +111,44 @@ export function useCart() {
 
     const userStorageKey = cartStorageKey(userId)
     storageKeyRef.current = userStorageKey
-    const pendingLocal = mergeCarts(
-      readCart(userStorageKey),
-      readCart(GUEST_CART_STORAGE_KEY),
-    )
-    writeCart(pendingLocal, userStorageKey)
-    clearStoredCart(GUEST_CART_STORAGE_KEY)
-    if (loadedForRef.current === userId) return undefined
+    
+    // Merge guest cart into pending local immediately, then clear it
+    const guestCart = readCart(GUEST_CART_STORAGE_KEY)
+    if (guestCart.length > 0) {
+      const pendingLocal = mergeCarts(readCart(userStorageKey), guestCart)
+      writeCart(pendingLocal, userStorageKey)
+      clearStoredCart(GUEST_CART_STORAGE_KEY)
+    }
 
-    void (async () => {
-      try {
-        const server = await cartApi.get()
-        if (!alive) return
-        const merged = mergeCarts(pendingLocal, Array.isArray(server) ? server : [])
-        writeCart(merged, userStorageKey)
-        setItems(merged)
-        loadedForRef.current = userId
-        enqueueServerSync(userId, () => cartApi.replace(merged))
-      } catch {
-        // Local cart remains usable while the service is temporarily unavailable.
+    if (globalLoadedUserId === userId) {
+      queueMicrotask(() => {
+        if (alive) setItems(readCart(userStorageKey))
+      })
+      return () => {
+        alive = false
       }
-    })()
+    }
+
+    if (!globalInitPromise) {
+      globalInitPromise = (async () => {
+        try {
+          const pendingLocal = readCart(userStorageKey)
+          const server = await cartApi.get()
+          const merged = mergeCarts(pendingLocal, Array.isArray(server) ? server : [])
+          writeCart(merged, userStorageKey)
+          globalLoadedUserId = userId
+          enqueueServerSync(userId, () => cartApi.replace(merged))
+        } catch {
+          // Local cart remains usable while the service is temporarily unavailable.
+        } finally {
+          globalInitPromise = null
+        }
+      })()
+    }
+
+    globalInitPromise.then(() => {
+      if (alive) setItems(readCart(userStorageKey))
+    })
 
     return () => {
       alive = false

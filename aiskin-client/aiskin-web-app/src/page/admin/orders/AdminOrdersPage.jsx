@@ -84,15 +84,18 @@ function StatusBadge({ status }) {
 
 function PaymentBadge({ status }) {
   const paid = status === 'PAID'
-  const failed = status === 'FAILED' || status === 'REFUNDED'
+  const refunded = status === 'REFUNDED' || status === 'PARTIALLY_REFUNDED'
+  const failed = status === 'FAILED'
   return (
     <span
       className={[
         'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold',
-        paid ? 'bg-emerald-50 text-emerald-700' : failed ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700',
+        paid ? 'bg-emerald-50 text-emerald-700'
+          : refunded ? 'bg-cyan-50 text-cyan-700'
+            : failed ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700',
       ].join(' ')}
     >
-      {status || 'UNPAID'}
+      {status === 'PARTIALLY_REFUNDED' ? 'HOÀN MỘT PHẦN' : status === 'REFUNDED' ? 'ĐÃ HOÀN TIỀN' : status || 'UNPAID'}
     </span>
   )
 }
@@ -256,11 +259,13 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
   const [width, setWidth] = useState(15)
   const [height, setHeight] = useState(10)
   const [requiredNote, setRequiredNote] = useState('CHOXEMHANGKHONGTHU')
+  const [hasRead, setHasRead] = useState(false)
 
   if (!change) return null
   const config = STATUS[change.newStatus]
   const isCancel = change.newStatus === 'CANCELLED'
   const isReadyToPick = change.newStatus === 'DELIVERING'
+  const isPending = change.currentStatus === 'PENDING'
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -359,6 +364,20 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
           </div>
         )}
 
+        {isPending && (
+          <div className="mt-4 p-3 border border-amber-200 bg-amber-50 rounded-lg text-left">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={hasRead} 
+                onChange={e => setHasRead(e.target.checked)} 
+                className="mt-0.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+              />
+              <span className="text-sm text-amber-900 font-medium">Tôi xác nhận đã đọc và kiểm tra kỹ chi tiết đơn hàng này trước khi xử lý.</span>
+            </label>
+          </div>
+        )}
+
         <div className="mt-6 flex gap-3">
           <button
             type="button"
@@ -370,7 +389,7 @@ function ConfirmUpdateModal({ change, onClose, onConfirm }) {
           <button
             type="button"
             onClick={() => onConfirm(isCancel ? { cancelReason: reason } : isReadyToPick ? { weight, length, width, height, requiredNote } : {})}
-            disabled={(isCancel && !reason.trim()) || (isReadyToPick && (!weight || weight <= 0 || !length || !width || !height))}
+            disabled={(isCancel && !reason.trim()) || (isReadyToPick && (!weight || weight <= 0 || !length || !width || !height)) || (isPending && !hasRead)}
             className="flex-1 rounded-lg bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cập nhật
@@ -392,6 +411,7 @@ export default function AdminOrdersPage() {
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [syncingGhn, setSyncingGhn] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const pageSize = 10
 
   const fetchOrders = useCallback(async () => {
@@ -401,12 +421,25 @@ export default function AdminOrdersPage() {
       const data = await httpClient.get(`/orders?page=${page}&size=${pageSize}&status=${activeTabObj.query}`)
       setOrders(data.content || [])
       setTotalPages(data.totalPages || 1)
+      return true
     } catch (err) {
       console.error('Fetch orders failed:', err)
+      message.error('Không thể tải danh sách đơn hàng')
+      return false
     } finally {
       setLoading(false)
     }
-  }, [filter, page])
+  }, [filter, message, page])
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      const refreshed = await fetchOrders()
+      if (refreshed) message.success('Đã làm mới danh sách đơn hàng')
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const handleSyncGhn = async () => {
     try {
@@ -444,7 +477,7 @@ export default function AdminOrdersPage() {
       return
     }
 
-    setConfirmUpdate({ orderId: order.id, orderCode: order.orderCode, newStatus })
+    setConfirmUpdate({ orderId: order.id, orderCode: order.orderCode, currentStatus: order.status, newStatus })
   }
 
   async function executeUpdateStatus(payload) {
@@ -494,10 +527,11 @@ export default function AdminOrdersPage() {
           </button>
           <button
             type="button"
-            onClick={fetchOrders}
+            onClick={handleRefresh}
+            disabled={loading || refreshing}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
           >
-            <Icon name="refresh" className={loading ? 'animate-spin text-lg' : 'text-lg'} />
+            <Icon name="refresh" className={refreshing ? 'animate-spin text-lg' : 'text-lg'} />
             Làm mới
           </button>
         </div>
