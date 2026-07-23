@@ -22,6 +22,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 import mss.orderservice.security.IOrderAuthorizationService;
+import mss.orderservice.security.IJwtService;
 import mss.orderservice.service.ICompensationOrderService;
 import mss.orderservice.service.IReturnOrderService;
 
@@ -37,6 +38,8 @@ public class ReturnOrderController {
     private final ICompensationOrderService compensationOrderService;
 
     private final IOrderAuthorizationService authorizationService;
+
+    private final IJwtService jwtService;
 
     @PostMapping("/order/{orderId}")
     @Operation(summary = "Create a return request", description = "Customer creates a return request for a delivered order")
@@ -87,8 +90,31 @@ public class ReturnOrderController {
     @PutMapping("/admin/{id}/review")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER') and hasPermission('/api/returns/admin/{id}/status', 'PUT')")
     @Operation(summary = "Mark return request as reviewed", description = "Admin/Manager confirms the complaint details were reviewed before making an approval decision.")
-    public ResponseEntity<ReturnOrder> reviewReturn(@PathVariable String id, Authentication authentication) {
-        return ResponseEntity.ok(returnOrderService.reviewReturn(id, authentication.getName()));
+    public ResponseEntity<ReturnOrder> reviewReturn(
+            @PathVariable String id,
+            Authentication authentication,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        return ResponseEntity.ok(returnOrderService.reviewReturn(
+                id,
+                authentication.getName(),
+                reviewerDisplayName(authorizationHeader)));
+    }
+
+    private String reviewerDisplayName(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            return "Tài khoản quản trị";
+        }
+        try {
+            var claims = jwtService.parse(authorizationHeader.substring(7));
+            String fullName = claims.get("fullName", String.class);
+            if (fullName != null && !fullName.isBlank()) {
+                return fullName.trim();
+            }
+            String email = claims.get("email", String.class);
+            return email == null || email.isBlank() ? "Tài khoản quản trị" : email.trim();
+        } catch (RuntimeException invalidToken) {
+            return "Tài khoản quản trị";
+        }
     }
 
     @PutMapping("/admin/{id}/status")

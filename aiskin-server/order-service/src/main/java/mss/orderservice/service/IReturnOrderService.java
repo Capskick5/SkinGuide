@@ -23,7 +23,7 @@ public interface IReturnOrderService {
 
     ReturnOrder getReturnByOrderId(String orderId);
 
-    ReturnOrder reviewReturn(String id, String reviewerId);
+    ReturnOrder reviewReturn(String id, String reviewerId, String reviewerDisplay);
 
     ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason, ReturnOrder.InventoryDisposition inventoryDisposition);
 

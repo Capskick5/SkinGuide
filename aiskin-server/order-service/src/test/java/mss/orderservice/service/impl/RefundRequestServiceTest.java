@@ -3,6 +3,7 @@ import mss.orderservice.service.*;
 
 
 import mss.orderservice.dto.RefundCreateRequest;
+import mss.orderservice.dto.RefundBankDetailsRequest;
 import mss.orderservice.model.Order;
 import mss.orderservice.model.RefundRequest;
 import mss.orderservice.model.ReturnOrder;
@@ -60,12 +61,15 @@ class RefundRequestServiceTest {
         assertThat(result.getAccountNumber()).isEqualTo("0123456789");
         assertThat(result.getAccountName()).isEqualTo("NGUYEN VAN A");
         assertThat(result.getStatus()).isEqualTo(RefundRequest.RefundStatus.PENDING);
+        assertThat(returnOrder.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.REFUND_PROCESSING);
+        verify(returnOrderRepository).save(returnOrder);
     }
 
     @Test
     void completingRefundUpdatesRefundReturnAndOriginalOrder() {
         RefundRequest refund = pendingRefund();
         ReturnOrder returnOrder = receivedReturn();
+        returnOrder.setStatus(ReturnOrder.ReturnStatus.REFUND_PROCESSING);
         Order order = Order.builder().id("order-1").status(Order.OrderStatus.DELIVERED)
                 .totalAmount(BigDecimal.valueOf(150_000)).paymentStatus(Order.PaymentStatus.PAID).build();
         when(refundRequestRepository.findById("refund-1")).thenReturn(Optional.of(refund));
@@ -137,6 +141,38 @@ class RefundRequestServiceTest {
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("chưa được kho kiểm tra");
         verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    void rejectingBankDetailsMovesClaimBackToWaitingForCustomer() {
+        RefundRequest refund = pendingRefund();
+        ReturnOrder returnOrder = receivedReturn();
+        returnOrder.setStatus(ReturnOrder.ReturnStatus.REFUND_PROCESSING);
+        when(refundRequestRepository.findById("refund-1")).thenReturn(Optional.of(refund));
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
+
+        RefundRequest result = service.rejectRefund("refund-1");
+
+        assertThat(result.getStatus()).isEqualTo(RefundRequest.RefundStatus.REJECTED);
+        assertThat(returnOrder.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.REFUND_PENDING);
+        verify(returnOrderRepository).save(returnOrder);
+    }
+
+    @Test
+    void resubmittingBankDetailsMovesClaimBackToProcessing() {
+        RefundRequest refund = pendingRefund();
+        refund.setStatus(RefundRequest.RefundStatus.REJECTED);
+        ReturnOrder returnOrder = receivedReturn();
+        when(refundRequestRepository.findById("refund-1")).thenReturn(Optional.of(refund));
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
+
+        RefundRequest result = service.resubmitRefund(
+                "refund-1",
+                new RefundBankDetailsRequest("Techcombank", "9876543210", "Nguyen Van A"));
+
+        assertThat(result.getStatus()).isEqualTo(RefundRequest.RefundStatus.PENDING);
+        assertThat(returnOrder.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.REFUND_PROCESSING);
+        verify(returnOrderRepository).save(returnOrder);
     }
 
     private ReturnOrder receivedReturn() {

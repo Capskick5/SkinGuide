@@ -14,7 +14,6 @@ public record WrongItemRequest(
         @Size(max = 100)
         String productId,
 
-        @NotBlank(message = "variantId của hàng giao sai là bắt buộc")
         @Size(max = 100)
         String variantId,
 

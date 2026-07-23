@@ -6,6 +6,7 @@ import ProtectedImage from '@/components/common/ProtectedImage'
 import httpClient from '@/api/httpClient'
 import { resolveImageUrl } from '@/page/products/productUtils'
 import { productApi } from '@/api/productApi'
+import { adminApi } from '@/api/adminApi'
 import { useAuth } from '@/hook/useAuth'
 
 function money(value) {
@@ -48,7 +49,8 @@ const RETURN_STATUS = {
   INSPECTING: { label: 'Đang kiểm hàng', icon: 'fact_check', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
   RECEIVED: { label: 'Đã nhận hàng trả', icon: 'inventory_2', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   INSPECTION_FAILED: { label: 'Từ chối sau kiểm tra', icon: 'gpp_bad', tone: 'bg-rose-50 text-rose-700 border-rose-200' },
-  REFUND_PENDING: { label: 'Chờ hoàn tiền', icon: 'payments', tone: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
+  REFUND_PENDING: { label: 'Chờ khách cung cấp STK', icon: 'payments', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
+  REFUND_PROCESSING: { label: 'Đã nhận STK - Chờ chuyển khoản', icon: 'account_balance', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
   REFUNDED: { label: 'Đã hoàn tiền', icon: 'price_check', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
   REDELIVERY_PENDING: { label: 'Chờ giao lại', icon: 'inventory_2', tone: 'bg-violet-50 text-violet-700 border-violet-100' },
   REDELIVERING: { label: 'Đang giao lại', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
@@ -60,7 +62,7 @@ const TABS = [
   { key: 'PENDING', query: 'PENDING', label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
   { key: 'SHIPPING', query: 'DELIVERING', label: 'Vận chuyển trả hàng', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   { key: 'INSPECTION', query: 'DELIVERED,INSPECTING', label: 'Kiểm hàng', icon: 'fact_check', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
-  { key: 'REFUND', query: 'REFUND_PENDING', label: 'Chờ hoàn tiền', icon: 'payments', tone: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
+  { key: 'REFUND', query: 'REFUND_PENDING,REFUND_PROCESSING', label: 'Chờ hoàn tiền', icon: 'payments', tone: 'bg-cyan-50 text-cyan-700 border-cyan-100' },
   { key: 'REDELIVERY', query: 'REDELIVERY_PENDING,REDELIVERING', label: 'Giao lại', icon: 'local_shipping', tone: 'bg-violet-50 text-violet-700 border-violet-100' },
   { key: 'REFUNDED', query: 'REFUNDED', label: 'Đã hoàn tiền', icon: 'price_check', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
   { key: 'RESOLVED', query: 'RESOLVED', label: 'Đã giao lại', icon: 'task_alt', tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
@@ -125,27 +127,46 @@ function RefundStatusCell({ returnId }) {
   )
 }
 
-function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewerId }) {
+function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewer }) {
   const { message } = AntApp.useApp()
   const [fullOrder, setFullOrder] = useState(null)
-
+  const [reviewerProfile, setReviewerProfile] = useState(null)
   const [refundRequest, setRefundRequest] = useState(null)
   const [completing, setCompleting] = useState(false)
   const [reviewing, setReviewing] = useState(false)
   const [receiptUrl, setReceiptUrl] = useState('')
 
   useEffect(() => {
+    let active = true
+
     if (request?.orderId) {
       httpClient.get(`/orders/${request.orderId}`)
-        .then(res => setFullOrder(res))
+        .then(res => {
+          if (active) setFullOrder(res)
+        })
         .catch(err => console.error(err))
     }
-    if (request?.id && (request.status === 'REFUND_PENDING' || request.status === 'REFUNDED')) {
+    if (request?.id && ['REFUND_PENDING', 'REFUND_PROCESSING', 'REFUNDED'].includes(request.status)) {
       httpClient.get(`/refunds/return-order/${request.id}`)
-        .then(res => setRefundRequest(res))
+        .then(res => {
+          if (active) setRefundRequest(res)
+        })
         .catch(err => console.error(err))
     }
-  }, [request])
+    if (request?.reviewedBy && !request.reviewedByDisplay
+        && request.reviewedBy !== currentReviewer?.id) {
+      adminApi.getUser(request.reviewedBy)
+        .then(res => {
+          if (active) setReviewerProfile(res)
+        })
+        .catch(() => {
+          if (active) setReviewerProfile(null)
+        })
+    }
+    return () => {
+      active = false
+    }
+  }, [request, currentReviewer?.id])
 
   const handleReview = async () => {
     setReviewing(true)
@@ -187,10 +208,26 @@ function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewerId })
   }
 
   if (!request) return null
+  const reviewerLabel = request.reviewedByDisplay
+    || reviewerProfile?.fullName
+    || reviewerProfile?.email
+    || (request.reviewedBy === currentReviewer?.id
+      ? currentReviewer?.fullName || currentReviewer?.email
+      : null)
+    || 'Tài khoản quản trị'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button type="button" className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} aria-label="Đóng" />
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+        onMouseDown={event => event.stopPropagation()}
+        onClick={event => {
+          event.stopPropagation()
+          onClose()
+        }}
+        aria-label="Đóng"
+      />
       <div className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
           <div>
@@ -276,11 +313,11 @@ function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewerId })
                 </p>
                 <p className={`mt-1 text-sm ${request.reviewedAt ? 'text-emerald-700' : 'text-amber-700'}`}>
                   {request.reviewedAt
-                    ? `Người review: ${request.reviewedBy} · ${formatDate(request.reviewedAt)}`
+                    ? `Người review: ${reviewerLabel} · ${formatDate(request.reviewedAt)}`
                     : 'Admin/Manager phải đọc đầy đủ thông tin và đánh dấu đã review trước khi duyệt hoặc từ chối.'}
                 </p>
               </div>
-              {request.status === 'PENDING' && request.reviewedBy !== currentReviewerId && (
+              {request.status === 'PENDING' && request.reviewedBy !== currentReviewer?.id && (
                 <button
                   type="button"
                   onClick={handleReview}
@@ -353,7 +390,7 @@ function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewerId })
                       <div className="min-w-0 flex-1">
                         <p className="break-words text-sm font-semibold text-gray-950">{item.productName}</p>
                         <div className="mt-1 space-y-0.5 text-xs text-gray-500">
-                          <p className="break-words">Biến thể: <strong>{item.variantName || item.unit || 'Chưa có'}</strong></p>
+                          {item.unit && <p className="break-words">Đơn vị: <strong>{item.unit}</strong></p>}
                           <p>Số lượng: <strong>{item.quantity}</strong> × {money(item.unitPrice)}</p>
                         </div>
                       </div>
@@ -372,10 +409,9 @@ function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewerId })
               </div>
               <div className="divide-y divide-orange-100">
                 {request.wrongItems.map((item, index) => (
-                  <div key={`${item.productId}-${item.variantId}-${index}`} className="flex justify-between gap-4 p-4">
+                  <div key={`${item.productId}-${index}`} className="flex justify-between gap-4 p-4">
                     <div>
                       <p className="break-words font-semibold text-gray-950">{item.productName}</p>
-                      <p className="mt-1 break-words text-xs text-gray-500">Biến thể: {item.variantName || 'Chưa có'}</p>
                     </div>
                     <span className="font-bold text-orange-800">×{item.quantity}</span>
                   </div>
@@ -390,7 +426,7 @@ function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewerId })
               <div>
                 <p className="font-semibold text-orange-950">Chưa xác định sản phẩm thực tế nhận sai</p>
                 <p className="mt-1 text-sm text-orange-800">
-                  Khách chỉ cung cấp mô tả và hình ảnh. Nhân viên kho sẽ chọn đúng sản phẩm và biến thể trong bước kiểm hàng.
+                  Khách chỉ cung cấp mô tả và hình ảnh. Nhân viên kho sẽ chọn đúng sản phẩm trong bước kiểm hàng.
                 </p>
               </div>
             </div>
@@ -416,7 +452,7 @@ function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewerId })
                       <div className="min-w-0 flex-1">
                         <p className="break-words text-xs font-semibold text-gray-950">{item.productName}</p>
                         <p className="mt-0.5 break-words text-xs text-gray-500">
-                          {item.variantName || item.unit || 'Chưa có biến thể'}
+                          {item.unit || 'Sản phẩm'}
                         </p>
                         <p className="mt-0.5 text-xs text-gray-500">
                           SL đã mua: <span className="font-bold text-gray-900">{item.quantity}</span> × {money(item.unitPrice)}
@@ -696,7 +732,7 @@ function CompensationManagementModal({ request, onClose, onChanged }) {
                   {compensation?.items?.map((item, index) => {
                     const image = resolveImageUrl(item.imageUrl)
                     return (
-                      <div key={`${item.variantId || item.sku || item.productId}-${index}`} className="flex items-start gap-4 p-4">
+                      <div key={`${item.productId}-${index}`} className="flex items-start gap-4 p-4">
                         <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
                           {image
                             ? <img src={image} alt={item.productName} className="h-full w-full object-cover" />
@@ -705,7 +741,7 @@ function CompensationManagementModal({ request, onClose, onChanged }) {
                         <div className="min-w-0 flex-1">
                           <p className="break-words font-bold text-gray-950">{item.productName}</p>
                           <div className="mt-2 grid gap-1 text-sm text-gray-600 sm:grid-cols-2">
-                            <p className="break-words">Biến thể: <strong>{item.variantName || item.unit || 'Chưa có'}</strong></p>
+                            {item.unit && <p className="break-words">Đơn vị: <strong>{item.unit}</strong></p>}
                             <p>Số lượng: <strong>{item.quantity}</strong></p>
                             <p>Giá trị tham chiếu: <strong>{money(item.unitPrice)}</strong></p>
                           </div>
@@ -1007,12 +1043,8 @@ export default function AdminReturnOrdersPage() {
     if (req.claimType !== 'WRONG_ITEM') return
     setIdentifiedWrongItems([{
       productId: '',
-      variantId: '',
-      sku: '',
       productName: '',
-      variantName: '',
       quantity: 1,
-      variants: [],
     }])
 
     setInspectionCatalogLoading(true)
@@ -1028,7 +1060,7 @@ export default function AdminReturnOrdersPage() {
     }
   }
 
-  const selectInspectedProduct = async (index, productId) => {
+  const selectInspectedProduct = (index, productId) => {
     const product = inspectionProducts.find(item => item.id === productId)
     setIdentifiedWrongItems(previous => previous.map((item, itemIndex) =>
       itemIndex === index
@@ -1036,30 +1068,8 @@ export default function AdminReturnOrdersPage() {
             ...item,
             productId: product?.id || '',
             productName: product?.name || '',
-            variantId: '',
-            sku: '',
-            variantName: '',
-            variants: [],
           }
         : item))
-    if (!product) return
-    setInspectionCatalogLoading(true)
-    try {
-      const detail = await productApi.getProduct(productId, { auth: true })
-      setIdentifiedWrongItems(previous => previous.map((item, itemIndex) =>
-        itemIndex === index
-          ? {
-              ...item,
-              productName: detail?.name || product.name,
-              variants: detail?.variants || [],
-            }
-          : item))
-    } catch (err) {
-      console.error('Load inspected product detail failed:', err)
-      message.error('Không thể tải biến thể của sản phẩm')
-    } finally {
-      setInspectionCatalogLoading(false)
-    }
   }
 
   const confirmWarehouseDecision = () => {
@@ -1067,10 +1077,7 @@ export default function AdminReturnOrdersPage() {
     const wrongItems = receivingRequest.claimType === 'WRONG_ITEM'
       ? identifiedWrongItems.map(item => ({
           productId: item.productId,
-          variantId: item.variantId,
-          sku: item.sku || null,
           productName: item.productName,
-          variantName: item.variantName || null,
           quantity: item.quantity,
         }))
       : null
@@ -1483,10 +1490,11 @@ export default function AdminReturnOrdersPage() {
       )}
 
       <ReturnDetailsModal 
+        key={selectedRequest?.id || 'closed'}
         request={selectedRequest} 
         onClose={() => setSelectedRequest(null)} 
         onReviewed={handleReviewed}
-        currentReviewerId={user?.id}
+        currentReviewer={user}
       />
 
       {managingRedelivery && (
@@ -1681,9 +1689,9 @@ export default function AdminReturnOrdersPage() {
                   </p>
                   <div className="mt-2 space-y-2">
                     {receivingRequest.items?.map((item, index) => (
-                      <div key={`${item.productId}-${item.variantId}-${index}`} className="flex justify-between gap-3 text-sm">
+                      <div key={`${item.productId}-${index}`} className="flex justify-between gap-3 text-sm">
                         <span className="font-semibold text-amber-950">
-                          {item.productName} · {item.variantName || item.unit || 'Biến thể mặc định'}
+                          {item.productName}
                         </span>
                         <span className="shrink-0 text-amber-800">x{item.quantity}</span>
                       </div>
@@ -1699,19 +1707,15 @@ export default function AdminReturnOrdersPage() {
                       Sản phẩm thực tế kho nhận được <span className="text-rose-500">*</span>
                     </p>
                     <p className="mt-1 text-xs text-gray-500">
-                      Thêm đủ từng sản phẩm và biến thể có trong kiện hàng trả về.
+                      Thêm đủ từng sản phẩm có trong kiện hàng trả về.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setIdentifiedWrongItems(previous => [...previous, {
                       productId: '',
-                      variantId: '',
-                      sku: '',
                       productName: '',
-                      variantName: '',
                       quantity: 1,
-                      variants: [],
                     }])}
                     className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100"
                   >
@@ -1735,14 +1739,14 @@ export default function AdminReturnOrdersPage() {
                           </button>
                         )}
                       </div>
-                      <div className="grid gap-3">
-                        <div>
-                          <label className="mb-1.5 block text-xs font-semibold text-gray-700">Sản phẩm</label>
-                          <select
-                            value={identifiedItem.productId}
-                            onChange={event => void selectInspectedProduct(index, event.target.value)}
-                            disabled={inspectionCatalogLoading}
-                            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 disabled:bg-gray-100"
+                        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                          <div>
+                            <label className="mb-1.5 block text-xs font-semibold text-gray-700">Sản phẩm</label>
+                            <select
+                              value={identifiedItem.productId}
+                              onChange={event => selectInspectedProduct(index, event.target.value)}
+                              disabled={inspectionCatalogLoading}
+                              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 disabled:bg-gray-100"
                           >
                             <option value="">
                               {inspectionCatalogLoading ? 'Đang tải danh mục...' : 'Chọn theo tên và bao bì thực nhận'}
@@ -1751,45 +1755,6 @@ export default function AdminReturnOrdersPage() {
                               <option key={product.id} value={product.id}>{product.name}</option>
                             ))}
                           </select>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                          <div>
-                            <label className="mb-1.5 block text-xs font-semibold text-gray-700">Biến thể</label>
-                            <select
-                              value={identifiedItem.variantId}
-                              disabled={!identifiedItem.productId || inspectionCatalogLoading}
-                              onChange={event => {
-                                const variant = identifiedItem.variants.find(item => item.id === event.target.value)
-                                setIdentifiedWrongItems(previous => previous.map((item, itemIndex) =>
-                                  itemIndex === index
-                                    ? {
-                                        ...item,
-                                        variantId: variant?.id || '',
-                                        sku: variant?.sku || '',
-                                        variantName: variant?.name || variant?.unit || '',
-                                      }
-                                    : item))
-                              }}
-                              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 disabled:bg-gray-100"
-                            >
-                              <option value="">Chọn đúng biến thể thực nhận</option>
-                              {identifiedItem.variants.map(variant => (
-                                <option
-                                  key={variant.id}
-                                  value={variant.id}
-                                  disabled={receivingRequest.items?.some(expected =>
-                                    expected.productId === identifiedItem.productId
-                                    && expected.variantId === variant.id)}
-                                >
-                                  {variant.name || variant.unit || 'Biến thể mặc định'}
-                                  {receivingRequest.items?.some(expected =>
-                                    expected.productId === identifiedItem.productId
-                                    && expected.variantId === variant.id)
-                                    ? ' · sản phẩm đáng lẽ giao'
-                                    : ''}
-                                </option>
-                              ))}
-                            </select>
                           </div>
                           <div>
                             <label className="mb-1.5 block text-xs font-semibold text-gray-700">Số lượng</label>
@@ -1804,7 +1769,6 @@ export default function AdminReturnOrdersPage() {
                             />
                           </div>
                         </div>
-                      </div>
                     </div>
                   ))}
                 </div>
@@ -1838,7 +1802,7 @@ export default function AdminReturnOrdersPage() {
                   || !receivingDisposition
                   || (receivingRequest.claimType === 'WRONG_ITEM'
                     && (identifiedWrongItems.length === 0
-                      || identifiedWrongItems.some(item => !item.productId || !item.variantId || !item.quantity)))
+                      || identifiedWrongItems.some(item => !item.productId || !item.quantity)))
                 }
                 className="flex-1 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -1878,7 +1842,7 @@ export default function AdminReturnOrdersPage() {
               <div className="flex flex-wrap gap-2 mb-3">
                 {[
                   'Hàng gửi về không phải hàng đã mua',
-                  'Sai sản phẩm hoặc sai biến thể đã khai báo',
+                  'Sai sản phẩm đã khai báo',
                   'Số lượng thực nhận không khớp yêu cầu trả hàng',
                   'Có dấu hiệu tráo đổi sản phẩm',
                 ].map((option) => (

@@ -64,6 +64,11 @@ public class ReturnOrderService implements IReturnOrderService {
         ReturnCalculation calculation = calculateReturn(order, request.items());
         // Xác định loại khiếu nại, mặc định RETURN để tương thích ngược
         ReturnOrder.ClaimType claimType = request.claimType() != null ? request.claimType() : ReturnOrder.ClaimType.RETURN;
+        validateMissingClaimEligibility(
+                claimType,
+                order.getItems() == null ? 0 : order.getItems().stream()
+                        .mapToInt(item -> item.getQuantity() == null ? 0 : item.getQuantity())
+                        .sum());
         ReturnOrder returnOrder = ReturnOrder.builder()
                 .orderId(order.getId())
                 .orderCode(order.getOrderCode())
@@ -98,6 +103,13 @@ public class ReturnOrderService implements IReturnOrderService {
         }
         ReturnOrder parent = returnOrderRepository.findById(compensation.getReturnOrderId())
                 .orElseThrow(() -> conflict("Không tìm thấy khiếu nại phát sinh đơn giao lại"));
+        ReturnOrder.ClaimType claimType = request.claimType() != null
+                ? request.claimType() : ReturnOrder.ClaimType.RETURN;
+        validateMissingClaimEligibility(
+                claimType,
+                compensation.getItems() == null ? 0 : compensation.getItems().stream()
+                        .mapToInt(item -> item.getQuantity() == null ? 0 : item.getQuantity())
+                        .sum());
         ReturnCalculation calculation = calculateCompensationReturn(
                 compensation, parent, request.items());
         ReturnOrder followUp = ReturnOrder.builder()
@@ -109,8 +121,7 @@ public class ReturnOrderService implements IReturnOrderService {
                 .refundOnly(true)
                 .customerId(compensation.getCustomerId())
                 .customerName(compensation.getCustomerName())
-                .claimType(request.claimType() != null
-                        ? request.claimType() : ReturnOrder.ClaimType.RETURN)
+                .claimType(claimType)
                 .resolution(ReturnOrder.ResolutionType.REFUND)
                 .reason(request.reason().trim())
                 .description(request.description().trim())
@@ -152,7 +163,7 @@ public class ReturnOrderService implements IReturnOrderService {
         return returnOrderRepository.findFirstByOrderIdOrderByCreatedAtDesc(orderId).orElse(null);
     }
 
-    public ReturnOrder reviewReturn(String id, String reviewerId) {
+    public ReturnOrder reviewReturn(String id, String reviewerId, String reviewerDisplay) {
         ReturnOrder returnOrder = returnOrderRepository.findById(id)
                 .orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
         if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.PENDING) {
@@ -162,6 +173,9 @@ public class ReturnOrderService implements IReturnOrderService {
             throw badRequest("Không xác định được người review khiếu nại");
         }
         returnOrder.setReviewedBy(reviewerId.trim());
+        returnOrder.setReviewedByDisplay(
+                reviewerDisplay == null || reviewerDisplay.isBlank()
+                        ? "Tài khoản quản trị" : reviewerDisplay.trim());
         returnOrder.setReviewedAt(java.time.LocalDateTime.now());
         return returnOrderRepository.save(returnOrder);
     }
@@ -273,6 +287,7 @@ public class ReturnOrderService implements IReturnOrderService {
         if (returnOrder.getResolution() == resolutionType
                 && ((resolutionType == ReturnOrder.ResolutionType.REFUND
                         && (returnOrder.getStatus() == ReturnOrder.ReturnStatus.REFUND_PENDING
+                            || returnOrder.getStatus() == ReturnOrder.ReturnStatus.REFUND_PROCESSING
                             || returnOrder.getStatus() == ReturnOrder.ReturnStatus.REFUNDED))
                     || (resolutionType == ReturnOrder.ResolutionType.REDELIVER
                         && (returnOrder.getStatus() == ReturnOrder.ReturnStatus.REDELIVERY_PENDING
@@ -394,12 +409,22 @@ public class ReturnOrderService implements IReturnOrderService {
             CompensationOrder compensation = compensationOrderRepository
                     .findById(returnOrder.getSourceCompensationOrderId())
                     .orElseThrow(() -> notFound("Không tìm thấy đơn giao lại"));
+            validateMissingClaimEligibility(
+                    request.claimType(),
+                    compensation.getItems() == null ? 0 : compensation.getItems().stream()
+                            .mapToInt(item -> item.getQuantity() == null ? 0 : item.getQuantity())
+                            .sum());
             ReturnOrder parent = returnOrderRepository.findById(returnOrder.getParentReturnOrderId())
                     .orElseThrow(() -> notFound("Không tìm thấy khiếu nại trước đó"));
             calculation = calculateCompensationReturn(compensation, parent, request.items());
         } else {
             Order order = orderRepository.findById(returnOrder.getOrderId())
                     .orElseThrow(() -> notFound("Không tìm thấy đơn hàng gốc"));
+            validateMissingClaimEligibility(
+                    request.claimType(),
+                    order.getItems() == null ? 0 : order.getItems().stream()
+                            .mapToInt(item -> item.getQuantity() == null ? 0 : item.getQuantity())
+                            .sum());
             calculation = calculateReturn(order, request.items());
         }
         ReturnOrder.ClaimType claimType = request.claimType() != null ? request.claimType() : ReturnOrder.ClaimType.RETURN;
@@ -419,8 +444,15 @@ public class ReturnOrderService implements IReturnOrderService {
             returnOrder.setInspectionNote(null);
         }
         returnOrder.setReviewedBy(null);
+        returnOrder.setReviewedByDisplay(null);
         returnOrder.setReviewedAt(null);
         return returnOrderRepository.save(returnOrder);
+    }
+
+    private void validateMissingClaimEligibility(ReturnOrder.ClaimType claimType, int orderedQuantity) {
+        if (claimType == ReturnOrder.ClaimType.MISSING_ITEM && orderedQuantity <= 1) {
+            throw badRequest("Đơn chỉ có một món nên không thể chọn lý do giao thiếu");
+        }
     }
 
     private ReturnCalculation calculateReturn(Order order, List<ReturnItemRequest> requestedItems) {
@@ -596,10 +628,10 @@ public class ReturnOrderService implements IReturnOrderService {
         return wrongItems.stream()
                 .map(item -> ReturnOrder.WrongItem.builder()
                         .productId(item.productId().trim())
-                        .variantId(item.variantId().trim())
-                        .sku(normalized(item.sku()))
+                        .variantId(normalized(item.variantId()))
+                        .sku(null)
                         .productName(item.productName().trim())
-                        .variantName(normalized(item.variantName()))
+                        .variantName(null)
                         .quantity(item.quantity())
                         .build())
                 .toList();

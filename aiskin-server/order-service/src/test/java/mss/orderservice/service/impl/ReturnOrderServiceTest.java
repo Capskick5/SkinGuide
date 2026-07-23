@@ -146,8 +146,8 @@ class ReturnOrderServiceTest {
                 .wrongItems(List.of())
                 .build();
         WrongItemRequest actualItem = new WrongItemRequest(
-                "actual-product", "actual-variant", "ACTUAL-SKU",
-                "Actual product", "100 ml", 1);
+                "actual-product", null, null,
+                "Actual product", null, 1);
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
 
         service.updateReturnStatus(
@@ -160,13 +160,14 @@ class ReturnOrderServiceTest {
 
         assertThat(returnOrder.getWrongItems()).singleElement().satisfies(item -> {
             assertThat(item.getProductId()).isEqualTo("actual-product");
-            assertThat(item.getVariantId()).isEqualTo("actual-variant");
+            assertThat(item.getVariantId()).isNull();
+            assertThat(item.getSku()).isNull();
         });
         verify(returnInventoryClient).process(returnOrder, ReturnOrder.InventoryDisposition.RESTOCK);
     }
 
     @Test
-    void wrongItemCannotEnterInventoryBeforeWarehouseIdentifiesSku() {
+    void wrongItemCannotEnterInventoryBeforeWarehouseIdentifiesProduct() {
         ReturnOrder returnOrder = ReturnOrder.builder()
                 .id("return-1")
                 .claimType(ReturnOrder.ClaimType.WRONG_ITEM)
@@ -230,11 +231,44 @@ class ReturnOrderServiceTest {
                 .build();
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
 
-        ReturnOrder result = service.reviewReturn("return-1", "manager@skinguide.vn");
+        ReturnOrder result = service.reviewReturn(
+                "return-1", "manager-id", "Manager SkinGuide");
 
-        assertThat(result.getReviewedBy()).isEqualTo("manager@skinguide.vn");
+        assertThat(result.getReviewedBy()).isEqualTo("manager-id");
+        assertThat(result.getReviewedByDisplay()).isEqualTo("Manager SkinGuide");
         assertThat(result.getReviewedAt()).isNotNull();
         verify(returnOrderRepository).save(returnOrder);
+    }
+
+    @Test
+    void singleItemOrderCannotClaimMissingDelivery() {
+        Order singleItemOrder = Order.builder()
+                .id("order-1")
+                .orderCode("ORD-1")
+                .status(Order.OrderStatus.DELIVERED)
+                .paymentStatus(Order.PaymentStatus.PAID)
+                .items(List.of(OrderItem.builder()
+                        .productId("product-1")
+                        .productName("Cleanser")
+                        .unit("Chai")
+                        .quantity(1)
+                        .unitPrice(BigDecimal.valueOf(100_000))
+                        .build()))
+                .build();
+        ReturnRequest missingRequest = new ReturnRequest(
+                ReturnOrder.ClaimType.MISSING_ITEM,
+                ReturnOrder.ResolutionType.REFUND,
+                "Giao thiếu sản phẩm",
+                "Tôi không nhận được sản phẩm đã đặt trong đơn hàng",
+                List.of("/api/orders/uploads/123e4567-e89b-12d3-a456-426614174000.jpg"),
+                List.of(new ReturnItemRequest("product-1", null, null, "Chai", 1)),
+                List.of());
+        when(orderRepository.findById("order-1")).thenReturn(Optional.of(singleItemOrder));
+
+        assertThatThrownBy(() -> service.createReturnRequest("order-1", missingRequest))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("chỉ có một món");
+        verify(returnOrderRepository, never()).save(any());
     }
 
     @Test

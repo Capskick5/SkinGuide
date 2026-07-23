@@ -87,6 +87,7 @@ public class ReturnOrder {
 
     // Dấu vết bắt buộc trước khi Admin/Manager duyệt hoặc từ chối khiếu nại.
     private String reviewedBy;
+    private String reviewedByDisplay;
     private LocalDateTime reviewedAt;
 
     @Builder.Default
@@ -112,7 +113,8 @@ public class ReturnOrder {
         REJECTED,           // Admin từ chối trả hàng (trước khi nhận hàng)
         RECEIVED,           // Kho đã nhận và kiểm tra hàng OK (Admin xác nhận)
         INSPECTION_FAILED,  // Hàng trả về không đúng/tráo hàng - từ chối sau kiểm tra
-        REFUND_PENDING,     // Đã duyệt, chờ khách cung cấp/chờ xử lý hoàn tiền
+        REFUND_PENDING,     // Đã duyệt, chờ khách cung cấp tài khoản nhận tiền
+        REFUND_PROCESSING,  // Khách đã cung cấp tài khoản, chờ Admin chuyển khoản
         REFUNDED,           // Đã hoàn tiền cho khách xong
         REDELIVERY_PENDING, // Chờ kho xuất hàng giao lại
         REDELIVERING,       // Đang giao sản phẩm đúng/thay thế

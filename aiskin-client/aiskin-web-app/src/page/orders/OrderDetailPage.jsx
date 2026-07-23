@@ -48,7 +48,8 @@ const RETURN_STATUS_VN = {
   DELIVERED: 'Đã về kho - Chờ kiểm hàng',
   INSPECTING: 'Đang kiểm hàng',
   RECEIVED: 'Đã kiểm hàng',
-  REFUND_PENDING: 'Chờ hoàn tiền',
+  REFUND_PENDING: 'Chờ cung cấp tài khoản hoàn tiền',
+  REFUND_PROCESSING: 'Đã gửi tài khoản - Chờ chuyển khoản',
   REFUNDED: 'Đã hoàn tiền',
   REDELIVERY_PENDING: 'Chờ giao lại',
   REDELIVERING: 'Đang giao lại',
@@ -78,7 +79,7 @@ function ClaimProgress({ request }) {
         },
         {
           label: resolutionLabel,
-          active: ['REFUND_PENDING', 'REDELIVERY_PENDING', 'REDELIVERING'].includes(request.status),
+          active: ['REFUND_PENDING', 'REFUND_PROCESSING', 'REDELIVERY_PENDING', 'REDELIVERING'].includes(request.status),
           done: terminal,
         },
         { label: 'Hoàn tất', active: terminal, done: terminal },
@@ -88,16 +89,16 @@ function ClaimProgress({ request }) {
         {
           label: 'Thu hồi sản phẩm',
           active: request.status === 'DELIVERING',
-          done: ['DELIVERED', 'INSPECTING', 'RECEIVED', 'REFUND_PENDING', 'REFUNDED', 'REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(request.status),
+          done: ['DELIVERED', 'INSPECTING', 'RECEIVED', 'REFUND_PENDING', 'REFUND_PROCESSING', 'REFUNDED', 'REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(request.status),
         },
         {
           label: 'Kiểm hàng',
           active: ['DELIVERED', 'INSPECTING'].includes(request.status),
-          done: ['RECEIVED', 'REFUND_PENDING', 'REFUNDED', 'REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(request.status),
+          done: ['RECEIVED', 'REFUND_PENDING', 'REFUND_PROCESSING', 'REFUNDED', 'REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(request.status),
         },
         {
           label: resolutionLabel,
-          active: ['REFUND_PENDING', 'REDELIVERY_PENDING', 'REDELIVERING'].includes(request.status),
+          active: ['REFUND_PENDING', 'REFUND_PROCESSING', 'REDELIVERY_PENDING', 'REDELIVERING'].includes(request.status),
           done: terminal,
         },
         { label: 'Hoàn tất', active: terminal, done: terminal },
@@ -362,7 +363,7 @@ export default function OrderDetailPage() {
           const returnData = await httpClient.get(`/returns/order/${id}`)
           setReturnRequest(returnData)
           
-          if (returnData && (returnData.status === 'REFUND_PENDING' || returnData.status === 'REFUNDED')) {
+          if (returnData && ['REFUND_PENDING', 'REFUND_PROCESSING', 'REFUNDED'].includes(returnData.status)) {
             try {
               const refundData = await httpClient.get(`/refunds/return-order/${returnData.id}`)
               setRefundRequest(refundData)
@@ -584,12 +585,9 @@ export default function OrderDetailPage() {
                     </p>
                     <div className="divide-y divide-rose-100 overflow-hidden rounded-2xl border border-rose-200">
                       {returnRequest.wrongItems.map((item, idx) => (
-                        <div key={`${item.variantId || item.sku || item.productId}-${idx}`} className="flex items-center justify-between gap-4 bg-rose-50/50 p-3">
+                        <div key={`${item.productId}-${idx}`} className="flex items-center justify-between gap-4 bg-rose-50/50 p-3">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-gray-950">{item.productName}</p>
-                            <p className="mt-0.5 text-xs text-gray-500">
-                              {item.variantName || 'Chưa có thông tin biến thể'}
-                            </p>
                           </div>
                           <span className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-rose-700">
                             SL: {item.quantity}

@@ -62,7 +62,17 @@ public class JwtService implements IJwtService {
                 }
             });
         }
-        return Jwts.builder().subject(user.getId()).issuer(properties.issuer()).claim("email", user.getEmail()).claim("roles", roles).claim("permissions", permissions).issuedAt(Date.from(now)).expiration(Date.from(expiry)).signWith(signingKey).compact();
+        return Jwts.builder()
+                .subject(user.getId())
+                .issuer(properties.issuer())
+                .claim("email", user.getEmail())
+                .claim("fullName", user.getFullName())
+                .claim("roles", roles)
+                .claim("permissions", permissions)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiry))
+                .signWith(signingKey)
+                .compact();
     }
 
     /**

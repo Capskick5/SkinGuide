@@ -9,7 +9,7 @@ import { API_BASE_URL } from '@/config/api'
 import { tokenStorage } from '@/api/tokenStorage'
 
 function returnItemKey(item) {
-  return [item.productId, item.variantId || '', item.sku || '', item.unit || ''].join('::')
+  return item.productId
 }
 
 // Loại vấn đề & cấu hình chi tiết từng loại
@@ -107,6 +107,14 @@ export default function ReturnRequestPage() {
   const [refundOnly, setRefundOnly] = useState(Boolean(compensationId))
 
   const selectedClaim = CLAIM_TYPES.find(c => c.value === claimType)
+  const totalOrderedQuantity = order?.items?.reduce(
+    (total, item) => total + Number(item.quantity || 0),
+    0,
+  ) || 0
+  const canClaimMissing = totalOrderedQuantity > 1
+  const availableClaimTypes = CLAIM_TYPES.filter(
+    type => type.value !== 'MISSING_ITEM' || canClaimMissing,
+  )
   useEffect(() => {
     async function loadOrderAndReturn() {
       try {
@@ -139,11 +147,7 @@ export default function ReturnRequestPage() {
             const itemsObj = {}
             returnData.items?.forEach(i => {
               const originalItem = selectableOrder.items?.find(item =>
-                item.productId === i.productId && (
-                  (i.variantId && item.variantId === i.variantId) ||
-                  (i.sku && item.sku === i.sku) ||
-                  (!i.variantId && !i.sku && item.unit === i.unit)
-                ))
+                item.productId === i.productId)
               itemsObj[returnItemKey(originalItem || i)] = i.quantity
             })
             setReturnItems(itemsObj)
@@ -204,7 +208,7 @@ export default function ReturnRequestPage() {
   }
 
   // Validate từng bước
-  const canGoNextStep0 = !!claimType
+  const canGoNextStep0 = !!claimType && (claimType !== 'MISSING_ITEM' || canClaimMissing)
   const selectedItemsCount = Object.values(returnItems).filter(q => q > 0).length
   const canGoNextStep1 = selectedItemsCount > 0 && reason.trim() !== ''
     && description.trim().length >= 20 && !!resolution
@@ -243,8 +247,6 @@ export default function ReturnRequestPage() {
         const item = order.items?.find(orderItem => returnItemKey(orderItem) === key)
         return item ? {
           productId: item.productId,
-          variantId: item.variantId,
-          sku: item.sku,
           unit: item.unit,
           quantity: qty,
         } : null
@@ -343,7 +345,7 @@ export default function ReturnRequestPage() {
             <p className="text-sm text-gray-500 mb-6">Chọn đúng loại vấn đề giúp chúng tôi xử lý nhanh hơn cho bạn.</p>
 
             <div className="space-y-3">
-              {CLAIM_TYPES.map((ct) => (
+              {availableClaimTypes.map((ct) => (
                 <button
                   key={ct.value}
                   type="button"
@@ -371,6 +373,16 @@ export default function ReturnRequestPage() {
                 </button>
               ))}
             </div>
+
+            {!canClaimMissing && (
+              <div className="mt-4 flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
+                <Icon name="info" className="mt-0.5 shrink-0 text-lg" />
+                <p className="text-sm leading-6">
+                  Đơn hàng này chỉ có một món nên không thể chọn lý do giao thiếu.
+                  Bạn vẫn có thể khiếu nại nếu sản phẩm bị hư hỏng hoặc giao sai.
+                </p>
+              </div>
+            )}
 
             <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
               <p className="text-sm text-blue-800">
@@ -487,7 +499,7 @@ export default function ReturnRequestPage() {
                   <p className="text-sm font-bold text-orange-950">Bạn không cần biết tên hoặc mã sản phẩm nhận nhầm</p>
                   <p className="mt-1 text-xs leading-5 text-orange-800">
                     Hãy mô tả đặc điểm nhìn thấy trên bao bì trong phần mô tả và chụp rõ mặt trước, mặt sau, mã vạch nếu có.
-                    Nhân viên kho sẽ xác định chính xác sản phẩm và biến thể khi nhận hàng.
+                    Nhân viên kho sẽ xác định chính xác sản phẩm khi nhận hàng.
                   </p>
                 </div>
               </div>
@@ -754,7 +766,7 @@ export default function ReturnRequestPage() {
               <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Hàng thực tế nhận nhầm</p>
                 <p className="mt-2 text-sm text-orange-900">
-                  Kho sẽ đối chiếu hình ảnh và xác định chính xác sản phẩm cùng biến thể sau khi nhận kiện hàng.
+                  Kho sẽ đối chiếu hình ảnh và xác định chính xác sản phẩm sau khi nhận kiện hàng.
                 </p>
               </div>
             )}
