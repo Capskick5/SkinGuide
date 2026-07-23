@@ -7,22 +7,22 @@
 */
 @theme {
   /* ---- Colors ---- */
-  --color-primary: #ff6f61;
-  --color-primary-container: #ff9a8c;
-  --color-primary-light: #fff0ec;
+  --color-primary: #f06458;
+  --color-primary-container: #ff8d82;
+  --color-primary-light: #fff1ee;
   --color-primary-fixed: #ffe1da;
   --color-primary-fixed-dim: #ffc2b7;
   --color-on-primary: #ffffff;
   --color-on-primary-container: #ffffff;
 
-  --color-secondary: #1f7a68;
+  --color-secondary: #236f61;
   --color-secondary-container: #d7f4eb;
   --color-secondary-fixed: #e8fbf5;
   --color-secondary-fixed-dim: #b9eadb;
   --color-on-secondary: #ffffff;
   --color-on-secondary-container: #2c2840;
 
-  --color-tertiary: #356dff;
+  --color-tertiary: #315fdf;
   --color-tertiary-container: #7fa0ff;
   --color-on-tertiary: #ffffff;
 
@@ -52,9 +52,9 @@
   --color-inverse-primary: #ffc2b7;
 
   --color-outline: #73827d;
-  --color-outline-variant: #cddbd5;
+  --color-outline-variant: #dce6e1;
   /* Token giữ tên cũ (border-pink) nhưng nay là viền tím nhạt */
-  --color-border-pink: #eadbd5;
+  --color-border-pink: #e4eae7;
 
   --color-success: #10b981;
   --color-warning: #f59e0b;
@@ -104,8 +104,9 @@
   --text-caption--line-height: 18px;
 
   /* ---- Radius ---- */
-  --radius-lg: 2rem;
-  --radius-xl: 3rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
 
   /* ---- Spacing tokens ---- */
   --spacing-sidebar: 104px;
@@ -254,6 +255,45 @@ body {
     radial-gradient(circle at top left, rgba(255, 111, 97, 0.16), transparent 30rem),
     linear-gradient(135deg, var(--color-nav), var(--color-nav-2));
   color: var(--color-on-surface);
+  letter-spacing: -0.005em;
+}
+
+::selection {
+  background: var(--color-primary-fixed);
+  color: var(--color-on-surface);
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+  letter-spacing: -0.025em;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition-duration: 180ms;
+  transition-timing-function: ease-out;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+input,
+select,
+textarea {
+  accent-color: var(--color-primary);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 38%, transparent);
+  outline-offset: 1px;
 }
 
 /* Hover lift effect for interactive cards */
@@ -261,8 +301,8 @@ body {
   transition: transform 0.22s ease, box-shadow 0.22s ease;
 }
 .hover-lift:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 16px 40px rgba(23, 32, 38, 0.14);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 38px rgba(23, 32, 38, 0.11);
 }
 
 /* Focus ring for accessibility */
@@ -278,6 +318,17 @@ body {
 .card-hover:hover {
   border-color: var(--color-primary-container);
   box-shadow: 0 8px 24px rgba(255, 111, 97, 0.1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Page entrance animation */

@@ -32,7 +32,7 @@ public class FlashDealPolicy {
     }
 
     public int discountPercent(String categoryId) {
-        return 10 + Math.floorMod(String.valueOf(categoryId).hashCode(), 21);
+        return 5 + Math.floorMod(String.valueOf(categoryId).hashCode(), 11);
     }
 
     public BigDecimal dealPrice(BigDecimal originalPrice, int discountPercent) {

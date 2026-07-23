@@ -142,25 +142,25 @@ function toPagedResult(
 
 function ShopHero({ onPick }) {
   return (
-    <section className="mb-6 overflow-hidden rounded-md border border-[#bddfd1] bg-[#eef8f4]">
-      <div className="grid gap-5 px-5 py-6 lg:grid-cols-[minmax(0,1.6fr)_1fr] lg:items-center lg:px-8">
+    <section className="mb-7 overflow-hidden rounded-2xl border border-outline-variant bg-[linear-gradient(135deg,#f1f8f5_0%,#fff7f3_58%,#f3f6ff_100%)] shadow-[0_18px_50px_rgba(23,32,38,0.07)]">
+      <div className="grid gap-6 px-5 py-7 lg:grid-cols-[minmax(0,1.6fr)_1fr] lg:items-center lg:px-9 lg:py-9">
         <div>
-          <p className="text-sm font-bold uppercase text-[#2f6f62]">AiSkin Store</p>
-          <h1 className="mt-1 text-3xl font-black text-[#173b32] md:text-4xl">Skincare theo nhu cầu làn da</h1>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-secondary">AiSkin Store</p>
+          <h1 className="mt-2 text-3xl font-bold text-on-surface md:text-4xl">Skincare theo nhu cầu làn da</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[#41665d] md:text-base">
             Tìm sản phẩm theo thành phần, loại da và danh mục. Giá cùng tồn kho được lấy trực tiếp từ hệ thống bán hàng.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
               to="/scan"
-              className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[#2f6f62] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#25584e]"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(240,100,88,0.22)] hover:bg-[#df574d]"
             >
               <Icon name="face_retouching_natural" />
               Quét da
             </Link>
             <Link
               to="/routine"
-              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[#2f6f62] bg-white px-4 py-2.5 text-sm font-bold text-[#2f6f62] hover:bg-[#e3f3ed]"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-outline-variant bg-white px-5 py-2.5 text-sm font-semibold text-secondary hover:border-secondary/40 hover:bg-secondary-fixed"
             >
               <Icon name="checklist" />
               Xem routine
@@ -171,7 +171,7 @@ function ShopHero({ onPick }) {
           <button
             type="button"
             onClick={() => onPick('niacinamide')}
-            className="min-h-28 rounded-md bg-white p-4 text-left text-[#173b32] shadow-sm hover:bg-[#f8fcfa]"
+            className="min-h-28 rounded-xl border border-white bg-white/90 p-4 text-left text-on-surface shadow-[0_10px_28px_rgba(23,32,38,0.07)] hover:-translate-y-0.5 hover:border-secondary/20"
           >
             <Icon name="science" className="text-2xl text-[#2f6f62]" />
             <span className="mt-3 block text-sm font-bold">Tìm Niacinamide</span>
@@ -179,7 +179,7 @@ function ShopHero({ onPick }) {
           <button
             type="button"
             onClick={() => onPick('ceramide')}
-            className="min-h-28 rounded-md bg-[#fff4df] p-4 text-left text-[#6c4815] shadow-sm hover:bg-[#ffedca]"
+            className="min-h-28 rounded-xl border border-[#f2e5ce] bg-[#fff8eb] p-4 text-left text-[#6c4815] shadow-[0_10px_28px_rgba(23,32,38,0.06)] hover:-translate-y-0.5 hover:bg-[#fff3da]"
           >
             <Icon name="shield" className="text-2xl text-[#b9700e]" />
             <span className="mt-3 block text-sm font-bold">Tìm Ceramide</span>
@@ -192,7 +192,7 @@ function ShopHero({ onPick }) {
 
 function QuickLinks({ onPick }) {
   return (
-    <div className="mb-6 grid grid-cols-4 gap-3 rounded-md bg-white px-3 py-5 shadow-[0_14px_38px_rgba(23,32,38,0.06)] md:grid-cols-8">
+    <div className="mb-7 grid grid-cols-4 gap-3 rounded-2xl border border-outline-variant bg-white px-3 py-5 shadow-[0_14px_38px_rgba(23,32,38,0.05)] md:grid-cols-8">
       {QUICK_LINKS.map((item) => (
         <button
           key={item.label}
