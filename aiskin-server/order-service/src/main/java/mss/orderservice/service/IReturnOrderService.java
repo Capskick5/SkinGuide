@@ -15,6 +15,8 @@ public interface IReturnOrderService {
 
     ReturnOrder createReturnRequest(String orderId, ReturnRequest request);
 
+    ReturnOrder createCompensationReturnRequest(String compensationOrderId, ReturnRequest request);
+
     List<ReturnOrder> getReturnsByCustomer(String customerId);
 
     Page<ReturnOrder> getAllReturns(int page, int size, String status);

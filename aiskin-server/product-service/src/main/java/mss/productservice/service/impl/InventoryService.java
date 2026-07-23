@@ -82,6 +82,8 @@ public class InventoryService implements IInventoryService {
         }
         requireApplied(request, InventoryMovement.MovementType.RESERVE, "Đơn hàng chưa reserve tồn kho nên không thể release");
         rejectIfApplied(request, InventoryMovement.MovementType.COMMIT_SALE, "Đơn hàng đã chốt bán nên không thể release");
+        rejectIfCompensationReturnApplied(request,
+                "Hàng của đơn giao lại đã được kho xử lý sau khi hoàn về");
         for (InventoryContext context : contexts) {
             if (value(context.level().getReservedQuantity()) < context.quantity()) {
                 throw new IllegalArgumentException("Không đủ hàng đang giữ để hoàn lại biến thể "
@@ -100,6 +102,8 @@ public class InventoryService implements IInventoryService {
         }
         requireApplied(request, InventoryMovement.MovementType.RESERVE, "Đơn hàng chưa reserve tồn kho nên không thể chốt bán");
         rejectIfApplied(request, InventoryMovement.MovementType.RELEASE, "Đơn hàng đã release tồn kho nên không thể chốt bán");
+        rejectIfCompensationReturnApplied(request,
+                "Hàng của đơn giao lại đã hoàn về kho nên không thể chốt bán");
         for (InventoryContext context : contexts) {
             if (value(context.level().getReservedQuantity()) < context.quantity()) {
                 throw new IllegalArgumentException("Không đủ hàng đang giữ để chốt bán biến thể "
@@ -172,6 +176,68 @@ public class InventoryService implements IInventoryService {
                         "RETURN_ORDER", request.getReturnOrderId(), reason, pending.context().quantity()))
                 .toList());
         return toReservationResponse(request.getOrderCode(), contexts);
+    }
+
+    /**
+     * Xử lý kiện giao lại bị khách từ chối và GHN hoàn về kho. Hàng vẫn đang ở
+     * trạng thái reserved, chưa được commit bán, nên không được dùng luồng trả
+     * hàng thông thường vốn giảm soldQuantity.
+     */
+    @Transactional
+    public synchronized InventoryReservationResponse processReservedReturn(InventoryReturnRequest request) {
+        InventoryReservationRequest inventoryRequest = InventoryReservationRequest.builder()
+                .orderCode(request.getOrderCode())
+                .items(request.getItems())
+                .build();
+        List<InventoryContext> contexts = buildContexts(inventoryRequest, false);
+        InventoryMovement.MovementType requestedType = compensationReturnMovementType(request.getDisposition());
+        InventoryReservationResponse repeated = repeatedOperationResponse(inventoryRequest, contexts, requestedType);
+        if (repeated != null) {
+            return repeated;
+        }
+        requireApplied(inventoryRequest, InventoryMovement.MovementType.RESERVE,
+                "Đơn giao lại chưa giữ tồn kho nên không thể kiểm nhập hàng hoàn");
+        rejectIfApplied(inventoryRequest, InventoryMovement.MovementType.COMMIT_SALE,
+                "Đơn giao lại đã chốt bán nên không thể xử lý như hàng hoàn chưa giao");
+        rejectIfApplied(inventoryRequest, InventoryMovement.MovementType.RELEASE,
+                "Đơn giao lại đã giải phóng tồn kho");
+        for (InventoryMovement.MovementType type : compensationReturnMovementTypes()) {
+            if (type != requestedType && !getOperationMovements(inventoryRequest, type).isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Kiện giao lại đã được xử lý với kết quả kho khác");
+            }
+        }
+        Map<String, Integer> requestedByVariant = contexts.stream()
+                .collect(Collectors.groupingBy(this::contextKey,
+                        Collectors.summingInt(InventoryContext::quantity)));
+        for (InventoryContext context : contexts) {
+            int quantity = requestedByVariant.get(contextKey(context));
+            if (value(context.level().getReservedQuantity()) < quantity) {
+                throw new IllegalArgumentException(
+                        "Không đủ số lượng đang giữ để kiểm nhập biến thể "
+                                + context.variant().getName());
+            }
+            if (request.getDisposition() != InventoryReturnRequest.Disposition.RESTOCK
+                    && value(context.level().getOnHandQuantity()) < quantity) {
+                throw new IllegalArgumentException(
+                        "Không đủ tồn kho vật lý để chuyển hàng hoàn sang kho hỏng hoặc tiêu hủy");
+            }
+        }
+        String reason = switch (request.getDisposition()) {
+            case RESTOCK -> "Đơn giao lại bị từ chối, hàng tốt được hoàn về kho bán";
+            case DAMAGED -> "Đơn giao lại bị từ chối, hàng hoàn được chuyển vào kho hỏng";
+            case DISCARD -> "Đơn giao lại bị từ chối, hàng hoàn được xác nhận tiêu hủy";
+        };
+        return mutateOrderInventory(inventoryRequest, contexts, requestedType, reason, context -> {
+            InventoryLevel level = context.level();
+            level.setReservedQuantity(value(level.getReservedQuantity()) - context.quantity());
+            if (request.getDisposition() == InventoryReturnRequest.Disposition.DAMAGED) {
+                level.setOnHandQuantity(value(level.getOnHandQuantity()) - context.quantity());
+                level.setDamagedQuantity(value(level.getDamagedQuantity()) + context.quantity());
+            } else if (request.getDisposition() == InventoryReturnRequest.Disposition.DISCARD) {
+                level.setOnHandQuantity(value(level.getOnHandQuantity()) - context.quantity());
+            }
+        });
     }
 
     private InventoryReservationResponse processWrongDeliveryReturn(InventoryReturnRequest request) {
@@ -294,6 +360,22 @@ public class InventoryService implements IInventoryService {
             case DAMAGED -> InventoryMovement.MovementType.RETURN_DAMAGED;
             case DISCARD -> InventoryMovement.MovementType.RETURN_DISCARD;
         };
+    }
+
+    private InventoryMovement.MovementType compensationReturnMovementType(
+            InventoryReturnRequest.Disposition disposition) {
+        return switch (disposition) {
+            case RESTOCK -> InventoryMovement.MovementType.COMPENSATION_RETURN_RESTOCK;
+            case DAMAGED -> InventoryMovement.MovementType.COMPENSATION_RETURN_DAMAGED;
+            case DISCARD -> InventoryMovement.MovementType.COMPENSATION_RETURN_DISCARD;
+        };
+    }
+
+    private List<InventoryMovement.MovementType> compensationReturnMovementTypes() {
+        return List.of(
+                InventoryMovement.MovementType.COMPENSATION_RETURN_RESTOCK,
+                InventoryMovement.MovementType.COMPENSATION_RETURN_DAMAGED,
+                InventoryMovement.MovementType.COMPENSATION_RETURN_DISCARD);
     }
 
     private InventoryMovement.MovementType wrongDeliveryMovementType(
@@ -444,6 +526,13 @@ public class InventoryService implements IInventoryService {
 
     private List<InventoryContext> buildContexts(InventoryReservationRequest request, boolean requireTracking) {
         return buildContexts(request, requireTracking, new LinkedHashMap<>());
+    }
+
+    private void rejectIfCompensationReturnApplied(InventoryReservationRequest request, String message) {
+        if (compensationReturnMovementTypes().stream()
+                .anyMatch(type -> !getOperationMovements(request, type).isEmpty())) {
+            throw new IllegalArgumentException(message);
+        }
     }
 
     private List<InventoryContext> buildContexts(InventoryReservationRequest request,

@@ -53,7 +53,7 @@ const RETURN_STATUS_VN = {
   REDELIVERY_PENDING: 'Chờ giao lại',
   REDELIVERING: 'Đang giao lại',
   RESOLVED: 'Đã giao lại thành công',
-  INSPECTION_FAILED: 'Không đạt kiểm tra',
+  INSPECTION_FAILED: 'Bị từ chối sau kiểm hàng',
   REJECTED: 'Bị từ chối'
 }
 
@@ -370,13 +370,18 @@ export default function OrderDetailPage() {
               // Ignore if no refund request exists yet
             }
           }
-          if (returnData?.resolution === 'REDELIVER') {
-            try {
+          try {
+            if (returnData?.sourceCompensationOrderId) {
+              const compensation = await httpClient.get(
+                `/compensations/${returnData.sourceCompensationOrderId}`,
+              )
+              setCompensationOrder(compensation)
+            } else if (returnData) {
               const compensation = await httpClient.get(`/compensations/return-order/${returnData.id}`)
               setCompensationOrder(compensation)
-            } catch {
-              // Đơn giao bù chỉ xuất hiện sau khi khiếu nại được duyệt/kiểm hàng.
             }
+          } catch {
+            // Đơn giao bù chỉ xuất hiện sau khi khiếu nại được duyệt/kiểm hàng.
           }
         } catch {
           // If 404, it means no return request, ignore
@@ -437,14 +442,14 @@ export default function OrderDetailPage() {
                 <Icon name="gavel" className="text-orange-600" />
                 Chi tiết Khiếu nại / Trả hàng
               </h3>
-              {(returnRequest.status === 'PENDING' || returnRequest.status === 'REJECTED') && (
+              {['PENDING', 'REJECTED', 'INSPECTION_FAILED'].includes(returnRequest.status) && (
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => navigate(`/orders/${id}/return?edit=true`)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-200 text-sm font-semibold text-orange-700 hover:bg-orange-50 transition-colors"
                   >
-                    <Icon name={returnRequest.status === 'REJECTED' ? 'replay' : 'edit'} className="text-base" /> 
-                    {returnRequest.status === 'REJECTED' ? 'Khiếu nại lại' : 'Sửa'}
+                    <Icon name={returnRequest.status === 'PENDING' ? 'edit' : 'replay'} className="text-base" />
+                    {returnRequest.status === 'PENDING' ? 'Sửa' : 'Khiếu nại lại'}
                   </button>
                   {returnRequest.status === 'PENDING' && (
                     <button
@@ -595,6 +600,35 @@ export default function OrderDetailPage() {
                   </div>
                 )}
 
+                {returnRequest.status === 'INSPECTION_FAILED' && (
+                  <div className="rounded-xl border-2 border-rose-300 bg-rose-50 p-4">
+                    <p className="flex items-center gap-2 font-bold text-rose-900">
+                      <Icon name="gpp_bad" />
+                      Yêu cầu trả hàng và hoàn tiền đã bị từ chối
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-rose-800">
+                      Kho xác nhận kiện hàng gửi về không khớp với nội dung khiếu nại hoặc không đủ
+                      điều kiện tiếp nhận. Hệ thống chưa nhập kho và chưa thực hiện hoàn tiền.
+                    </p>
+                    {returnRequest.inspectionNote && (
+                      <div className="mt-3 rounded-lg border border-rose-200 bg-white p-3">
+                        <p className="text-xs font-semibold uppercase text-rose-600">Kết quả kiểm hàng</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-rose-900">
+                          {returnRequest.inspectionNote}
+                        </p>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/orders/${id}/return?edit=true`)}
+                      className="mt-4 inline-flex items-center gap-2 rounded-lg bg-rose-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-rose-800"
+                    >
+                      <Icon name="replay" />
+                      Cập nhật bằng chứng và khiếu nại lại
+                    </button>
+                  </div>
+                )}
+
                 {/* Phần Nhập thông tin hoàn tiền */}
                 {returnRequest.status === 'REFUND_PENDING' && returnRequest.resolution === 'REFUND' && !refundRequest && (
                   <div className="mt-4 bg-teal-50 border border-teal-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -605,7 +639,9 @@ export default function OrderDetailPage() {
                       <p className="text-sm text-teal-700">
                         {returnRequest.claimType === 'MISSING_ITEM'
                           ? 'Khiếu nại giao thiếu đã được duyệt. Vui lòng cung cấp số tài khoản để chúng tôi tiến hành hoàn tiền.'
-                          : 'SkinGuide đã nhận và kiểm tra hàng trả. Vui lòng cung cấp số tài khoản để chúng tôi tiến hành hoàn tiền.'}
+                          : compensationOrder?.status === 'RETURNED_INSPECTION'
+                            ? 'Đơn giao lại đã hoàn về kho và đang được kiểm tra. Bạn có thể cung cấp trước tài khoản; tiền sẽ được chuyển sau khi kho hoàn tất phân loại.'
+                            : 'SkinGuide đã nhận và kiểm tra hàng trả. Vui lòng cung cấp số tài khoản để chúng tôi tiến hành hoàn tiền.'}
                       </p>
                     </div>
                     <button
@@ -617,13 +653,21 @@ export default function OrderDetailPage() {
                   </div>
                 )}
 
-                {returnRequest.resolution === 'REDELIVER' && ['REDELIVERY_PENDING', 'REDELIVERING', 'RESOLVED'].includes(returnRequest.status) && (
+                {compensationOrder && (
                   <div className="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-5">
                     <h4 className="flex items-center gap-2 font-bold text-indigo-900">
-                      <Icon name={returnRequest.status === 'RESOLVED' ? 'check_circle' : 'local_shipping'} />
-                      {returnRequest.status === 'REDELIVERY_PENDING' && 'Kho đang chuẩn bị sản phẩm giao lại'}
-                      {returnRequest.status === 'REDELIVERING' && 'Sản phẩm đang được giao lại'}
-                      {returnRequest.status === 'RESOLVED' && 'Đã giao lại sản phẩm thành công'}
+                      <Icon name={compensationOrder.status === 'COMPLETED' ? 'check_circle' : 'local_shipping'} />
+                      {['PENDING', 'INVENTORY_RESERVED', 'READY_TO_SHIP'].includes(compensationOrder.status)
+                        && 'Kho đang chuẩn bị sản phẩm giao lại'}
+                      {compensationOrder.status === 'SHIPPING' && 'Sản phẩm đang được giao lại'}
+                      {compensationOrder.status === 'WAITING_TO_RETURN'
+                        && 'Khách đã từ chối nhận - GHN đang chờ hoàn hàng'}
+                      {compensationOrder.status === 'RETURNING' && 'Đơn giao lại đang được hoàn về kho'}
+                      {compensationOrder.status === 'RETURNED_INSPECTION'
+                        && 'Đơn giao lại đã về kho - Đang chờ kiểm hàng'}
+                      {compensationOrder.status === 'REFUND_PENDING'
+                        && 'Kho đã xử lý hàng hoàn - Đang chờ hoàn tiền'}
+                      {compensationOrder.status === 'COMPLETED' && 'Đã giao lại sản phẩm thành công'}
                     </h4>
                     <p className="mt-2 text-sm text-indigo-700">SkinGuide chịu toàn bộ phí vận chuyển cho đơn giao lại này.</p>
                     {compensationOrder?.trackingCode && (
@@ -632,6 +676,28 @@ export default function OrderDetailPage() {
                         <p className="mt-1 font-bold text-indigo-950">
                           {compensationOrder.trackingCode}
                         </p>
+                      </div>
+                    )}
+                    {compensationOrder.failureReason && (
+                      <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800">
+                        {compensationOrder.failureReason}
+                      </p>
+                    )}
+                    {compensationOrder.status === 'COMPLETED' && !returnRequest.followUpClaim && (
+                      <div className="mt-4 rounded-xl border border-orange-200 bg-white p-4">
+                        <p className="font-bold text-orange-900">Đơn giao lại vẫn có vấn đề?</p>
+                        <p className="mt-1 text-sm leading-6 text-orange-700">
+                          Bạn có thể tiếp tục khiếu nại nếu hàng vẫn bị thiếu, giao sai hoặc hư hỏng.
+                          Lần xử lý này sẽ kết thúc bằng hoàn tiền chuyển khoản.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/orders/${id}/return?compensation=${compensationOrder.id}`)}
+                          className="mt-3 inline-flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-orange-700"
+                        >
+                          <Icon name="report_problem" />
+                          Tiếp tục khiếu nại
+                        </button>
                       </div>
                     )}
                   </div>

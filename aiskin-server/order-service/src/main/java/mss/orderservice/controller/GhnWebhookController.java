@@ -88,9 +88,13 @@ public class GhnWebhookController {
                 }
                 CompensationOrder compensation = compensationOrderRepository.findByTrackingCode(ghnOrderCode).orElse(null);
                 if (compensation != null) {
-                    if ("delivered".equals(status) || "deliveried".equals(status)) {
-                        compensationOrderService.complete(compensation.getId());
-                    }
+                    compensationOrderService.applyGhnStatus(
+                            compensation.getId(),
+                            status,
+                            stringValue(payload.get("Reason")) != null
+                                    ? stringValue(payload.get("Reason"))
+                                    : stringValue(payload.get("Description")),
+                            stringValue(payload.get("ReasonCode")));
                     return ResponseEntity.ok("OK");
                 }
                 log.warn("Không tìm thấy Order hay ReturnOrder trong hệ thống với GHN code: {} hoặc Client code: {}", ghnOrderCode, clientOrderCode);

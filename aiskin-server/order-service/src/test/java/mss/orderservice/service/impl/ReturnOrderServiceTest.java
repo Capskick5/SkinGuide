@@ -55,7 +55,8 @@ class ReturnOrderServiceTest {
     void createReturnKeepsTheSelectedVariantAndSku() {
         Order order = deliveredOrder();
         when(orderRepository.findById("order-1")).thenReturn(Optional.of(order));
-        when(returnOrderRepository.findByOrderId("order-1")).thenReturn(Optional.empty());
+        when(returnOrderRepository.existsByOrderIdAndSourceCompensationOrderIdIsNull("order-1"))
+                .thenReturn(false);
         ReturnOrder result = service.createReturnRequest("order-1", returnRequest());
         assertThat(result.getItems()).singleElement().satisfies(item -> {
             assertThat(item.getVariantId()).isEqualTo("variant-2");
@@ -305,6 +306,68 @@ class ReturnOrderServiceTest {
 
         assertThat(claim.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.REDELIVERY_PENDING);
         verify(compensationOrderRepository, times(1)).save(any(CompensationOrder.class));
+    }
+
+    @Test
+    void deliveredCompensationCanCreateRefundOnlyFollowUpClaim() {
+        CompensationOrder compensation = CompensationOrder.builder()
+                .id("comp-1")
+                .returnOrderId("return-1")
+                .orderId("order-1")
+                .orderCode("ORD-1")
+                .customerId("customer-1")
+                .customerName("Customer")
+                .status(CompensationOrder.CompensationStatus.COMPLETED)
+                .items(List.of(CompensationOrder.CompensationItem.builder()
+                        .productId("product-1")
+                        .variantId("variant-2")
+                        .productName("Cleanser")
+                        .variantName("100 ml")
+                        .unit("Chai")
+                        .unitPrice(BigDecimal.valueOf(100_000))
+                        .quantity(1)
+                        .build()))
+                .build();
+        ReturnOrder parent = ReturnOrder.builder()
+                .id("return-1")
+                .refundAmount(BigDecimal.valueOf(90_000))
+                .build();
+        when(compensationOrderRepository.findById("comp-1")).thenReturn(Optional.of(compensation));
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(parent));
+        when(returnOrderRepository.findBySourceCompensationOrderId("comp-1"))
+                .thenReturn(Optional.empty());
+
+        ReturnRequest request = new ReturnRequest(
+                ReturnOrder.ClaimType.WRONG_ITEM,
+                ReturnOrder.ResolutionType.REFUND,
+                "Giao sai sản phẩm",
+                "Đơn giao lại vẫn giao sai sản phẩm đã yêu cầu",
+                List.of("/api/orders/uploads/123e4567-e89b-12d3-a456-426614174000.jpg"),
+                List.of(new ReturnItemRequest("product-1", "variant-2", null, "Chai", 1)),
+                List.of());
+
+        ReturnOrder result = service.createCompensationReturnRequest("comp-1", request);
+
+        assertThat(result.getFollowUpClaim()).isTrue();
+        assertThat(result.getRefundOnly()).isTrue();
+        assertThat(result.getResolution()).isEqualTo(ReturnOrder.ResolutionType.REFUND);
+        assertThat(result.getRefundAmount()).isEqualByComparingTo("90000");
+        assertThat(result.getSourceCompensationOrderId()).isEqualTo("comp-1");
+    }
+
+    @Test
+    void inspectionFailureCanBeResubmittedAsPending() {
+        ReturnOrder claim = returnOrder(ReturnOrder.ReturnStatus.INSPECTION_FAILED);
+        claim.setInspectionNote("Kiện trả về chưa khớp");
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(claim));
+        when(orderRepository.findById("order-1")).thenReturn(Optional.of(deliveredOrder()));
+
+        ReturnOrder result = service.updateReturnRequest("return-1", returnRequest());
+
+        assertThat(result.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.PENDING);
+        assertThat(result.getInspectionNote()).isNull();
+        assertThat(result.getReviewedAt()).isNull();
+        assertThat(result.getReviewedBy()).isNull();
     }
 
     private ReturnRequest returnRequest() {

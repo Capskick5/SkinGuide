@@ -3,7 +3,9 @@ package mss.orderservice.service;
 import mss.orderservice.dto.ProductInventoryApiResponse;
 import mss.orderservice.dto.ProductInventoryItemRequest;
 import mss.orderservice.dto.ProductInventoryRequest;
+import mss.orderservice.dto.ProductReturnInventoryRequest;
 import mss.orderservice.model.CompensationOrder;
+import mss.orderservice.model.ReturnOrder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -38,6 +40,39 @@ public class CompensationInventoryClient {
 
     public void release(CompensationOrder order) {
         call("release", order);
+    }
+
+    public void processReturned(CompensationOrder order, ReturnOrder.InventoryDisposition disposition) {
+        ProductReturnInventoryRequest request = ProductReturnInventoryRequest.builder()
+                .returnOrderId(order.getId())
+                .orderCode("COMP-" + order.getId())
+                .disposition(disposition.name())
+                .items(order.getItems().stream()
+                        .map(item -> ProductInventoryItemRequest.builder()
+                                .productId(item.getProductId())
+                                .variantId(item.getVariantId())
+                                .quantity(item.getQuantity())
+                                .build())
+                        .toList())
+                .build();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Internal-Service-Token", internalServiceToken);
+        try {
+            ProductInventoryApiResponse response = restTemplate.postForObject(
+                    productServiceBaseUrl + "/api/products/inventory/internal/process-reserved-return",
+                    new HttpEntity<>(request, headers),
+                    ProductInventoryApiResponse.class);
+            if (response == null || !Boolean.TRUE.equals(response.getSuccess())) {
+                throw new ResponseStatusException(BAD_GATEWAY,
+                        response != null ? response.getMessage() : "Phản hồi tồn kho không hợp lệ");
+            }
+        } catch (ResponseStatusException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new ResponseStatusException(BAD_GATEWAY,
+                    "Không thể xử lý kho cho kiện giao lại đã hoàn về", exception);
+        }
     }
 
     private void call(String action, CompensationOrder order) {

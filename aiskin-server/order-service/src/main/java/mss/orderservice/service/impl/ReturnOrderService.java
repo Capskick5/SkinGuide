@@ -58,7 +58,7 @@ public class ReturnOrderService implements IReturnOrderService {
         if (order.getPaymentStatus() != Order.PaymentStatus.PAID) {
             throw badRequest("Chỉ được yêu cầu trả hàng khi đơn đã thanh toán thành công");
         }
-        if (returnOrderRepository.findByOrderId(orderId).isPresent()) {
+        if (returnOrderRepository.existsByOrderIdAndSourceCompensationOrderIdIsNull(orderId)) {
             throw conflict("Đơn hàng này đã có yêu cầu trả hàng");
         }
         ReturnCalculation calculation = calculateReturn(order, request.items());
@@ -83,6 +83,51 @@ public class ReturnOrderService implements IReturnOrderService {
         return returnOrderRepository.save(returnOrder);
     }
 
+    public ReturnOrder createCompensationReturnRequest(
+            String compensationOrderId, ReturnRequest request) {
+        CompensationOrder compensation = compensationOrderRepository.findById(compensationOrderId)
+                .orElseThrow(() -> notFound("Không tìm thấy đơn giao lại"));
+        if (compensation.getStatus() != CompensationOrder.CompensationStatus.COMPLETED) {
+            throw conflict("Chỉ có thể khiếu nại tiếp khi đơn giao lại đã được GHN xác nhận giao thành công");
+        }
+        if (request.resolution() != ReturnOrder.ResolutionType.REFUND) {
+            throw badRequest("Khiếu nại sau giao lại chỉ được xử lý bằng hoàn tiền chuyển khoản");
+        }
+        if (returnOrderRepository.findBySourceCompensationOrderId(compensationOrderId).isPresent()) {
+            throw conflict("Đơn giao lại này đã có yêu cầu khiếu nại tiếp theo");
+        }
+        ReturnOrder parent = returnOrderRepository.findById(compensation.getReturnOrderId())
+                .orElseThrow(() -> conflict("Không tìm thấy khiếu nại phát sinh đơn giao lại"));
+        ReturnCalculation calculation = calculateCompensationReturn(
+                compensation, parent, request.items());
+        ReturnOrder followUp = ReturnOrder.builder()
+                .orderId(compensation.getOrderId())
+                .orderCode(compensation.getOrderCode())
+                .sourceCompensationOrderId(compensation.getId())
+                .parentReturnOrderId(parent.getId())
+                .followUpClaim(true)
+                .refundOnly(true)
+                .customerId(compensation.getCustomerId())
+                .customerName(compensation.getCustomerName())
+                .claimType(request.claimType() != null
+                        ? request.claimType() : ReturnOrder.ClaimType.RETURN)
+                .resolution(ReturnOrder.ResolutionType.REFUND)
+                .reason(request.reason().trim())
+                .description(request.description().trim())
+                .imageUrls(List.copyOf(request.imageUrls()))
+                .items(calculation.items())
+                .wrongItems(List.of())
+                .refundAmount(calculation.totalRefund())
+                .status(ReturnOrder.ReturnStatus.PENDING)
+                .build();
+        try {
+            return returnOrderRepository.save(followUp);
+        } catch (DuplicateKeyException duplicateRequest) {
+            return returnOrderRepository.findBySourceCompensationOrderId(compensationOrderId)
+                    .orElseThrow(() -> duplicateRequest);
+        }
+    }
+
     public List<ReturnOrder> getReturnsByCustomer(String customerId) {
         return returnOrderRepository.findByCustomerId(customerId);
     }
@@ -104,7 +149,7 @@ public class ReturnOrderService implements IReturnOrderService {
     }
 
     public ReturnOrder getReturnByOrderId(String orderId) {
-        return returnOrderRepository.findByOrderId(orderId).orElse(null);
+        return returnOrderRepository.findFirstByOrderIdOrderByCreatedAtDesc(orderId).orElse(null);
     }
 
     public ReturnOrder reviewReturn(String id, String reviewerId) {
@@ -335,11 +380,28 @@ public class ReturnOrderService implements IReturnOrderService {
 
     public ReturnOrder updateReturnRequest(String id, ReturnRequest request) {
         ReturnOrder returnOrder = returnOrderRepository.findById(id).orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
-        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.PENDING && returnOrder.getStatus() != ReturnOrder.ReturnStatus.REJECTED) {
+        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.PENDING
+                && returnOrder.getStatus() != ReturnOrder.ReturnStatus.REJECTED
+                && returnOrder.getStatus() != ReturnOrder.ReturnStatus.INSPECTION_FAILED) {
             throw conflict("Chỉ có thể sửa yêu cầu khi đang chờ duyệt hoặc bị từ chối");
         }
-        Order order = orderRepository.findById(returnOrder.getOrderId()).orElseThrow(() -> notFound("Không tìm thấy đơn hàng gốc"));
-        ReturnCalculation calculation = calculateReturn(order, request.items());
+        if (Boolean.TRUE.equals(returnOrder.getRefundOnly())
+                && request.resolution() != ReturnOrder.ResolutionType.REFUND) {
+            throw badRequest("Khiếu nại sau giao lại chỉ được xử lý bằng hoàn tiền chuyển khoản");
+        }
+        ReturnCalculation calculation;
+        if (returnOrder.getSourceCompensationOrderId() != null) {
+            CompensationOrder compensation = compensationOrderRepository
+                    .findById(returnOrder.getSourceCompensationOrderId())
+                    .orElseThrow(() -> notFound("Không tìm thấy đơn giao lại"));
+            ReturnOrder parent = returnOrderRepository.findById(returnOrder.getParentReturnOrderId())
+                    .orElseThrow(() -> notFound("Không tìm thấy khiếu nại trước đó"));
+            calculation = calculateCompensationReturn(compensation, parent, request.items());
+        } else {
+            Order order = orderRepository.findById(returnOrder.getOrderId())
+                    .orElseThrow(() -> notFound("Không tìm thấy đơn hàng gốc"));
+            calculation = calculateReturn(order, request.items());
+        }
         ReturnOrder.ClaimType claimType = request.claimType() != null ? request.claimType() : ReturnOrder.ClaimType.RETURN;
         returnOrder.setClaimType(claimType);
         returnOrder.setResolution(request.resolution());
@@ -350,9 +412,11 @@ public class ReturnOrderService implements IReturnOrderService {
         // Không nhận thông tin hàng giao sai từ khách; kho sẽ xác định sản phẩm và biến thể sau khi nhận kiện hoàn.
         returnOrder.setWrongItems(List.of());
         returnOrder.setRefundAmount(calculation.totalRefund());
-        if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.REJECTED) {
+        if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.REJECTED
+                || returnOrder.getStatus() == ReturnOrder.ReturnStatus.INSPECTION_FAILED) {
             returnOrder.setStatus(ReturnOrder.ReturnStatus.PENDING);
             returnOrder.setRejectReason(null);
+            returnOrder.setInspectionNote(null);
         }
         returnOrder.setReviewedBy(null);
         returnOrder.setReviewedAt(null);
@@ -391,6 +455,65 @@ public class ReturnOrderService implements IReturnOrderService {
             totalRefund = totalRefund.subtract(allocatedDiscount).max(BigDecimal.ZERO);
         }
         return new ReturnCalculation(List.copyOf(returnItems), totalRefund);
+    }
+
+    private ReturnCalculation calculateCompensationReturn(
+            CompensationOrder compensation,
+            ReturnOrder parent,
+            List<ReturnItemRequest> requestedItems) {
+        if (requestedItems == null || requestedItems.isEmpty()) {
+            throw badRequest("Cần chọn ít nhất một sản phẩm trong đơn giao lại");
+        }
+        List<ReturnOrder.ReturnItem> items = new ArrayList<>();
+        Map<String, Integer> requestedQuantities = new HashMap<>();
+        BigDecimal selectedGross = BigDecimal.ZERO;
+        BigDecimal compensationGross = compensation.getItems().stream()
+                .map(item -> item.getUnitPrice() == null || item.getQuantity() == null
+                        ? BigDecimal.ZERO
+                        : item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        for (ReturnItemRequest requested : requestedItems) {
+            CompensationOrder.CompensationItem source = compensation.getItems().stream()
+                    .filter(item -> Objects.equals(item.getProductId(), requested.productId()))
+                    .filter(item -> requested.variantId() == null
+                            || Objects.equals(item.getVariantId(), requested.variantId()))
+                    .findFirst()
+                    .orElseThrow(() -> badRequest(
+                            "Sản phẩm không thuộc đơn giao lại: " + requested.productId()));
+            String key = source.getProductId() + ":" + source.getVariantId();
+            int totalRequested = requestedQuantities.merge(
+                    key, requested.quantity(), Integer::sum);
+            if (source.getQuantity() == null || totalRequested > source.getQuantity()) {
+                throw badRequest("Số lượng khiếu nại lớn hơn số lượng đã giao lại cho "
+                        + source.getProductName());
+            }
+            BigDecimal unitPrice = source.getUnitPrice() == null
+                    ? BigDecimal.ZERO : source.getUnitPrice();
+            BigDecimal subTotal = unitPrice.multiply(BigDecimal.valueOf(requested.quantity()));
+            selectedGross = selectedGross.add(subTotal);
+            items.add(ReturnOrder.ReturnItem.builder()
+                    .productId(source.getProductId())
+                    .variantId(source.getVariantId())
+                    .sku(source.getSku())
+                    .variantName(source.getVariantName())
+                    .productName(source.getProductName())
+                    .imageUrl(source.getImageUrl())
+                    .quantity(requested.quantity())
+                    .unit(source.getUnit())
+                    .unitPrice(unitPrice)
+                    .subTotal(subTotal)
+                    .build());
+        }
+        BigDecimal refundAmount = selectedGross;
+        if (parent.getRefundAmount() != null && compensationGross.signum() > 0) {
+            refundAmount = parent.getRefundAmount()
+                    .multiply(selectedGross)
+                    .divide(compensationGross, 2, RoundingMode.HALF_UP);
+        }
+        if (refundAmount.signum() <= 0) {
+            throw conflict("Không xác định được số tiền hoàn cho đơn giao lại");
+        }
+        return new ReturnCalculation(List.copyOf(items), refundAmount);
     }
 
     private void validateAdminTransition(ReturnOrder.ReturnStatus currentStatus, ReturnOrder.ReturnStatus newStatus,

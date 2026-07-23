@@ -72,4 +72,10 @@ public class InventoryController {
     public ResponseEntity<ApiResponse<InventoryReservationResponse>> processReturn(@Valid @RequestBody InventoryReturnRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(inventoryService.processReturn(request)));
     }
+
+    @PostMapping("/internal/process-reserved-return")
+    public ResponseEntity<ApiResponse<InventoryReservationResponse>> processReservedReturn(
+            @Valid @RequestBody InventoryReturnRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(inventoryService.processReservedReturn(request)));
+    }
 }

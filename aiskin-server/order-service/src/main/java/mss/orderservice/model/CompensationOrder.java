@@ -52,12 +52,21 @@ public class CompensationOrder {
     private String courier;
     private String trackingCode;
     private BigDecimal shippingFee;
+    private String ghnStatus;
+    private String ghnReason;
+    private String ghnReasonCode;
+    private LocalDateTime returnedAt;
 
     @Builder.Default
     private Boolean inventoryReserved = false;
 
     @Builder.Default
     private Boolean inventoryCommitted = false;
+
+    private ReturnOrder.InventoryDisposition returnInventoryDisposition;
+
+    @Builder.Default
+    private Boolean returnInventoryProcessed = false;
 
     private String failureReason;
 
@@ -77,6 +86,10 @@ public class CompensationOrder {
         INVENTORY_RESERVED,
         READY_TO_SHIP,
         SHIPPING,
+        WAITING_TO_RETURN,
+        RETURNING,
+        RETURNED_INSPECTION,
+        REFUND_PENDING,
         COMPLETED,
         FAILED,
         CANCELLED

@@ -72,6 +72,10 @@ const COMPENSATION_STATUS = {
   INVENTORY_RESERVED: 'Đã giữ tồn kho',
   READY_TO_SHIP: 'Sẵn sàng tạo vận đơn',
   SHIPPING: 'GHN đang giao lại',
+  WAITING_TO_RETURN: 'Khách từ chối - Chờ hoàn về kho',
+  RETURNING: 'Đang hoàn đơn giao lại về kho',
+  RETURNED_INSPECTION: 'Đã về kho - Chờ kiểm hàng',
+  REFUND_PENDING: 'Đã xử lý kho - Chờ hoàn tiền',
   COMPLETED: 'Đã giao lại thành công',
   FAILED: 'Xử lý thất bại',
   CANCELLED: 'Đã hủy',
@@ -545,6 +549,7 @@ function CompensationManagementModal({ request, onClose, onChanged }) {
   const [compensation, setCompensation] = useState(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
+  const [returnDisposition, setReturnDisposition] = useState(null)
 
   const loadDetails = useCallback(async () => {
     setLoading(true)
@@ -580,6 +585,24 @@ function CompensationManagementModal({ request, onClose, onChanged }) {
       onChanged?.()
     } catch (err) {
       message.error(err?.message || 'Không thể xử lý đơn giao lại')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const handleReturnedInspection = async () => {
+    if (!compensation || !returnDisposition) return
+    setProcessing(true)
+    try {
+      const updated = await httpClient.put(
+        `/compensations/admin/${compensation.id}/return-inspection`,
+        { inventoryDisposition: returnDisposition },
+      )
+      setCompensation(updated)
+      message.success('Đã kiểm hàng hoàn và cập nhật tồn kho')
+      onChanged?.()
+    } catch (err) {
+      message.error(err?.message || 'Không thể cập nhật kho cho kiện giao lại hoàn về')
     } finally {
       setProcessing(false)
     }
@@ -734,7 +757,68 @@ function CompensationManagementModal({ request, onClose, onChanged }) {
                     {compensation.failureReason}
                   </p>
                 )}
+                {(compensation?.ghnStatus || compensation?.ghnReason) && (
+                  <div className="mt-4 grid gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-gray-500">Trạng thái GHN gần nhất</p>
+                      <p className="mt-1 font-bold text-gray-950">{compensation.ghnStatus || 'Chưa có'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-gray-500">Lý do từ GHN</p>
+                      <p className="mt-1 break-words font-semibold text-gray-950">
+                        {compensation.ghnReason || 'Không có'}
+                        {compensation.ghnReasonCode ? ` (${compensation.ghnReasonCode})` : ''}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </section>
+
+              {compensation?.status === 'RETURNED_INSPECTION' && (
+                <section className="rounded-lg border-2 border-amber-300 bg-amber-50 p-5">
+                  <h3 className="flex items-center gap-2 font-bold text-amber-950">
+                    <Icon name="fact_check" className="text-amber-700" />
+                    Kiểm hàng giao lại đã hoàn về
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-amber-900">
+                    Khách đã từ chối nhận hoặc GHN báo sự cố. Chọn tình trạng thực tế để hệ thống
+                    giải phóng hàng đang giữ, chuyển kho hỏng hoặc ghi nhận tiêu hủy. Sau bước này
+                    hồ sơ sẽ tiếp tục hoàn tiền chuyển khoản cho khách.
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    {[
+                      { value: 'RESTOCK', icon: 'inventory_2', title: 'Về kho bán', note: 'Hàng còn bán được' },
+                      { value: 'DAMAGED', icon: 'report', title: 'Vào kho hỏng', note: 'Hàng đã hư hỏng' },
+                      { value: 'DISCARD', icon: 'delete_forever', title: 'Tiêu hủy', note: 'Mất hoặc không thể nhập' },
+                    ].map(option => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setReturnDisposition(option.value)}
+                        className={`rounded-lg border-2 p-3 text-left transition ${
+                          returnDisposition === option.value
+                            ? 'border-amber-700 bg-white text-amber-950'
+                            : 'border-amber-200 bg-amber-50 text-amber-900 hover:border-amber-400'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2 font-bold">
+                          <Icon name={option.icon} />
+                          {option.title}
+                        </span>
+                        <span className="mt-1 block text-xs opacity-75">{option.note}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleReturnedInspection}
+                    disabled={!returnDisposition || processing}
+                    className="mt-4 w-full rounded-lg bg-amber-800 px-4 py-3 text-sm font-bold text-white hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {processing ? 'Đang cập nhật...' : 'Xác nhận kiểm hàng và cập nhật kho'}
+                  </button>
+                </section>
+              )}
 
               <section className="rounded-lg border border-gray-200 p-5">
                 <h3 className="font-bold text-gray-950">Nguồn phát sinh giao lại</h3>
@@ -916,7 +1000,7 @@ export default function AdminReturnOrdersPage() {
     }
   }
 
-  const openWarehouseDecision = async (req, disposition) => {
+  const openWarehouseDecision = async (req, disposition = null) => {
     setReceivingRequest(req)
     setReceivingDisposition(disposition)
     setIdentifiedWrongItems([])
@@ -1050,38 +1134,16 @@ export default function AdminReturnOrdersPage() {
         }]
       }
       if (status === 'RECEIVED') {
-        return [
-          {
-            key: 'RECEIVED_RESTOCK',
-            label: (
-              <div className="flex items-center gap-2 px-1">
-                <Icon name="inventory_2" className="text-[15px] text-emerald-700" />
-                <span className="text-sm font-semibold">Đúng hàng - Nhập lại kho bán</span>
-              </div>
-            ),
-            onClick: () => openWarehouseDecision(req, 'RESTOCK'),
-          },
-          {
-            key: 'RECEIVED_DAMAGED',
-            label: (
-              <div className="flex items-center gap-2 px-1">
-                <Icon name="report" className="text-[15px] text-rose-700" />
-                <span className="text-sm font-semibold">Đúng hàng - Chuyển kho hỏng</span>
-              </div>
-            ),
-            onClick: () => openWarehouseDecision(req, 'DAMAGED'),
-          },
-          {
-            key: 'RECEIVED_DISCARD',
-            label: (
-              <div className="flex items-center gap-2 px-1">
-                <Icon name="delete_forever" className="text-[15px] text-gray-500" />
-                <span className="text-sm font-semibold">Đúng hàng - Tiêu hủy, không nhập kho</span>
-              </div>
-            ),
-            onClick: () => openWarehouseDecision(req, 'DISCARD'),
-          },
-        ]
+        return [{
+          key: 'RECEIVED_INVENTORY',
+          label: (
+            <div className="flex items-center gap-2 px-1">
+              <Icon name="inventory_2" className="text-[15px] text-blue-700" />
+              <span className="text-sm font-semibold">Ghi nhận kiểm hàng &amp; cập nhật kho</span>
+            </div>
+          ),
+          onClick: () => openWarehouseDecision(req),
+        }]
       }
       if (status === 'INSPECTION_FAILED') {
         return [{
@@ -1246,7 +1308,7 @@ export default function AdminReturnOrdersPage() {
                   <th className="px-5 py-3 max-w-[200px]">Lý do</th>
                   <th className="px-5 py-3">Trạng thái</th>
                   {filter === 'REFUND' && <th className="px-5 py-3">Đơn hoàn tiền</th>}
-                  {['REDELIVERY', 'RESOLVED'].includes(filter) && (
+                  {['REDELIVERY', 'RESOLVED', 'REFUND'].includes(filter) && (
                     <th className="px-5 py-3">Quản lý giao lại</th>
                   )}
                   <th className="px-5 py-3 text-right">Thao tác</th>
@@ -1299,6 +1361,16 @@ export default function AdminReturnOrdersPage() {
                               GHN tự động cập nhật khi giao về kho
                             </p>
                           )}
+                          {req.status === 'INSPECTING' && (
+                            <button
+                              type="button"
+                              onClick={() => openWarehouseDecision(req)}
+                              className="ml-1 mt-1 inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-left text-xs font-bold text-blue-800 hover:bg-blue-100"
+                            >
+                              <Icon name="inventory_2" className="text-sm" />
+                              Điều chỉnh kho &amp; hoàn tất kiểm hàng
+                            </button>
+                          )}
                           {req.status === 'PENDING' && !req.reviewedAt && (
                             <button
                               type="button"
@@ -1327,16 +1399,20 @@ export default function AdminReturnOrdersPage() {
                         <RefundStatusCell returnId={req.id} />
                       </td>
                     )}
-                    {['REDELIVERY', 'RESOLVED'].includes(filter) && (
+                    {['REDELIVERY', 'RESOLVED', 'REFUND'].includes(filter) && (
                       <td className="px-5 py-4 align-top">
-                        <button
-                          type="button"
-                          onClick={() => setManagingRedelivery(req)}
-                          className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
-                        >
-                          <Icon name="local_shipping" className="text-base" />
-                          {filter === 'RESOLVED' ? 'Xem đơn giao lại' : 'Mở quản lý giao lại'}
-                        </button>
+                        {filter !== 'REFUND' || req.redeliveryTrackingCode ? (
+                          <button
+                            type="button"
+                            onClick={() => setManagingRedelivery(req)}
+                            className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+                          >
+                            <Icon name="local_shipping" className="text-base" />
+                            {filter === 'RESOLVED' ? 'Xem đơn giao lại' : 'Mở quản lý giao lại'}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-400">Không có đơn giao lại</span>
+                        )}
                       </td>
                     )}
                     <td className="px-5 py-4 text-right align-top">
@@ -1553,7 +1629,7 @@ export default function AdminReturnOrdersPage() {
             onClick={() => setReceivingRequest(null)}
             aria-label="Đóng"
           />
-          <div className="relative w-full max-w-lg rounded-lg bg-white p-6 shadow-2xl">
+          <div className="relative max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-2xl">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
                 <Icon name="fact_check" className="text-2xl" />
@@ -1564,15 +1640,59 @@ export default function AdminReturnOrdersPage() {
               </div>
             </div>
 
-            <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
-              <span className="font-semibold">Cách xử lý kho: </span>
-              {receivingDisposition === 'RESTOCK' && 'Nhập lại kho bán'}
-              {receivingDisposition === 'DAMAGED' && 'Chuyển vào kho hỏng'}
-              {receivingDisposition === 'DISCARD' && 'Tiêu hủy, không nhập kho'}
+            <div className="mt-5">
+              <p className="text-sm font-bold text-gray-900">
+                Chọn cách cập nhật kho <span className="text-rose-500">*</span>
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                Lựa chọn này sẽ cập nhật tồn kho ngay khi xác nhận kết quả kiểm hàng.
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {[
+                  { value: 'RESTOCK', icon: 'inventory_2', title: 'Kho bán', note: 'Hàng còn nguyên vẹn' },
+                  { value: 'DAMAGED', icon: 'report', title: 'Kho hỏng', note: 'Hàng không thể bán' },
+                  { value: 'DISCARD', icon: 'delete_forever', title: 'Tiêu hủy', note: 'Không nhập kho' },
+                ].map(option => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setReceivingDisposition(option.value)}
+                    className={`rounded-lg border-2 p-3 text-left transition ${
+                      receivingDisposition === option.value
+                        ? 'border-blue-600 bg-blue-50 text-blue-950'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 font-bold">
+                      <Icon name={option.icon} />
+                      {option.title}
+                    </span>
+                    <span className="mt-1 block text-xs opacity-75">{option.note}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {receivingRequest.claimType === 'WRONG_ITEM' ? (
               <div className="mt-5 space-y-4">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-amber-800">
+                    Sản phẩm đáng lẽ giao
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {receivingRequest.items?.map((item, index) => (
+                      <div key={`${item.productId}-${item.variantId}-${index}`} className="flex justify-between gap-3 text-sm">
+                        <span className="font-semibold text-amber-950">
+                          {item.productName} · {item.variantName || item.unit || 'Biến thể mặc định'}
+                        </span>
+                        <span className="shrink-0 text-amber-800">x{item.quantity}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-amber-800">
+                    Hệ thống sẽ hoàn tác số lượng đã ghi nhận bán của các sản phẩm này.
+                  </p>
+                </div>
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-gray-800">
@@ -1715,6 +1835,7 @@ export default function AdminReturnOrdersPage() {
                 onClick={confirmWarehouseDecision}
                 disabled={
                   updating === receivingRequest.id
+                  || !receivingDisposition
                   || (receivingRequest.claimType === 'WRONG_ITEM'
                     && (identifiedWrongItems.length === 0
                       || identifiedWrongItems.some(item => !item.productId || !item.variantId || !item.quantity)))

@@ -13,6 +13,8 @@ import mss.orderservice.model.ReturnOrder;
 import mss.orderservice.repository.OrderRepository;
 import mss.orderservice.repository.RefundRequestRepository;
 import mss.orderservice.repository.ReturnOrderRepository;
+import mss.orderservice.repository.CompensationOrderRepository;
+import mss.orderservice.model.CompensationOrder;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,8 @@ public class RefundRequestService implements IRefundRequestService {
     private final ReturnOrderRepository returnOrderRepository;
 
     private final OrderRepository orderRepository;
+
+    private final CompensationOrderRepository compensationOrderRepository;
 
     public RefundRequest createRefundRequest(String customerId, RefundCreateRequest request) {
         ReturnOrder returnOrder = returnOrderRepository.findById(request.returnOrderId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn khiếu nại"));
@@ -85,6 +89,14 @@ public class RefundRequestService implements IRefundRequestService {
         if (needsReturnedInventory && !Boolean.TRUE.equals(returnOrder.getInventoryProcessed())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Hàng trả chưa được kho phân loại nên chưa thể hoàn tiền");
         }
+        compensationOrderRepository.findByReturnOrderId(returnOrder.getId())
+                .filter(compensation -> compensation.getStatus()
+                        == CompensationOrder.CompensationStatus.RETURNED_INSPECTION)
+                .filter(compensation -> !Boolean.TRUE.equals(compensation.getReturnInventoryProcessed()))
+                .ifPresent(compensation -> {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Kiện giao lại đã hoàn về nhưng chưa được kho kiểm tra");
+                });
         Order order = orderRepository.findById(request.getOrderId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "Không tìm thấy đơn hàng gốc"));
         if (order.getPaymentStatus() != Order.PaymentStatus.PAID
                 && order.getPaymentStatus() != Order.PaymentStatus.PARTIALLY_REFUNDED

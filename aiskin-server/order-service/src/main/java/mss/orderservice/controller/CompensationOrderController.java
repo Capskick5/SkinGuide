@@ -1,7 +1,9 @@
 package mss.orderservice.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import mss.orderservice.model.CompensationOrder;
+import mss.orderservice.dto.CompensationReturnInspectionRequest;
 import mss.orderservice.service.ICompensationOrderService;
 import mss.orderservice.security.IOrderAuthorizationService;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +34,14 @@ public class CompensationOrderController {
         return result == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(result);
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<CompensationOrder> getById(@PathVariable String id,
+                                                     Authentication authentication) {
+        CompensationOrder result = service.getById(id);
+        authorizationService.requireReturnAccess(result.getReturnOrderId(), authentication);
+        return ResponseEntity.ok(result);
+    }
+
     @PutMapping("/admin/{id}/reserve")
     @PreAuthorize("hasPermission('/api/returns/admin/{id}/status', 'PUT')")
     public ResponseEntity<CompensationOrder> reserve(@PathVariable String id) {
@@ -48,6 +58,15 @@ public class CompensationOrderController {
     @PreAuthorize("hasPermission('/api/returns/admin/{id}/status', 'PUT')")
     public ResponseEntity<CompensationOrder> complete(@PathVariable String id) {
         return ResponseEntity.ok(service.complete(id));
+    }
+
+    @PutMapping("/admin/{id}/return-inspection")
+    @PreAuthorize("hasPermission('/api/returns/admin/{id}/status', 'PUT')")
+    public ResponseEntity<CompensationOrder> inspectReturnedInventory(
+            @PathVariable String id,
+            @Valid @RequestBody CompensationReturnInspectionRequest request) {
+        return ResponseEntity.ok(
+                service.inspectReturnedInventory(id, request.inventoryDisposition()));
     }
 
     @PutMapping("/admin/{id}/cancel")

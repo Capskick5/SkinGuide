@@ -45,6 +45,20 @@ public class ReturnOrderController {
         return ResponseEntity.ok(returnOrderService.createReturnRequest(orderId, request));
     }
 
+    @PostMapping("/compensation/{compensationOrderId}")
+    @Operation(
+            summary = "Create a complaint after redelivery",
+            description = "Customer reports a problem with a delivered compensation order. The only resolution is bank-transfer refund.")
+    public ResponseEntity<ReturnOrder> createCompensationReturnRequest(
+            @PathVariable String compensationOrderId,
+            @Valid @RequestBody ReturnRequest request,
+            Authentication authentication) {
+        var compensation = compensationOrderService.getById(compensationOrderId);
+        authorizationService.requireReturnAccess(compensation.getReturnOrderId(), authentication);
+        return ResponseEntity.ok(
+                returnOrderService.createCompensationReturnRequest(compensationOrderId, request));
+    }
+
     @GetMapping("/order/{orderId}")
     @Operation(summary = "Get return by order ID", description = "Check if an order has a return request")
     public ResponseEntity<ReturnOrder> getReturnByOrderId(@PathVariable String orderId, Authentication authentication) {

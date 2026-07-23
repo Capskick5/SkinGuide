@@ -19,6 +19,7 @@ public interface CompensationOrderRepository extends MongoRepository<Compensatio
     List<CompensationOrder> findByCustomerId(String customerId);
 
     List<CompensationOrder> findByStatus(CompensationOrder.CompensationStatus status);
+    List<CompensationOrder> findByStatusIn(List<CompensationOrder.CompensationStatus> statuses);
 
     Optional<CompensationOrder> findByTrackingCode(String trackingCode);
 }

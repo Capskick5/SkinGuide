@@ -102,18 +102,34 @@ export default function ReturnRequestPage() {
   // Edit mode
   const queryParams = new URLSearchParams(window.location.search)
   const isEdit = queryParams.get('edit') === 'true'
+  const compensationId = queryParams.get('compensation')
   const [existingReturnId, setExistingReturnId] = useState(null)
+  const [refundOnly, setRefundOnly] = useState(Boolean(compensationId))
 
   const selectedClaim = CLAIM_TYPES.find(c => c.value === claimType)
   useEffect(() => {
     async function loadOrderAndReturn() {
       try {
         const orderData = await httpClient.get(`/orders/${id}`)
-        setOrder(orderData)
+        let selectableOrder = orderData
+
+        if (compensationId) {
+          const compensation = await httpClient.get(`/compensations/${compensationId}`)
+          selectableOrder = { ...orderData, items: compensation.items || [] }
+          setResolution('REFUND')
+          setRefundOnly(true)
+        }
 
         if (isEdit) {
           const returnData = await httpClient.get(`/returns/order/${id}`)
           if (returnData) {
+            if (returnData.sourceCompensationOrderId) {
+              const compensation = await httpClient.get(
+                `/compensations/${returnData.sourceCompensationOrderId}`,
+              )
+              selectableOrder = { ...orderData, items: compensation.items || [] }
+            }
+            setRefundOnly(Boolean(returnData.refundOnly))
             setExistingReturnId(returnData.id)
             setClaimType(returnData.claimType || 'RETURN')
             setResolution(returnData.resolution || null)
@@ -122,7 +138,7 @@ export default function ReturnRequestPage() {
             setImages(returnData.imageUrls || [])
             const itemsObj = {}
             returnData.items?.forEach(i => {
-              const originalItem = orderData.items?.find(item =>
+              const originalItem = selectableOrder.items?.find(item =>
                 item.productId === i.productId && (
                   (i.variantId && item.variantId === i.variantId) ||
                   (i.sku && item.sku === i.sku) ||
@@ -135,13 +151,14 @@ export default function ReturnRequestPage() {
             setStep(3)
           }
         }
+        setOrder(selectableOrder)
       } catch {
         message.error('Không tìm thấy thông tin đơn hàng')
         navigate('/orders')
       }
     }
     loadOrderAndReturn()
-  }, [id, isEdit, message, navigate])
+  }, [compensationId, id, isEdit, message, navigate])
 
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files)
@@ -241,6 +258,12 @@ export default function ReturnRequestPage() {
       if (isEdit && existingReturnId) {
         await httpClient.put(`/returns/${existingReturnId}`, payload)
         message.success('Đã cập nhật yêu cầu khiếu nại')
+      } else if (compensationId) {
+        await httpClient.post(`/returns/compensation/${compensationId}`, {
+          ...payload,
+          resolution: 'REFUND',
+        })
+        message.success('Đã gửi khiếu nại cho đơn giao lại')
       } else {
         await httpClient.post(`/returns/order/${id}`, payload)
         message.success('Đã gửi yêu cầu khiếu nại thành công!')
@@ -274,7 +297,9 @@ export default function ReturnRequestPage() {
         </button>
         <div>
           <h1 className="text-xl font-bold text-gray-950">
-            {isEdit ? 'Chỉnh sửa khiếu nại' : 'Yêu cầu khiếu nại / Trả hàng'}
+            {isEdit
+              ? 'Chỉnh sửa khiếu nại'
+              : refundOnly ? 'Khiếu nại đơn giao lại' : 'Yêu cầu khiếu nại / Trả hàng'}
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">Đơn hàng {order.orderCode}</p>
         </div>
@@ -472,6 +497,19 @@ export default function ReturnRequestPage() {
               <label className="block text-sm font-bold text-gray-900 mb-3">
                 Bạn muốn SkinGuide xử lý như thế nào? <span className="text-rose-500">*</span>
               </label>
+              {refundOnly ? (
+                <div className="rounded-xl border-2 border-teal-300 bg-teal-50 p-4">
+                  <p className="flex items-center gap-2 font-bold text-teal-950">
+                    <Icon name="payments" />
+                    Hoàn tiền bằng chuyển khoản
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-teal-800">
+                    Đây là khiếu nại phát sinh sau lần giao lại. Hệ thống sẽ không tạo thêm đơn
+                    giao lại; nếu yêu cầu được duyệt, bạn sẽ cung cấp tài khoản để nhận tiền.
+                    Giao thiếu không cần gửi hàng, các trường hợp còn lại SkinGuide sẽ tạo đơn lấy hàng.
+                  </p>
+                </div>
+              ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
                   {
@@ -506,6 +544,7 @@ export default function ReturnRequestPage() {
                   </button>
                 ))}
               </div>
+              )}
             </div>
 
             {/* Lý do cụ thể */}

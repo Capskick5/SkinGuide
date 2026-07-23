@@ -9,6 +9,8 @@ import mss.orderservice.model.ReturnOrder;
 import mss.orderservice.repository.OrderRepository;
 import mss.orderservice.repository.RefundRequestRepository;
 import mss.orderservice.repository.ReturnOrderRepository;
+import mss.orderservice.repository.CompensationOrderRepository;
+import mss.orderservice.model.CompensationOrder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
@@ -29,6 +31,7 @@ class RefundRequestServiceTest {
     private ReturnOrderRepository returnOrderRepository;
 
     private OrderRepository orderRepository;
+    private CompensationOrderRepository compensationOrderRepository;
 
     private IRefundRequestService service;
 
@@ -37,7 +40,12 @@ class RefundRequestServiceTest {
         refundRequestRepository = mock(RefundRequestRepository.class);
         returnOrderRepository = mock(ReturnOrderRepository.class);
         orderRepository = mock(OrderRepository.class);
-        service = new RefundRequestService(refundRequestRepository, returnOrderRepository, orderRepository);
+        compensationOrderRepository = mock(CompensationOrderRepository.class);
+        service = new RefundRequestService(
+                refundRequestRepository,
+                returnOrderRepository,
+                orderRepository,
+                compensationOrderRepository);
         when(refundRequestRepository.save(any(RefundRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
@@ -108,6 +116,27 @@ class RefundRequestServiceTest {
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("giao lại");
         verify(refundRequestRepository, never()).save(any());
+    }
+
+    @Test
+    void returnedRedeliveryCannotBePaidBeforeWarehouseInspection() {
+        RefundRequest refund = pendingRefund();
+        ReturnOrder returnOrder = receivedReturn();
+        CompensationOrder compensation = CompensationOrder.builder()
+                .id("comp-1")
+                .returnOrderId("return-1")
+                .status(CompensationOrder.CompensationStatus.RETURNED_INSPECTION)
+                .returnInventoryProcessed(false)
+                .build();
+        when(refundRequestRepository.findById("refund-1")).thenReturn(Optional.of(refund));
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
+        when(compensationOrderRepository.findByReturnOrderId("return-1"))
+                .thenReturn(Optional.of(compensation));
+
+        assertThatThrownBy(() -> service.completeRefund("refund-1", null))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("chưa được kho kiểm tra");
+        verify(orderRepository, never()).save(any());
     }
 
     private ReturnOrder receivedReturn() {

@@ -28,9 +28,20 @@ public class ReturnOrder {
     @Id
     private String id;
 
-    @Indexed(unique = true)
     private String orderId; // Ref to Order.id
     private String orderCode;
+
+    // Khiếu nại phát sinh sau một đơn giao lại đã được GHN xác nhận giao thành công.
+    // Mỗi đơn giao lại chỉ được tạo tối đa một khiếu nại tiếp theo.
+    @Indexed(unique = true, sparse = true)
+    private String sourceCompensationOrderId;
+    private String parentReturnOrderId;
+
+    @Builder.Default
+    private Boolean followUpClaim = false;
+
+    @Builder.Default
+    private Boolean refundOnly = false;
 
     private String customerId;
     private String customerName;

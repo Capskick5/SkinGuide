@@ -81,7 +81,7 @@ class CompensationOrderServiceTest {
                 .status(ReturnOrder.ReturnStatus.REDELIVERING)
                 .resolution(ReturnOrder.ResolutionType.REDELIVER)
                 .build();
-        when(repository.findByStatus(CompensationOrder.CompensationStatus.SHIPPING))
+        when(repository.findByStatusIn(anyList()))
                 .thenReturn(List.of(compensation));
         when(repository.findById("comp-1")).thenReturn(Optional.of(compensation));
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(claim));
@@ -100,8 +100,9 @@ class CompensationOrderServiceTest {
         CompensationOrder compensation = pendingCompensation();
         compensation.setStatus(CompensationOrder.CompensationStatus.SHIPPING);
         compensation.setTrackingCode("GHN-REDELIVERY");
-        when(repository.findByStatus(CompensationOrder.CompensationStatus.SHIPPING))
+        when(repository.findByStatusIn(anyList()))
                 .thenReturn(List.of(compensation));
+        when(repository.findById("comp-1")).thenReturn(Optional.of(compensation));
         when(ghnService.getOrderDetail("GHN-REDELIVERY"))
                 .thenReturn(Map.of("status", "delivering"));
 
@@ -150,6 +151,63 @@ class CompensationOrderServiceTest {
         assertThat(result.getTrackingCode()).isNotEqualTo(claim.getReturnTrackingCode());
         assertThat(claim.getRedeliveryTrackingCode()).isEqualTo("GHN-REDELIVERY-NEW");
         assertThat(claim.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.REDELIVERING);
+    }
+
+    @Test
+    void waitingToReturnIsTrackedWithoutReleasingInventory() {
+        CompensationOrder compensation = pendingCompensation();
+        compensation.setStatus(CompensationOrder.CompensationStatus.SHIPPING);
+        when(repository.findById("comp-1")).thenReturn(Optional.of(compensation));
+
+        CompensationOrder result = service.applyGhnStatus(
+                "comp-1", "waiting_to_return", "Khách từ chối nhận", "GHN-DCD0A8");
+
+        assertThat(result.getStatus())
+                .isEqualTo(CompensationOrder.CompensationStatus.WAITING_TO_RETURN);
+        assertThat(result.getGhnReason()).isEqualTo("Khách từ chối nhận");
+        verify(inventoryClient, never()).release(any());
+        verify(inventoryClient, never()).commit(any());
+    }
+
+    @Test
+    void returnedRedeliveryMovesClaimToBankRefundAndWaitsForInspection() {
+        CompensationOrder compensation = pendingCompensation();
+        compensation.setStatus(CompensationOrder.CompensationStatus.RETURNING);
+        ReturnOrder claim = ReturnOrder.builder()
+                .id("return-1")
+                .status(ReturnOrder.ReturnStatus.REDELIVERING)
+                .resolution(ReturnOrder.ResolutionType.REDELIVER)
+                .build();
+        when(repository.findById("comp-1")).thenReturn(Optional.of(compensation));
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(claim));
+
+        CompensationOrder result = service.applyGhnStatus(
+                "comp-1", "returned", null, null);
+
+        assertThat(result.getStatus())
+                .isEqualTo(CompensationOrder.CompensationStatus.RETURNED_INSPECTION);
+        assertThat(claim.getResolution()).isEqualTo(ReturnOrder.ResolutionType.REFUND);
+        assertThat(claim.getStatus()).isEqualTo(ReturnOrder.ReturnStatus.REFUND_PENDING);
+        verify(inventoryClient, never()).release(any());
+    }
+
+    @Test
+    void inspectingReturnedRedeliveryUpdatesReservedInventoryBeforeRefund() {
+        CompensationOrder compensation = pendingCompensation();
+        compensation.setStatus(CompensationOrder.CompensationStatus.RETURNED_INSPECTION);
+        compensation.setInventoryReserved(true);
+        when(repository.findById("comp-1")).thenReturn(Optional.of(compensation));
+
+        CompensationOrder result = service.inspectReturnedInventory(
+                "comp-1", ReturnOrder.InventoryDisposition.DAMAGED);
+
+        verify(inventoryClient).processReturned(
+                compensation, ReturnOrder.InventoryDisposition.DAMAGED);
+        assertThat(result.getReturnInventoryProcessed()).isTrue();
+        assertThat(result.getReturnInventoryDisposition())
+                .isEqualTo(ReturnOrder.InventoryDisposition.DAMAGED);
+        assertThat(result.getStatus())
+                .isEqualTo(CompensationOrder.CompensationStatus.REFUND_PENDING);
     }
 
     private CompensationOrder pendingCompensation() {

@@ -323,6 +323,33 @@ class InventoryServiceTest {
         verify(productRepository, never()).saveAllFlexible(any());
     }
 
+    @Test
+    void returnedCompensationRestockReleasesReservedQuantityWithoutChangingOnHand() {
+        level.setReservedQuantity(1);
+        stubReservedCompensation();
+
+        inventoryService.processReservedReturn(
+                compensationReturn(InventoryReturnRequest.Disposition.RESTOCK));
+
+        assertThat(level.getReservedQuantity()).isZero();
+        assertThat(level.getOnHandQuantity()).isEqualTo(10);
+        assertThat(level.getDamagedQuantity()).isZero();
+    }
+
+    @Test
+    void returnedDamagedCompensationMovesReservedStockToDamagedWarehouse() {
+        level.setReservedQuantity(1);
+        level.setDamagedQuantity(0);
+        stubReservedCompensation();
+
+        inventoryService.processReservedReturn(
+                compensationReturn(InventoryReturnRequest.Disposition.DAMAGED));
+
+        assertThat(level.getReservedQuantity()).isZero();
+        assertThat(level.getOnHandQuantity()).isEqualTo(9);
+        assertThat(level.getDamagedQuantity()).isEqualTo(1);
+    }
+
     private void stubReserveAllowed() {
         when(movementRepository.findByReferenceTypeAndReferenceIdAndType("ORDER", "ORD-1", InventoryMovement.MovementType.RESERVE)).thenReturn(List.of());
         when(movementRepository.findByReferenceTypeAndReferenceIdAndType("ORDER", "ORD-1", InventoryMovement.MovementType.RELEASE)).thenReturn(List.of());
@@ -338,6 +365,17 @@ class InventoryServiceTest {
         when(movementRepository.findByReferenceTypeAndReferenceIdAndType("RETURN_ORDER", "RET-1", InventoryMovement.MovementType.RETURN_RESTOCK)).thenReturn(List.of());
         when(movementRepository.findByReferenceTypeAndReferenceIdAndType("RETURN_ORDER", "RET-1", InventoryMovement.MovementType.RETURN_DAMAGED)).thenReturn(List.of());
         when(movementRepository.findByReferenceTypeAndReferenceIdAndType("RETURN_ORDER", "RET-1", InventoryMovement.MovementType.RETURN_DISCARD)).thenReturn(List.of());
+    }
+
+    private void stubReservedCompensation() {
+        lenient().when(movementRepository.findByReferenceTypeAndReferenceIdAndType(
+                        org.mockito.ArgumentMatchers.eq("ORDER"),
+                        org.mockito.ArgumentMatchers.eq("COMP-comp-1"),
+                        any(InventoryMovement.MovementType.class)))
+                .thenAnswer(invocation -> invocation.getArgument(2)
+                        == InventoryMovement.MovementType.RESERVE
+                                ? List.of(movement(InventoryMovement.MovementType.RESERVE, 1))
+                                : List.of());
     }
 
     private InventoryReturnRequest returnRequest(InventoryReturnRequest.Disposition disposition, int quantity) {
@@ -357,6 +395,20 @@ class InventoryServiceTest {
                 .items(List.of(InventoryReservationItemRequest.builder()
                         .productId("product-2")
                         .variantId("variant-2")
+                        .quantity(1)
+                        .build()))
+                .build();
+    }
+
+    private InventoryReturnRequest compensationReturn(
+            InventoryReturnRequest.Disposition disposition) {
+        return InventoryReturnRequest.builder()
+                .returnOrderId("comp-1")
+                .orderCode("COMP-comp-1")
+                .disposition(disposition)
+                .items(List.of(InventoryReservationItemRequest.builder()
+                        .productId("product-1")
+                        .variantId("variant-1")
                         .quantity(1)
                         .build()))
                 .build();

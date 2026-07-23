@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDateTime;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +47,10 @@ public class CompensationOrderService implements ICompensationOrderService {
 
     public CompensationOrder getByReturnOrderId(String returnOrderId) {
         return repository.findByReturnOrderId(returnOrderId).orElse(null);
+    }
+
+    public CompensationOrder getById(String id) {
+        return find(id);
     }
 
     public CompensationOrder reserveInventory(String id) {
@@ -108,8 +114,10 @@ public class CompensationOrderService implements ICompensationOrderService {
     }
 
     public void syncGhnCompensationOrderStatus() {
-        List<CompensationOrder> shippingOrders =
-                repository.findByStatus(CompensationOrder.CompensationStatus.SHIPPING);
+        List<CompensationOrder> shippingOrders = repository.findByStatusIn(List.of(
+                CompensationOrder.CompensationStatus.SHIPPING,
+                CompensationOrder.CompensationStatus.WAITING_TO_RETURN,
+                CompensationOrder.CompensationStatus.RETURNING));
         for (CompensationOrder compensation : shippingOrders) {
             if (compensation.getTrackingCode() == null || compensation.getTrackingCode().isBlank()) {
                 log.warn("Skipping GHN redelivery synchronization for compensation {} without tracking code",
@@ -121,15 +129,59 @@ public class CompensationOrderService implements ICompensationOrderService {
                 if (detail == null || detail.get("status") == null) {
                     continue;
                 }
-                String ghnStatus = String.valueOf(detail.get("status")).trim().toLowerCase();
-                if ("delivered".equals(ghnStatus) || "deliveried".equals(ghnStatus)) {
-                    complete(compensation.getId());
-                }
+                String ghnStatus = String.valueOf(detail.get("status"));
+                applyGhnStatus(
+                        compensation.getId(),
+                        ghnStatus,
+                        mapText(detail, "reason", "Reason", "description", "Description"),
+                        mapText(detail, "reason_code", "ReasonCode"));
             } catch (Exception exception) {
                 log.warn("Failed to synchronize GHN redelivery compensation {}",
                         compensation.getId(), exception);
             }
         }
+    }
+
+    @Transactional
+    public CompensationOrder applyGhnStatus(String id, String rawStatus, String reason, String reasonCode) {
+        CompensationOrder compensation = find(id);
+        if (rawStatus == null || rawStatus.isBlank()) {
+            return compensation;
+        }
+        String status = rawStatus.trim().toLowerCase(Locale.ROOT);
+        compensation.setGhnStatus(status);
+        compensation.setGhnReason(normalized(reason));
+        compensation.setGhnReasonCode(normalized(reasonCode));
+
+        if ("delivered".equals(status) || "deliveried".equals(status)) {
+            repository.save(compensation);
+            return complete(id);
+        }
+        if ("delivery_fail".equals(status)) {
+            compensation.setFailureReason(buildGhnFailure("GHN giao lại chưa thành công", reason, reasonCode));
+            return repository.save(compensation);
+        }
+        if ("waiting_to_return".equals(status)) {
+            compensation.setStatus(CompensationOrder.CompensationStatus.WAITING_TO_RETURN);
+            compensation.setFailureReason(buildGhnFailure(
+                    "Khách từ chối nhận; GHN đang chờ hoàn hàng về kho", reason, reasonCode));
+            return repository.save(compensation);
+        }
+        if (List.of("return", "return_transporting", "return_sorting", "returning", "return_fail")
+                .contains(status)) {
+            compensation.setStatus(CompensationOrder.CompensationStatus.RETURNING);
+            compensation.setFailureReason("return_fail".equals(status)
+                    ? buildGhnFailure("GHN hoàn hàng về kho chưa thành công", reason, reasonCode)
+                    : null);
+            return repository.save(compensation);
+        }
+        if ("returned".equals(status)) {
+            return moveToRefundAfterReturn(compensation, false, reason, reasonCode);
+        }
+        if ("damage".equals(status) || "lost".equals(status)) {
+            return moveToRefundAfterReturn(compensation, true, reason, reasonCode);
+        }
+        return repository.save(compensation);
     }
 
     @Transactional
@@ -148,6 +200,26 @@ public class CompensationOrderService implements ICompensationOrderService {
                 .orElseThrow(() -> conflict("Không tìm thấy khiếu nại"));
         returnOrder.setStatus(ReturnOrder.ReturnStatus.RESOLVED);
         returnOrderRepository.save(returnOrder);
+        return repository.save(order);
+    }
+
+    @Transactional
+    public CompensationOrder inspectReturnedInventory(
+            String id, ReturnOrder.InventoryDisposition disposition) {
+        CompensationOrder order = find(id);
+        if (Boolean.TRUE.equals(order.getReturnInventoryProcessed())) {
+            if (order.getReturnInventoryDisposition() != disposition) {
+                throw conflict("Kiện giao lại đã được xử lý kho với kết quả khác");
+            }
+            return order;
+        }
+        requireStatus(order, CompensationOrder.CompensationStatus.RETURNED_INSPECTION);
+        inventoryClient.processReturned(order, disposition);
+        order.setReturnInventoryDisposition(disposition);
+        order.setReturnInventoryProcessed(true);
+        order.setInventoryReserved(false);
+        order.setStatus(CompensationOrder.CompensationStatus.REFUND_PENDING);
+        order.setFailureReason(null);
         return repository.save(order);
     }
 
@@ -200,6 +272,56 @@ public class CompensationOrderService implements ICompensationOrderService {
     private CompensationOrder find(String id) {
         return repository.findById(id).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn giao bù"));
+    }
+
+    private CompensationOrder moveToRefundAfterReturn(
+            CompensationOrder compensation,
+            boolean transportIncident,
+            String reason,
+            String reasonCode) {
+        if (compensation.getStatus() == CompensationOrder.CompensationStatus.COMPLETED) {
+            return compensation;
+        }
+        compensation.setStatus(CompensationOrder.CompensationStatus.RETURNED_INSPECTION);
+        compensation.setReturnedAt(LocalDateTime.now());
+        compensation.setFailureReason(transportIncident
+                ? buildGhnFailure("GHN báo kiện giao lại bị hư hỏng hoặc thất lạc", reason, reasonCode)
+                : null);
+        ReturnOrder returnOrder = returnOrderRepository.findById(compensation.getReturnOrderId())
+                .orElseThrow(() -> conflict("Không tìm thấy khiếu nại"));
+        returnOrder.setResolution(ReturnOrder.ResolutionType.REFUND);
+        returnOrder.setStatus(ReturnOrder.ReturnStatus.REFUND_PENDING);
+        returnOrderRepository.save(returnOrder);
+        return repository.save(compensation);
+    }
+
+    private String mapText(Map<String, Object> values, String... keys) {
+        for (String key : keys) {
+            Object value = values.get(key);
+            if (value != null && !value.toString().isBlank()) {
+                return value.toString();
+            }
+        }
+        return null;
+    }
+
+    private String buildGhnFailure(String prefix, String reason, String reasonCode) {
+        String detail = normalized(reason);
+        String code = normalized(reasonCode);
+        if (detail == null && code == null) {
+            return prefix;
+        }
+        if (detail == null) {
+            return prefix + " (" + code + ")";
+        }
+        if (code == null) {
+            return prefix + ": " + detail;
+        }
+        return prefix + ": " + detail + " (" + code + ")";
+    }
+
+    private String normalized(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private void requireStatus(CompensationOrder order, CompensationOrder.CompensationStatus... statuses) {
