@@ -74,6 +74,10 @@ public class ReturnOrder {
     // Ghi chú kiểm tra khi Admin phát hiện hàng trả về không đúng
     private String inspectionNote;
 
+    // Dấu vết bắt buộc trước khi Admin/Manager duyệt hoặc từ chối khiếu nại.
+    private String reviewedBy;
+    private LocalDateTime reviewedAt;
+
     @Builder.Default
     private Boolean inventoryProcessed = false;
 

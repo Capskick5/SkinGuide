@@ -67,27 +67,39 @@ public class ReturnOrderController {
         return ResponseEntity.ok(returnOrderService.getAllReturns(page, size, status));
     }
 
+    @PutMapping("/admin/{id}/review")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER') and hasPermission('/api/returns/admin/{id}/status', 'PUT')")
+    @Operation(summary = "Mark return request as reviewed", description = "Admin/Manager confirms the complaint details were reviewed before making an approval decision.")
+    public ResponseEntity<ReturnOrder> reviewReturn(@PathVariable String id, Authentication authentication) {
+        return ResponseEntity.ok(returnOrderService.reviewReturn(id, authentication.getName()));
+    }
+
     @PutMapping("/admin/{id}/status")
     @PreAuthorize("hasPermission('/api/returns/admin/{id}/status', 'PUT')")
     @Operation(
             summary = "Update return status",
             description = "Admin manages approval and warehouse inspection. DELIVERING can only become DELIVERED through GHN. DELIVERED must enter INSPECTING before RECEIVED or INSPECTION_FAILED.")
-    public ResponseEntity<ReturnOrder> updateReturnStatus(@PathVariable String id, @Valid @RequestBody ReturnStatusUpdateRequest request) {
+    public ResponseEntity<ReturnOrder> updateReturnStatus(@PathVariable String id,
+                                                          @Valid @RequestBody ReturnStatusUpdateRequest request,
+                                                          Authentication authentication) {
         return ResponseEntity.ok(returnOrderService.updateReturnStatus(
                 id,
                 request.status(),
                 request.rejectReason(),
                 request.inventoryDisposition(),
                 request.inspectionNote(),
-                request.wrongItems()));
+                request.wrongItems(),
+                authentication.getName()));
     }
 
     @PostMapping("/admin/{id}/resolve")
     @PreAuthorize("hasPermission('/api/returns/admin/{id}/resolve', 'POST')")
     @Operation(summary = "Resolve return", description = "Admin decides final resolution: REFUND or REDELIVER for missing/wrong item cases")
     public ResponseEntity<ReturnOrder> resolveReturn(@PathVariable String id,
-                                                     @Valid @RequestBody ReturnResolutionRequest request) {
-        return ResponseEntity.ok(returnOrderService.resolveReturn(id, request.resolution(), request.note()));
+                                                     @Valid @RequestBody ReturnResolutionRequest request,
+                                                     Authentication authentication) {
+        return ResponseEntity.ok(returnOrderService.resolveReturn(
+                id, request.resolution(), request.note(), authentication.getName()));
     }
 
     @PutMapping("/{id}")

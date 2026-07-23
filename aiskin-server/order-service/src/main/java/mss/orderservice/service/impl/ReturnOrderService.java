@@ -107,6 +107,20 @@ public class ReturnOrderService implements IReturnOrderService {
         return returnOrderRepository.findByOrderId(orderId).orElse(null);
     }
 
+    public ReturnOrder reviewReturn(String id, String reviewerId) {
+        ReturnOrder returnOrder = returnOrderRepository.findById(id)
+                .orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
+        if (returnOrder.getStatus() != ReturnOrder.ReturnStatus.PENDING) {
+            throw conflict("Chỉ có thể review khiếu nại đang chờ duyệt");
+        }
+        if (reviewerId == null || reviewerId.isBlank()) {
+            throw badRequest("Không xác định được người review khiếu nại");
+        }
+        returnOrder.setReviewedBy(reviewerId.trim());
+        returnOrder.setReviewedAt(java.time.LocalDateTime.now());
+        return returnOrderRepository.save(returnOrder);
+    }
+
     public ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason, ReturnOrder.InventoryDisposition inventoryDisposition) {
         return updateReturnStatus(id, newStatus, rejectReason, inventoryDisposition, null);
     }
@@ -118,6 +132,13 @@ public class ReturnOrderService implements IReturnOrderService {
     public ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason,
                                           ReturnOrder.InventoryDisposition inventoryDisposition, String inspectionNote,
                                           List<WrongItemRequest> inspectedWrongItems) {
+        return updateReturnStatus(id, newStatus, rejectReason, inventoryDisposition, inspectionNote,
+                inspectedWrongItems, null);
+    }
+
+    public ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason,
+                                          ReturnOrder.InventoryDisposition inventoryDisposition, String inspectionNote,
+                                          List<WrongItemRequest> inspectedWrongItems, String actorId) {
         ReturnOrder returnOrder = returnOrderRepository.findById(id).orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
         ReturnOrder.ReturnStatus currentStatus = returnOrder.getStatus();
         if (newStatus == currentStatus) {
@@ -125,6 +146,21 @@ public class ReturnOrderService implements IReturnOrderService {
             return returnOrder;
         }
         validateAdminTransition(currentStatus, newStatus, rejectReason, inventoryDisposition, inspectionNote);
+        if (currentStatus == ReturnOrder.ReturnStatus.PENDING
+                && (newStatus == ReturnOrder.ReturnStatus.DELIVERING
+                    || newStatus == ReturnOrder.ReturnStatus.REJECTED)
+                && (returnOrder.getReviewedAt() == null
+                    || returnOrder.getReviewedBy() == null
+                    || returnOrder.getReviewedBy().isBlank())) {
+            throw conflict("Admin/Manager phải review chi tiết khiếu nại trước khi duyệt hoặc từ chối");
+        }
+        if (currentStatus == ReturnOrder.ReturnStatus.PENDING
+                && (newStatus == ReturnOrder.ReturnStatus.DELIVERING
+                    || newStatus == ReturnOrder.ReturnStatus.REJECTED)
+                && actorId != null
+                && !returnOrder.getReviewedBy().equals(actorId)) {
+            throw conflict("Người duyệt phải chính là Admin/Manager đã review khiếu nại");
+        }
         if (newStatus == ReturnOrder.ReturnStatus.RECEIVED
                 && returnOrder.getClaimType() == ReturnOrder.ClaimType.WRONG_ITEM) {
             if (inspectedWrongItems == null || inspectedWrongItems.isEmpty()) {
@@ -188,6 +224,10 @@ public class ReturnOrderService implements IReturnOrderService {
      * có hàng vật lý chỉ được rẽ nhánh sau khi kho nhận và kiểm tra.
      */
     public ReturnOrder resolveReturn(String id, ReturnOrder.ResolutionType resolutionType, String note) {
+        return resolveReturn(id, resolutionType, note, null);
+    }
+
+    public ReturnOrder resolveReturn(String id, ReturnOrder.ResolutionType resolutionType, String note, String actorId) {
         ReturnOrder returnOrder = returnOrderRepository.findById(id).orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
 
         if (returnOrder.getResolution() == resolutionType
@@ -199,6 +239,20 @@ public class ReturnOrderService implements IReturnOrderService {
                             || returnOrder.getStatus() == ReturnOrder.ReturnStatus.REDELIVERING
                             || returnOrder.getStatus() == ReturnOrder.ReturnStatus.RESOLVED)))) {
             return returnOrder;
+        }
+
+        if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.PENDING
+                && returnOrder.getClaimType() == ReturnOrder.ClaimType.MISSING_ITEM
+                && (returnOrder.getReviewedAt() == null
+                    || returnOrder.getReviewedBy() == null
+                    || returnOrder.getReviewedBy().isBlank())) {
+            throw conflict("Admin/Manager phải review chi tiết khiếu nại trước khi duyệt");
+        }
+        if (returnOrder.getStatus() == ReturnOrder.ReturnStatus.PENDING
+                && returnOrder.getClaimType() == ReturnOrder.ClaimType.MISSING_ITEM
+                && actorId != null
+                && !returnOrder.getReviewedBy().equals(actorId)) {
+            throw conflict("Người duyệt phải chính là Admin/Manager đã review khiếu nại");
         }
 
         // Chỉ giải quyết khi đơn đang ở trạng thái phù hợp
@@ -305,6 +359,8 @@ public class ReturnOrderService implements IReturnOrderService {
             returnOrder.setStatus(ReturnOrder.ReturnStatus.PENDING);
             returnOrder.setRejectReason(null);
         }
+        returnOrder.setReviewedBy(null);
+        returnOrder.setReviewedAt(null);
         return returnOrderRepository.save(returnOrder);
     }
 

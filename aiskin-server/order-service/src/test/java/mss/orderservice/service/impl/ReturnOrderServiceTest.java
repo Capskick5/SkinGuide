@@ -15,6 +15,7 @@ import mss.orderservice.repository.ReturnOrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -175,6 +176,57 @@ class ReturnOrderServiceTest {
     }
 
     @Test
+    void pendingReturnCannotBeApprovedBeforeManagerReview() {
+        ReturnOrder returnOrder = ReturnOrder.builder()
+                .id("return-1")
+                .orderId("order-1")
+                .claimType(ReturnOrder.ClaimType.RETURN)
+                .status(ReturnOrder.ReturnStatus.PENDING)
+                .build();
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
+
+        assertThatThrownBy(() -> service.updateReturnStatus(
+                "return-1", ReturnOrder.ReturnStatus.DELIVERING, null, null))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("phải review");
+        verify(orderRepository, never()).findById(any());
+    }
+
+    @Test
+    void reviewReturnStoresReviewerAuditBeforeApproval() {
+        ReturnOrder returnOrder = ReturnOrder.builder()
+                .id("return-1")
+                .status(ReturnOrder.ReturnStatus.PENDING)
+                .build();
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
+
+        ReturnOrder result = service.reviewReturn("return-1", "manager@skinguide.vn");
+
+        assertThat(result.getReviewedBy()).isEqualTo("manager@skinguide.vn");
+        assertThat(result.getReviewedAt()).isNotNull();
+        verify(returnOrderRepository).save(returnOrder);
+    }
+
+    @Test
+    void approverMustBeTheSameManagerWhoReviewedTheClaim() {
+        ReturnOrder returnOrder = returnOrder(ReturnOrder.ReturnStatus.PENDING);
+        returnOrder.setReviewedBy("manager-a");
+        when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
+
+        assertThatThrownBy(() -> service.updateReturnStatus(
+                "return-1",
+                ReturnOrder.ReturnStatus.DELIVERING,
+                null,
+                null,
+                null,
+                null,
+                "manager-b"))
+                .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                .hasMessageContaining("chính là Admin/Manager đã review");
+        verify(orderRepository, never()).findById(any());
+    }
+
+    @Test
     void pendingReturnCannotSkipApprovalAndWarehouseReceipt() {
         ReturnOrder returnOrder = returnOrder(ReturnOrder.ReturnStatus.PENDING);
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(returnOrder));
@@ -190,6 +242,8 @@ class ReturnOrderServiceTest {
                 .claimType(ReturnOrder.ClaimType.MISSING_ITEM)
                 .resolution(ReturnOrder.ResolutionType.REFUND)
                 .status(ReturnOrder.ReturnStatus.PENDING)
+                .reviewedBy("manager")
+                .reviewedAt(LocalDateTime.now())
                 .items(List.of(ReturnOrder.ReturnItem.builder().productId("product-1").quantity(1).build()))
                 .build();
         when(returnOrderRepository.findById("return-1")).thenReturn(Optional.of(claim));
@@ -209,6 +263,8 @@ class ReturnOrderServiceTest {
                 .claimType(ReturnOrder.ClaimType.MISSING_ITEM)
                 .resolution(ReturnOrder.ResolutionType.REDELIVER)
                 .status(ReturnOrder.ReturnStatus.PENDING)
+                .reviewedBy("manager")
+                .reviewedAt(LocalDateTime.now())
                 .items(List.of(ReturnOrder.ReturnItem.builder()
                         .productId("product-1").variantId("variant-1").quantity(1).build()))
                 .build();
@@ -234,6 +290,7 @@ class ReturnOrderServiceTest {
         return ReturnOrder.builder().id("return-1").orderId("order-1").orderCode("ORD-1")
                 .claimType(ReturnOrder.ClaimType.RETURN).resolution(ReturnOrder.ResolutionType.REFUND)
                 .status(status).inventoryProcessed(false)
+                .reviewedBy("manager").reviewedAt(LocalDateTime.now())
                 .items(List.of(ReturnOrder.ReturnItem.builder().productId("product-1").variantId("variant-2").sku("SKU-2").quantity(1).build())).build();
     }
 

@@ -21,6 +21,8 @@ public interface IReturnOrderService {
 
     ReturnOrder getReturnByOrderId(String orderId);
 
+    ReturnOrder reviewReturn(String id, String reviewerId);
+
     ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason, ReturnOrder.InventoryDisposition inventoryDisposition);
 
     ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason, ReturnOrder.InventoryDisposition inventoryDisposition, String inspectionNote);
@@ -29,7 +31,13 @@ public interface IReturnOrderService {
                                    ReturnOrder.InventoryDisposition inventoryDisposition, String inspectionNote,
                                    List<WrongItemRequest> inspectedWrongItems);
 
+    ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason,
+                                   ReturnOrder.InventoryDisposition inventoryDisposition, String inspectionNote,
+                                   List<WrongItemRequest> inspectedWrongItems, String actorId);
+
     ReturnOrder resolveReturn(String id, ReturnOrder.ResolutionType resolutionType, String note);
+
+    ReturnOrder resolveReturn(String id, ReturnOrder.ResolutionType resolutionType, String note, String actorId);
 
     ReturnOrder updateReturnRequest(String id, ReturnRequest request);
 
