@@ -62,6 +62,10 @@ public class InventoryMovement {
 
     private Integer soldAfter;
 
+    private Integer damagedBefore;
+
+    private Integer damagedAfter;
+
     @Indexed
     private String referenceType;
 

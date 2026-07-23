@@ -320,11 +320,11 @@ public class ProductService implements IProductService {
     }
 
     private ProductResponse toResponse(Product product) {
-        return ProductResponse.builder().id(product.getId()).name(product.getName()).slug(product.getSlug()).description(product.getDescription()).price(product.getPrice()).imageUrl(product.getImageUrl()).images(product.getImages()).brandId(product.getBrandId()).brandName(product.getBrandName()).categoryId(product.getCategoryId()).categoryName(product.getCategoryName()).targetConcerns(product.getTargetConcerns()).targetSkinTypes(product.getTargetSkinTypes()).keyIngredientIds(product.getKeyIngredientIds()).ingredients(mapIngredientResponses(product.getIngredients())).variants(mapVariantResponses(product)).totalOnHandQuantity(totalOnHand(product)).totalReservedQuantity(totalReserved(product)).totalAvailableQuantity(totalAvailable(product)).hasLowStock(hasLowStock(product)).isActive(product.getIsActive()).createdAt(product.getCreatedAt()).updatedAt(product.getUpdatedAt()).build();
+        return ProductResponse.builder().id(product.getId()).name(product.getName()).slug(product.getSlug()).description(product.getDescription()).price(product.getPrice()).imageUrl(product.getImageUrl()).images(product.getImages()).brandId(product.getBrandId()).brandName(product.getBrandName()).categoryId(product.getCategoryId()).categoryName(product.getCategoryName()).targetConcerns(product.getTargetConcerns()).targetSkinTypes(product.getTargetSkinTypes()).keyIngredientIds(product.getKeyIngredientIds()).ingredients(mapIngredientResponses(product.getIngredients())).variants(mapVariantResponses(product)).totalOnHandQuantity(totalOnHand(product)).totalReservedQuantity(totalReserved(product)).totalAvailableQuantity(totalAvailable(product)).totalDamagedQuantity(totalDamaged(product)).hasLowStock(hasLowStock(product)).isActive(product.getIsActive()).createdAt(product.getCreatedAt()).updatedAt(product.getUpdatedAt()).build();
     }
 
     private ProductSummaryResponse toSummaryResponse(Product product) {
-        return ProductSummaryResponse.builder().id(product.getId()).name(product.getName()).slug(product.getSlug()).price(product.getPrice()).imageUrl(product.getImageUrl()).brandId(product.getBrandId()).brandName(product.getBrandName()).categoryId(product.getCategoryId()).categoryName(product.getCategoryName()).isActive(product.getIsActive()).targetConcerns(product.getTargetConcerns()).targetSkinTypes(product.getTargetSkinTypes()).keyIngredientIds(product.getKeyIngredientIds()).variantCount(variantCount(product)).totalOnHandQuantity(totalOnHand(product)).totalReservedQuantity(totalReserved(product)).totalAvailableQuantity(totalAvailable(product)).hasLowStock(hasLowStock(product)).createdAt(product.getCreatedAt()).updatedAt(product.getUpdatedAt()).build();
+        return ProductSummaryResponse.builder().id(product.getId()).name(product.getName()).slug(product.getSlug()).price(product.getPrice()).imageUrl(product.getImageUrl()).brandId(product.getBrandId()).brandName(product.getBrandName()).categoryId(product.getCategoryId()).categoryName(product.getCategoryName()).isActive(product.getIsActive()).targetConcerns(product.getTargetConcerns()).targetSkinTypes(product.getTargetSkinTypes()).keyIngredientIds(product.getKeyIngredientIds()).variantCount(variantCount(product)).totalOnHandQuantity(totalOnHand(product)).totalReservedQuantity(totalReserved(product)).totalAvailableQuantity(totalAvailable(product)).totalDamagedQuantity(totalDamaged(product)).hasLowStock(hasLowStock(product)).createdAt(product.getCreatedAt()).updatedAt(product.getUpdatedAt()).build();
     }
 
     private List<ProductIngredientResponse> mapIngredientResponses(List<ProductIngredient> ingredients) {
@@ -351,8 +351,9 @@ public class ProductService implements IProductService {
         int reserved = levels.stream().mapToInt(InventoryLevelResponse::getReservedQuantity).sum();
         int available = levels.stream().mapToInt(InventoryLevelResponse::getAvailableQuantity).sum();
         int sold = levels.stream().mapToInt(InventoryLevelResponse::getSoldQuantity).sum();
+        int damaged = levels.stream().mapToInt(InventoryLevelResponse::getDamagedQuantity).sum();
         boolean lowStock = Boolean.TRUE.equals(variant.getTrackInventory()) && Boolean.TRUE.equals(variant.getIsActive()) && available <= nonNegative(variant.getLowStockThreshold());
-        return ProductVariantResponse.builder().id(variant.getId()).name(variant.getName()).sku(variant.getSku()).price(variant.getPrice()).imageUrl(variant.getImageUrl()).volume(variant.getVolume()).unit(variant.getUnit()).isActive(variant.getIsActive()).trackInventory(variant.getTrackInventory()).lowStockThreshold(variant.getLowStockThreshold()).onHandQuantity(onHand).reservedQuantity(reserved).availableQuantity(available).soldQuantity(sold).lowStock(lowStock).inventoryLevels(levels).build();
+        return ProductVariantResponse.builder().id(variant.getId()).name(variant.getName()).sku(variant.getSku()).price(variant.getPrice()).imageUrl(variant.getImageUrl()).volume(variant.getVolume()).unit(variant.getUnit()).isActive(variant.getIsActive()).trackInventory(variant.getTrackInventory()).lowStockThreshold(variant.getLowStockThreshold()).onHandQuantity(onHand).reservedQuantity(reserved).availableQuantity(available).soldQuantity(sold).damagedQuantity(damaged).lowStock(lowStock).inventoryLevels(levels).build();
     }
 
     private List<InventoryLevelResponse> mapInventoryLevelResponses(List<InventoryLevel> levels) {
@@ -363,7 +364,7 @@ public class ProductService implements IProductService {
             int onHand = nonNegative(level.getOnHandQuantity());
             int reserved = nonNegative(level.getReservedQuantity());
             int available = Math.max(0, onHand - reserved);
-            return InventoryLevelResponse.builder().warehouseId(level.getWarehouseId()).warehouseName(level.getWarehouseName()).onHandQuantity(onHand).reservedQuantity(reserved).availableQuantity(available).soldQuantity(nonNegative(level.getSoldQuantity())).build();
+            return InventoryLevelResponse.builder().warehouseId(level.getWarehouseId()).warehouseName(level.getWarehouseName()).onHandQuantity(onHand).reservedQuantity(reserved).availableQuantity(available).soldQuantity(nonNegative(level.getSoldQuantity())).damagedQuantity(nonNegative(level.getDamagedQuantity())).build();
         }).toList();
     }
 
@@ -381,6 +382,10 @@ public class ProductService implements IProductService {
 
     private int totalAvailable(Product product) {
         return mapVariantResponses(product).stream().mapToInt(ProductVariantResponse::getAvailableQuantity).sum();
+    }
+
+    private int totalDamaged(Product product) {
+        return mapVariantResponses(product).stream().mapToInt(ProductVariantResponse::getDamagedQuantity).sum();
     }
 
     private boolean hasLowStock(Product product) {

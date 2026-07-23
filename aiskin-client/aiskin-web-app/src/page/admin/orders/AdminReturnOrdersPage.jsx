@@ -33,11 +33,18 @@ function getVisiblePages(currentPage, totalPages) {
   return pages
 }
 
+const CLAIM_TYPE = {
+  RETURN: { label: 'Trả hàng', icon: 'assignment_return', tone: 'bg-gray-100 text-gray-700 border-gray-200' },
+  MISSING_ITEM: { label: 'Giao thiếu', icon: 'remove_shopping_cart', tone: 'bg-amber-50 text-amber-700 border-amber-200' },
+  WRONG_ITEM: { label: 'Giao sai', icon: 'swap_horiz', tone: 'bg-orange-50 text-orange-700 border-orange-200' },
+}
+
 const RETURN_STATUS = {
   PENDING: { label: 'Chờ duyệt', icon: 'schedule', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
   DELIVERING: { label: 'Đang vận chuyển hoàn', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   DELIVERED: { label: 'Đã giao đến kho', icon: 'done_all', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
   RECEIVED: { label: 'Đã nhận hàng trả', icon: 'inventory_2', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  INSPECTION_FAILED: { label: 'Từ chối sau kiểm tra', icon: 'gpp_bad', tone: 'bg-rose-50 text-rose-700 border-rose-200' },
   REFUNDED: { label: 'Đã hoàn tiền', icon: 'price_check', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
   REJECTED: { label: 'Từ chối', icon: 'block', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
 }
@@ -47,7 +54,7 @@ const TABS = [
   { key: 'SHIPPING', query: 'DELIVERING,DELIVERED', label: 'Đang vận chuyển', icon: 'local_shipping', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   { key: 'RECEIVED', query: 'RECEIVED', label: 'Đã nhận trả', icon: 'inventory_2', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
   { key: 'REFUNDED', query: 'REFUNDED', label: 'Đã hoàn tiền', icon: 'price_check', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
-  { key: 'REJECTED', query: 'REJECTED', label: 'Từ chối', icon: 'block', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
+  { key: 'REJECTED', query: 'REJECTED,INSPECTION_FAILED', label: 'Từ chối', icon: 'block', tone: 'bg-rose-50 text-rose-700 border-rose-100' },
 ]
 
 function StatusBadge({ status }) {
@@ -151,7 +158,15 @@ function ReturnDetailsModal({ request, onClose }) {
           <div>
             <p className="text-sm font-semibold text-primary">{request.orderCode}</p>
             <h2 className="mt-1 text-xl font-bold text-gray-950">Chi tiết khiếu nại</h2>
-            <p className="mt-1 text-sm text-gray-500">{formatDate(request.createdAt)}</p>
+            <div className="mt-1.5 flex items-center gap-2">
+              <p className="text-sm text-gray-500">{formatDate(request.createdAt)}</p>
+              {request.claimType && CLAIM_TYPE[request.claimType] && (
+                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${CLAIM_TYPE[request.claimType].tone}`}>
+                  <Icon name={CLAIM_TYPE[request.claimType].icon} className="text-[13px]" />
+                  {CLAIM_TYPE[request.claimType].label}
+                </span>
+              )}
+            </div>
           </div>
           <button
             type="button"
@@ -415,6 +430,8 @@ export default function AdminReturnOrdersPage() {
   const [hasReadReject, setHasReadReject] = useState(false)
   const [approvingRequest, setApprovingRequest] = useState(null)
   const [hasReadApprove, setHasReadApprove] = useState(false)
+  const [inspectionFailRequest, setInspectionFailRequest] = useState(null)
+  const [inspectionNote, setInspectionNote] = useState('')
   const [syncingGhn, setSyncingGhn] = useState(false)
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -459,7 +476,7 @@ export default function AdminReturnOrdersPage() {
     setPage(0)
   }
 
-  const handleStatusChange = async (req, newStatus, reason = null, inventoryDisposition = null, forceApprove = false) => {
+  const handleStatusChange = async (req, newStatus, reason = null, inventoryDisposition = null, forceApprove = false, inspNote = null) => {
     if (newStatus === 'REJECTED' && !reason) {
       setRejectingRequest(req)
       setRejectReason('')
@@ -471,6 +488,11 @@ export default function AdminReturnOrdersPage() {
       setHasReadApprove(false)
       return
     }
+    if (newStatus === 'INSPECTION_FAILED' && !inspNote) {
+      setInspectionFailRequest(req)
+      setInspectionNote('')
+      return
+    }
 
     try {
       setUpdating(req.id)
@@ -478,10 +500,12 @@ export default function AdminReturnOrdersPage() {
         status: newStatus,
         rejectReason: reason,
         inventoryDisposition,
+        inspectionNote: inspNote,
       })
       message.success('Cập nhật trạng thái thành công')
       setRejectingRequest(null)
       setApprovingRequest(null)
+      setInspectionFailRequest(null)
       fetchReturns()
     } catch (err) {
       message.error(err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật')
@@ -490,19 +514,35 @@ export default function AdminReturnOrdersPage() {
     }
   }
 
-  const statusActions = (req) => {
-    const nextStatuses = req.status === 'PENDING'
-      ? ['DELIVERING', 'REJECTED']
-      : req.status === 'DELIVERED' ? ['RECEIVED'] : []
+  const handleResolve = async (req, resolutionType, note = null) => {
+    try {
+      setUpdating(req.id)
+      await httpClient.post(`/returns/admin/${req.id}/resolve`, { resolution: resolutionType, note })
+      message.success(resolutionType === 'REFUND' ? 'Đã chọn hoàn tiền cho khách' : 'Đã tạo đơn giao bù hàng')
+      fetchReturns()
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Có lỗi xảy ra')
+    } finally {
+      setUpdating(null)
+    }
+  }
 
-    return nextStatuses.flatMap(status => {
+  const statusActions = (req) => {
+    // MISSING_ITEM: không có hàng vật lý cần vận chuyển, bỏ qua bước DELIVERING
+    const isMissingItem = req.claimType === 'MISSING_ITEM'
+
+    const nextStatuses = req.status === 'PENDING'
+      ? (isMissingItem ? ['REJECTED'] : ['DELIVERING', 'REJECTED'])
+      : req.status === 'DELIVERED' ? ['RECEIVED', 'INSPECTION_FAILED'] : []
+
+    const actions = nextStatuses.flatMap(status => {
       if (status === 'DELIVERING') {
         return [{
           key: 'DELIVERING',
           label: (
             <div className="flex items-center gap-2 px-1">
               <Icon name="check_circle" className="text-[15px] text-emerald-700" />
-              <span className="text-sm font-semibold">Duyệt & Tạo đơn hoàn</span>
+              <span className="text-sm font-semibold">Duyệt &amp; Tạo đơn hoàn</span>
             </div>
           ),
           onClick: () => handleStatusChange(req, 'DELIVERING'),
@@ -530,7 +570,29 @@ export default function AdminReturnOrdersPage() {
             ),
             onClick: () => handleStatusChange(req, 'RECEIVED', null, 'DAMAGED'),
           },
+          {
+            key: 'RECEIVED_DISCARD',
+            label: (
+              <div className="flex items-center gap-2 px-1">
+                <Icon name="delete_forever" className="text-[15px] text-gray-500" />
+                <span className="text-sm font-semibold">Nhận &amp; Hủy bỏ (Không phải hàng của shop)</span>
+              </div>
+            ),
+            onClick: () => handleStatusChange(req, 'RECEIVED', null, 'DISCARD'),
+          },
         ]
+      }
+      if (status === 'INSPECTION_FAILED') {
+        return [{
+          key: 'INSPECTION_FAILED',
+          label: (
+            <div className="flex items-center gap-2 px-1">
+              <Icon name="gpp_bad" className="text-[15px] text-rose-700" />
+              <span className="text-sm font-semibold text-rose-700">Từ chối - Hàng trả không đúng</span>
+            </div>
+          ),
+          onClick: () => handleStatusChange(req, 'INSPECTION_FAILED'),
+        }]
       }
       return [{
         key: status,
@@ -545,6 +607,62 @@ export default function AdminReturnOrdersPage() {
         onClick: () => handleStatusChange(req, status),
       }]
     })
+
+    // Nếu đã RECEIVED và chưa có hướng giải quyết, cho Admin chọn REFUND / REDELIVER
+    if (req.status === 'RECEIVED' && !req.resolution) {
+      actions.push(
+        { type: 'divider' },
+        {
+          key: 'RESOLVE_REFUND',
+          label: (
+            <div className="flex items-center gap-2 px-1">
+              <Icon name="payments" className="text-[15px] text-teal-700" />
+              <span className="text-sm font-semibold">Xác nhận: Hoàn tiền cho khách</span>
+            </div>
+          ),
+          onClick: () => handleResolve(req, 'REFUND'),
+        },
+        {
+          key: 'RESOLVE_REDELIVER',
+          label: (
+            <div className="flex items-center gap-2 px-1">
+              <Icon name="local_shipping" className="text-[15px] text-indigo-700" />
+              <span className="text-sm font-semibold">Xác nhận: Giao lại hàng cho khách</span>
+            </div>
+          ),
+          onClick: () => handleResolve(req, 'REDELIVER'),
+        },
+      )
+    }
+
+    // MISSING_ITEM ở PENDING: cho Admin giải quyết ngay mà không cần chờ vận chuyển
+    if (req.status === 'PENDING' && isMissingItem && !req.resolution) {
+      actions.unshift(
+        {
+          key: 'RESOLVE_MISSING_REFUND',
+          label: (
+            <div className="flex items-center gap-2 px-1">
+              <Icon name="payments" className="text-[15px] text-teal-700" />
+              <span className="text-sm font-semibold">Duyệt &amp; Hoàn tiền (Giao thiếu)</span>
+            </div>
+          ),
+          onClick: () => handleResolve(req, 'REFUND'),
+        },
+        {
+          key: 'RESOLVE_MISSING_REDELIVER',
+          label: (
+            <div className="flex items-center gap-2 px-1">
+              <Icon name="local_shipping" className="text-[15px] text-indigo-700" />
+              <span className="text-sm font-semibold">Duyệt &amp; Giao bù hàng thiếu</span>
+            </div>
+          ),
+          onClick: () => handleResolve(req, 'REDELIVER'),
+        },
+        { type: 'divider' },
+      )
+    }
+
+    return actions
   }
 
   return (
@@ -651,16 +769,16 @@ export default function AdminReturnOrdersPage() {
                               items: statusActions(req)
                             }}
                             trigger={['click']}
-                            disabled={['REFUNDED', 'REJECTED', 'RECEIVED', 'DELIVERING'].includes(req.status)}
+                            disabled={['REFUNDED', 'REJECTED', 'DELIVERING'].includes(req.status) || (req.status === 'RECEIVED' && !!req.resolution)}
                           >
                             <button 
-                              className={`inline-flex items-center justify-between min-w-36 gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${!['REFUNDED', 'REJECTED', 'RECEIVED', 'DELIVERING'].includes(req.status) ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${RETURN_STATUS[req.status]?.tone || 'bg-gray-100 text-gray-700 border-gray-200'}`}
+                              className={`inline-flex items-center justify-between min-w-36 gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${!['REFUNDED', 'REJECTED', 'DELIVERING'].includes(req.status) ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${RETURN_STATUS[req.status]?.tone || 'bg-gray-100 text-gray-700 border-gray-200'}`}
                             >
                               <div className="flex items-center gap-1.5">
                                 <Icon name={RETURN_STATUS[req.status]?.icon || 'info'} className="text-[15px]" />
                                 {RETURN_STATUS[req.status]?.label || req.status}
                               </div>
-                              {!['REFUNDED', 'REJECTED', 'RECEIVED', 'DELIVERING'].includes(req.status) && (
+                              {!['REFUNDED', 'REJECTED', 'INSPECTION_FAILED', 'DELIVERING'].includes(req.status) && !(req.status === 'RECEIVED' && !!req.resolution) && (
                                 <Icon name="expand_more" className="text-lg opacity-60" />
                               )}
                             </button>
@@ -868,6 +986,82 @@ export default function AdminReturnOrdersPage() {
                 className="flex-1 rounded-lg bg-gray-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {updating === approvingRequest.id ? 'Đang xử lý...' : 'Xác nhận duyệt'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ghi chú từ chối sau kiểm tra (INSPECTION_FAILED) */}
+      {inspectionFailRequest && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <button type="button" className="absolute inset-0 bg-black/45" onClick={() => setInspectionFailRequest(null)} aria-label="Đóng" />
+          <div className="relative w-full max-w-sm rounded-lg bg-white p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+                <Icon name="gpp_bad" className="text-2xl" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-950">Từ chối sau kiểm tra</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{inspectionFailRequest.orderCode}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-rose-100 bg-rose-50 p-3 text-sm text-rose-800">
+              <p className="font-semibold flex items-center gap-1.5">
+                <Icon name="warning" className="text-base" /> Hàng trả về không đúng / không hợp lệ
+              </p>
+              <p className="mt-1 text-xs">Khách hàng sẽ không được hoàn tiền cho đơn này. Hãy ghi rõ lý do để lưu hồ sơ.</p>
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Ghi chú kiểm tra <span className="text-rose-500">*</span>
+              </label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[
+                  'Hàng gửi về không phải hàng đã mua',
+                  'Hàng bị cố tình phá hoại trước khi trả',
+                  'Hàng đã qua sử dụng / không thể bán lại',
+                ].map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setInspectionNote(option)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      inspectionNote === option
+                        ? 'border-rose-700 bg-rose-700 text-white'
+                        : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={inspectionNote}
+                onChange={e => setInspectionNote(e.target.value)}
+                className="w-full rounded-md border border-gray-300 p-3 text-sm outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                rows={3}
+                placeholder="Mô tả vấn đề phát hiện khi kiểm tra hàng trả..."
+              />
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setInspectionFailRequest(null)}
+                className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStatusChange(inspectionFailRequest, 'INSPECTION_FAILED', null, null, false, inspectionNote)}
+                disabled={!inspectionNote.trim() || updating === inspectionFailRequest.id}
+                className="flex-1 rounded-lg bg-rose-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {updating === inspectionFailRequest.id ? 'Đang xử lý...' : 'Xác nhận từ chối'}
               </button>
             </div>
           </div>

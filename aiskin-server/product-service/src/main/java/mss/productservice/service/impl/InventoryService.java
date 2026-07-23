@@ -143,6 +143,8 @@ public class InventoryService implements IInventoryService {
             level.setSoldQuantity(value(level.getSoldQuantity()) - context.quantity());
             if (request.getDisposition() == InventoryReturnRequest.Disposition.RESTOCK) {
                 level.setOnHandQuantity(value(level.getOnHandQuantity()) + context.quantity());
+            } else if (request.getDisposition() == InventoryReturnRequest.Disposition.DAMAGED) {
+                level.setDamagedQuantity(value(level.getDamagedQuantity()) + context.quantity());
             }
             pendingMovements.add(new PendingMovement(context, before));
         }
@@ -397,15 +399,15 @@ public class InventoryService implements IInventoryService {
     }
 
     private InventoryMovement buildMovement(InventoryContext context, InventorySnapshot before, InventoryMovement.MovementType type, String referenceType, String referenceId, String reason, int movementQuantity) {
-        return InventoryMovement.builder().idempotencyKey(referenceType + ":" + referenceId + ":" + type.name() + ":" + context.product().getId() + ":" + context.variant().getId() + ":" + context.level().getWarehouseId()).productId(context.product().getId()).productName(context.product().getName()).variantId(context.variant().getId()).variantName(context.variant().getName()).sku(context.variant().getSku()).warehouseId(context.level().getWarehouseId()).warehouseName(context.level().getWarehouseName()).type(type).quantity(movementQuantity).onHandBefore(before.onHand()).onHandAfter(value(context.level().getOnHandQuantity())).reservedBefore(before.reserved()).reservedAfter(value(context.level().getReservedQuantity())).soldBefore(before.sold()).soldAfter(value(context.level().getSoldQuantity())).referenceType(referenceType).referenceId(referenceId).reason(reason).build();
+        return InventoryMovement.builder().idempotencyKey(referenceType + ":" + referenceId + ":" + type.name() + ":" + context.product().getId() + ":" + context.variant().getId() + ":" + context.level().getWarehouseId()).productId(context.product().getId()).productName(context.product().getName()).variantId(context.variant().getId()).variantName(context.variant().getName()).sku(context.variant().getSku()).warehouseId(context.level().getWarehouseId()).warehouseName(context.level().getWarehouseName()).type(type).quantity(movementQuantity).onHandBefore(before.onHand()).onHandAfter(value(context.level().getOnHandQuantity())).reservedBefore(before.reserved()).reservedAfter(value(context.level().getReservedQuantity())).soldBefore(before.sold()).soldAfter(value(context.level().getSoldQuantity())).damagedBefore(before.damaged()).damagedAfter(value(context.level().getDamagedQuantity())).referenceType(referenceType).referenceId(referenceId).reason(reason).build();
     }
 
     private InventoryMovementResponse toMovementResponse(InventoryMovement movement) {
-        return InventoryMovementResponse.builder().id(movement.getId()).idempotencyKey(movement.getIdempotencyKey()).productId(movement.getProductId()).productName(movement.getProductName()).variantId(movement.getVariantId()).variantName(movement.getVariantName()).sku(movement.getSku()).warehouseId(movement.getWarehouseId()).warehouseName(movement.getWarehouseName()).type(movement.getType() != null ? movement.getType().name() : null).quantity(movement.getQuantity()).onHandBefore(movement.getOnHandBefore()).onHandAfter(movement.getOnHandAfter()).reservedBefore(movement.getReservedBefore()).reservedAfter(movement.getReservedAfter()).soldBefore(movement.getSoldBefore()).soldAfter(movement.getSoldAfter()).referenceType(movement.getReferenceType()).referenceId(movement.getReferenceId()).reason(movement.getReason()).createdAt(movement.getCreatedAt()).build();
+        return InventoryMovementResponse.builder().id(movement.getId()).idempotencyKey(movement.getIdempotencyKey()).productId(movement.getProductId()).productName(movement.getProductName()).variantId(movement.getVariantId()).variantName(movement.getVariantName()).sku(movement.getSku()).warehouseId(movement.getWarehouseId()).warehouseName(movement.getWarehouseName()).type(movement.getType() != null ? movement.getType().name() : null).quantity(movement.getQuantity()).onHandBefore(movement.getOnHandBefore()).onHandAfter(movement.getOnHandAfter()).reservedBefore(movement.getReservedBefore()).reservedAfter(movement.getReservedAfter()).soldBefore(movement.getSoldBefore()).soldAfter(movement.getSoldAfter()).damagedBefore(movement.getDamagedBefore()).damagedAfter(movement.getDamagedAfter()).referenceType(movement.getReferenceType()).referenceId(movement.getReferenceId()).reason(movement.getReason()).createdAt(movement.getCreatedAt()).build();
     }
 
     private InventorySnapshot snapshot(InventoryLevel level) {
-        return new InventorySnapshot(value(level.getOnHandQuantity()), value(level.getReservedQuantity()), value(level.getSoldQuantity()));
+        return new InventorySnapshot(value(level.getOnHandQuantity()), value(level.getReservedQuantity()), value(level.getSoldQuantity()), value(level.getDamagedQuantity()));
     }
 
     private int available(InventoryLevel level) {
@@ -435,7 +437,7 @@ public class InventoryService implements IInventoryService {
     private record InventoryContext(Product product, ProductVariant variant, InventoryLevel level, int quantity) {
     }
 
-    private record InventorySnapshot(int onHand, int reserved, int sold) {
+    private record InventorySnapshot(int onHand, int reserved, int sold, int damaged) {
     }
 
     private record PendingMovement(InventoryContext context, InventorySnapshot before) {

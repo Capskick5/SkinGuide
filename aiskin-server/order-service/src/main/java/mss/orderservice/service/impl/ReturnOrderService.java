@@ -8,9 +8,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import mss.orderservice.dto.ReturnItemRequest;
 import mss.orderservice.dto.ReturnRequest;
+import mss.orderservice.model.CompensationOrder;
 import mss.orderservice.model.Order;
 import mss.orderservice.model.OrderItem;
 import mss.orderservice.model.ReturnOrder;
+import mss.orderservice.repository.CompensationOrderRepository;
 import mss.orderservice.repository.OrderRepository;
 import mss.orderservice.repository.ReturnOrderRepository;
 import org.springframework.data.domain.Page;
@@ -37,6 +39,8 @@ public class ReturnOrderService implements IReturnOrderService {
 
     private final ReturnOrderRepository returnOrderRepository;
 
+    private final CompensationOrderRepository compensationOrderRepository;
+
     private final OrderRepository orderRepository;
 
     private final IGhnService ghnService;
@@ -55,7 +59,21 @@ public class ReturnOrderService implements IReturnOrderService {
             throw conflict("Đơn hàng này đã có yêu cầu trả hàng");
         }
         ReturnCalculation calculation = calculateReturn(order, request.items());
-        ReturnOrder returnOrder = ReturnOrder.builder().orderId(order.getId()).orderCode(order.getOrderCode()).customerId(order.getCustomerId()).customerName(order.getCustomerName()).reason(request.reason().trim()).description(request.description().trim()).imageUrls(List.copyOf(request.imageUrls())).items(calculation.items()).refundAmount(calculation.totalRefund()).status(ReturnOrder.ReturnStatus.PENDING).build();
+        // Xác định loại khiếu nại, mặc định RETURN để tương thích ngược
+        ReturnOrder.ClaimType claimType = request.claimType() != null ? request.claimType() : ReturnOrder.ClaimType.RETURN;
+        ReturnOrder returnOrder = ReturnOrder.builder()
+                .orderId(order.getId())
+                .orderCode(order.getOrderCode())
+                .customerId(order.getCustomerId())
+                .customerName(order.getCustomerName())
+                .claimType(claimType)
+                .reason(request.reason().trim())
+                .description(request.description().trim())
+                .imageUrls(List.copyOf(request.imageUrls()))
+                .items(calculation.items())
+                .refundAmount(calculation.totalRefund())
+                .status(ReturnOrder.ReturnStatus.PENDING)
+                .build();
         return returnOrderRepository.save(returnOrder);
     }
 
@@ -84,32 +102,125 @@ public class ReturnOrderService implements IReturnOrderService {
     }
 
     public ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason, ReturnOrder.InventoryDisposition inventoryDisposition) {
+        return updateReturnStatus(id, newStatus, rejectReason, inventoryDisposition, null);
+    }
+
+    public ReturnOrder updateReturnStatus(String id, ReturnOrder.ReturnStatus newStatus, String rejectReason, ReturnOrder.InventoryDisposition inventoryDisposition, String inspectionNote) {
         ReturnOrder returnOrder = returnOrderRepository.findById(id).orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
         ReturnOrder.ReturnStatus currentStatus = returnOrder.getStatus();
         if (newStatus == currentStatus) {
             validateRepeatedStatus(returnOrder, inventoryDisposition);
             return returnOrder;
         }
-        validateAdminTransition(currentStatus, newStatus, rejectReason, inventoryDisposition);
+        validateAdminTransition(currentStatus, newStatus, rejectReason, inventoryDisposition, inspectionNote);
         returnOrder.setStatus(newStatus);
+
         if (newStatus == ReturnOrder.ReturnStatus.REJECTED) {
             returnOrder.setRejectReason(rejectReason.trim());
         }
+
+        // Xử lý kiểm tra thực tế thất bại (Return Fraud)
+        if (newStatus == ReturnOrder.ReturnStatus.INSPECTION_FAILED) {
+            returnOrder.setInspectionNote(inspectionNote != null ? inspectionNote.trim() : null);
+            // Không cộng kho, không hoàn tiền - đơn được đóng lại
+            return returnOrderRepository.save(returnOrder);
+        }
+
         if (newStatus == ReturnOrder.ReturnStatus.RECEIVED) {
             if (Boolean.TRUE.equals(returnOrder.getInventoryProcessed())) {
                 if (returnOrder.getInventoryDisposition() != inventoryDisposition) {
                     throw conflict("Đơn trả hàng đã được xử lý kho với kết quả khác");
                 }
             } else {
-                ensureReturnItemVariants(returnOrder);
-                returnInventoryClient.process(returnOrder, inventoryDisposition);
+                // DISCARD: hàng không phải của shop, không tác động kho
+                if (inventoryDisposition != ReturnOrder.InventoryDisposition.DISCARD) {
+                    ensureReturnItemVariants(returnOrder);
+                    returnInventoryClient.process(returnOrder, inventoryDisposition);
+                } else {
+                    log.info("Return {}: DISCARD disposition - skipping inventory update", returnOrder.getId());
+                }
                 returnOrder.setInventoryDisposition(inventoryDisposition);
                 returnOrder.setInventoryProcessed(true);
             }
         }
-        if (newStatus == ReturnOrder.ReturnStatus.DELIVERING && returnOrder.getReturnTrackingCode() == null) {
+
+        // Chỉ tạo vận đơn GHN cho case có hàng thực sự cần lấy về
+        // MISSING_ITEM: khách không có hàng để trả, không tạo vận đơn
+        boolean needsPhysicalReturn = returnOrder.getClaimType() == null
+                || returnOrder.getClaimType() == ReturnOrder.ClaimType.RETURN
+                || returnOrder.getClaimType() == ReturnOrder.ClaimType.WRONG_ITEM;
+        if (newStatus == ReturnOrder.ReturnStatus.DELIVERING
+                && returnOrder.getReturnTrackingCode() == null
+                && needsPhysicalReturn) {
             tryCreateGhnReturnShipment(returnOrder);
         }
+
+        return returnOrderRepository.save(returnOrder);
+    }
+
+    /**
+     * Admin quyết định cách giải quyết cuối cùng: hoàn tiền hoặc giao lại hàng.
+     * MISSING_ITEM: chỉ hỗ trợ REFUND, không hỗ trợ REDELIVER.
+     * RETURN / WRONG_ITEM: hỗ trợ cả REFUND và REDELIVER.
+     */
+    public ReturnOrder resolveReturn(String id, ReturnOrder.ResolutionType resolutionType, String note) {
+        ReturnOrder returnOrder = returnOrderRepository.findById(id).orElseThrow(() -> notFound("Không tìm thấy yêu cầu trả hàng"));
+
+        // Chỉ giải quyết khi đơn đang ở trạng thái phù hợp
+        boolean canResolve = switch (returnOrder.getStatus()) {
+            case RECEIVED -> true;  // Đã nhận hàng về và kiểm tra OK
+            case PENDING -> returnOrder.getClaimType() == ReturnOrder.ClaimType.MISSING_ITEM; // Thiếu hàng: resolve ngay từ PENDING
+            default -> false;
+        };
+        if (!canResolve) {
+            throw conflict("Không thể xử lý đơn ở trạng thái hiện tại: " + returnOrder.getStatus());
+        }
+        if (resolutionType == null) {
+            throw badRequest("Cần chọn hướng xử lý: hoàn tiền hoặc giao lại hàng");
+        }
+        // MISSING_ITEM chỉ hỗ trợ REFUND, không giao lại để tránh phức tạp
+        if (returnOrder.getClaimType() == ReturnOrder.ClaimType.MISSING_ITEM
+                && resolutionType == ReturnOrder.ResolutionType.REDELIVER) {
+            throw badRequest("Đơn giao thiếu chỉ hỗ trợ hoàn tiền, không hỗ trợ giao lại");
+        }
+
+        returnOrder.setResolution(resolutionType);
+
+        if (resolutionType == ReturnOrder.ResolutionType.REDELIVER) {
+            // Tạo đơn giao bù, nhân viên kho sẽ xử lý xuất hàng
+            CompensationOrder.CompensationType compensationType = returnOrder.getClaimType() == ReturnOrder.ClaimType.MISSING_ITEM
+                    ? CompensationOrder.CompensationType.REDELIVER_MISSING
+                    : CompensationOrder.CompensationType.REDELIVER_CORRECT;
+
+            List<CompensationOrder.CompensationItem> compensationItems = returnOrder.getItems().stream()
+                    .map(item -> CompensationOrder.CompensationItem.builder()
+                            .productId(item.getProductId())
+                            .variantId(item.getVariantId())
+                            .sku(item.getSku())
+                            .variantName(item.getVariantName())
+                            .productName(item.getProductName())
+                            .imageUrl(item.getImageUrl())
+                            .quantity(item.getQuantity())
+                            .unit(item.getUnit())
+                            .unitPrice(item.getUnitPrice())
+                            .build())
+                    .collect(Collectors.toList());
+
+            CompensationOrder compensationOrder = CompensationOrder.builder()
+                    .returnOrderId(returnOrder.getId())
+                    .orderId(returnOrder.getOrderId())
+                    .orderCode(returnOrder.getOrderCode())
+                    .customerId(returnOrder.getCustomerId())
+                    .customerName(returnOrder.getCustomerName())
+                    .type(compensationType)
+                    .items(compensationItems)
+                    .note(note != null ? note.trim() : null)
+                    .status(CompensationOrder.CompensationStatus.PENDING)
+                    .build();
+            compensationOrderRepository.save(compensationOrder);
+            log.info("Created CompensationOrder for ReturnOrder {} with type {}", returnOrder.getId(), compensationType);
+        }
+
         return returnOrderRepository.save(returnOrder);
     }
 
@@ -217,10 +328,18 @@ public class ReturnOrderService implements IReturnOrderService {
         return new ReturnCalculation(List.copyOf(returnItems), totalRefund);
     }
 
-    private void validateAdminTransition(ReturnOrder.ReturnStatus currentStatus, ReturnOrder.ReturnStatus newStatus, String rejectReason, ReturnOrder.InventoryDisposition inventoryDisposition) {
-        boolean pendingDecision = currentStatus == ReturnOrder.ReturnStatus.PENDING && (newStatus == ReturnOrder.ReturnStatus.DELIVERING || newStatus == ReturnOrder.ReturnStatus.REJECTED);
-        boolean receivingPhysicalReturn = isReturnInTransit(currentStatus) && newStatus == ReturnOrder.ReturnStatus.RECEIVED;
-        if (!pendingDecision && !receivingPhysicalReturn) {
+    private void validateAdminTransition(ReturnOrder.ReturnStatus currentStatus, ReturnOrder.ReturnStatus newStatus,
+                                          String rejectReason, ReturnOrder.InventoryDisposition inventoryDisposition,
+                                          String inspectionNote) {
+        boolean pendingDecision = currentStatus == ReturnOrder.ReturnStatus.PENDING
+                && (newStatus == ReturnOrder.ReturnStatus.DELIVERING || newStatus == ReturnOrder.ReturnStatus.REJECTED);
+        boolean receivingPhysicalReturn = isReturnInTransit(currentStatus)
+                && newStatus == ReturnOrder.ReturnStatus.RECEIVED;
+        // Cho phép chuyển từ DELIVERED → INSPECTION_FAILED (phát hiện tráo hàng sau kiểm tra)
+        boolean inspectionFailed = currentStatus == ReturnOrder.ReturnStatus.DELIVERED
+                && newStatus == ReturnOrder.ReturnStatus.INSPECTION_FAILED;
+
+        if (!pendingDecision && !receivingPhysicalReturn && !inspectionFailed) {
             if (newStatus == ReturnOrder.ReturnStatus.REFUNDED) {
                 throw conflict("Hãy hoàn tiền qua yêu cầu hoàn tiền đã được khách cung cấp thông tin ngân hàng");
             }
@@ -230,7 +349,10 @@ public class ReturnOrderService implements IReturnOrderService {
             throw badRequest("Cần nhập lý do từ chối yêu cầu trả hàng");
         }
         if (newStatus == ReturnOrder.ReturnStatus.RECEIVED && inventoryDisposition == null) {
-            throw badRequest("Cần chọn nhập lại kho hoặc đánh dấu hàng hỏng");
+            throw badRequest("Cần chọn cách xử lý kho (Nhập lại / Hàng hỏng / Hủy bỏ)");
+        }
+        if (newStatus == ReturnOrder.ReturnStatus.INSPECTION_FAILED && (inspectionNote == null || inspectionNote.isBlank())) {
+            throw badRequest("Cần nhập ghi chú kiểm tra khi từ chối hàng trả về");
         }
     }
 

@@ -27,4 +27,7 @@ public class InventoryLevel {
 
     @Builder.Default
     private Integer soldQuantity = 0;
+
+    @Builder.Default
+    private Integer damagedQuantity = 0;
 }

@@ -55,10 +55,19 @@ public class ReturnOrder {
     private String returnTrackingCode; // Mã vận đơn trả hàng
     private String returnShipmentError; // Lỗi tạo vận đơn gần nhất, để admin biết cần xử lý thủ công
 
+    // Loại khiếu nại - phân biệt nghiệp vụ từ đầu
+    private ClaimType claimType;
+
     // Trạng thái phiếu trả hàng
     private ReturnStatus status;
 
     private InventoryDisposition inventoryDisposition;
+
+    // Hướng xử lý cuối cùng do Admin quyết định (hoàn tiền hoặc giao lại)
+    private ResolutionType resolution;
+
+    // Ghi chú kiểm tra khi Admin phát hiện hàng trả về không đúng
+    private String inspectionNote;
 
     @Builder.Default
     private Boolean inventoryProcessed = false;
@@ -69,18 +78,31 @@ public class ReturnOrder {
     @LastModifiedDate
     private LocalDateTime updatedAt;
 
+    public enum ClaimType {
+        RETURN,         // Trả hàng thông thường (hàng lỗi, đổi ý,...)
+        MISSING_ITEM,   // Giao thiếu hàng (khách không có hàng để trả về)
+        WRONG_ITEM      // Giao sai hàng (khách nhận được hàng không đúng)
+    }
+
     public enum ReturnStatus {
-        PENDING,     // Chờ Admin duyệt
-        DELIVERING,  // GHN đang trung chuyển/giao kiện hàng hoàn
-        DELIVERED,   // GHN đã giao thành công cho kho SkinGuide
-        REJECTED,    // Admin từ chối trả hàng
-        RECEIVED,    // Kho đã nhận được hàng trả về (Admin xác nhận thủ công)
-        REFUNDED     // Đã hoàn tiền cho khách xong
+        PENDING,            // Chờ Admin duyệt
+        DELIVERING,         // GHN đang trung chuyển/giao kiện hàng hoàn
+        DELIVERED,          // GHN đã giao thành công cho kho SkinGuide
+        REJECTED,           // Admin từ chối trả hàng (trước khi nhận hàng)
+        RECEIVED,           // Kho đã nhận và kiểm tra hàng OK (Admin xác nhận)
+        INSPECTION_FAILED,  // Hàng trả về không đúng/tráo hàng - từ chối sau kiểm tra
+        REFUNDED            // Đã hoàn tiền cho khách xong
     }
 
     public enum InventoryDisposition {
-        RESTOCK,
-        DAMAGED
+        RESTOCK,   // Nhập lại kho hàng có thể bán
+        DAMAGED,   // Nhập vào kho hàng hỏng
+        DISCARD    // Hủy bỏ - không tác động kho (hàng không phải của shop)
+    }
+
+    public enum ResolutionType {
+        REFUND,     // Hoàn tiền cho khách
+        REDELIVER   // Giao lại hàng đúng/đủ cho khách
     }
 
     @Data

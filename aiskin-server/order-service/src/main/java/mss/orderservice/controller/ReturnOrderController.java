@@ -68,9 +68,22 @@ public class ReturnOrderController {
 
     @PutMapping("/admin/{id}/status")
     @PreAuthorize("hasPermission('/api/returns/admin/{id}/status', 'PUT')")
-    @Operation(summary = "Update return status", description = "Admin updates status of a return request")
+    @Operation(summary = "Update return status", description = "Admin updates status of a return request. For INSPECTION_FAILED, inspectionNote is required.")
     public ResponseEntity<ReturnOrder> updateReturnStatus(@PathVariable String id, @Valid @RequestBody ReturnStatusUpdateRequest request) {
-        return ResponseEntity.ok(returnOrderService.updateReturnStatus(id, request.status(), request.rejectReason(), request.inventoryDisposition()));
+        return ResponseEntity.ok(returnOrderService.updateReturnStatus(id, request.status(), request.rejectReason(), request.inventoryDisposition(), request.inspectionNote()));
+    }
+
+    @PostMapping("/admin/{id}/resolve")
+    @PreAuthorize("hasPermission('/api/returns/admin/{id}/resolve', 'POST')")
+    @Operation(summary = "Resolve return", description = "Admin decides final resolution: REFUND or REDELIVER for missing/wrong item cases")
+    public ResponseEntity<ReturnOrder> resolveReturn(@PathVariable String id, @RequestBody Map<String, String> body) {
+        String resolutionStr = body.get("resolution");
+        String note = body.get("note");
+        if (resolutionStr == null || resolutionStr.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        ReturnOrder.ResolutionType resolutionType = ReturnOrder.ResolutionType.valueOf(resolutionStr.toUpperCase());
+        return ResponseEntity.ok(returnOrderService.resolveReturn(id, resolutionType, note));
     }
 
     @PutMapping("/{id}")

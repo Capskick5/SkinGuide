@@ -372,6 +372,7 @@ export default function AdminInventoryPage() {
                 <th className="px-4 py-3">Tồn vật lý</th>
                 <th className="px-4 py-3">Đang giữ</th>
                 <th className="px-4 py-3">Có thể bán</th>
+                <th className="px-4 py-3">Kho hỏng</th>
                 <th className="px-4 py-3">Trạng thái</th>
                 <th className="px-4 py-3 text-right">Thao tác</th>
               </tr>
@@ -388,6 +389,7 @@ export default function AdminInventoryPage() {
                     <td className="px-4 py-3 font-medium text-gray-800">{product.totalOnHandQuantity || 0}</td>
                     <td className="px-4 py-3 text-indigo-600">{product.totalReservedQuantity || 0}</td>
                     <td className="px-4 py-3 font-semibold text-gray-900">{available}</td>
+                    <td className="px-4 py-3 font-medium text-red-600">{product.totalDamagedQuantity || 0}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${stockTone(available, product.hasLowStock)}`}>
                         {available <= 0 ? 'Hết hàng' : product.hasLowStock ? 'Sắp hết' : 'Còn hàng'}
@@ -446,6 +448,7 @@ export default function AdminInventoryPage() {
                   <th className="px-3 py-2">Đang giữ</th>
                   <th className="px-3 py-2">Có thể bán</th>
                   <th className="px-3 py-2">Đã bán</th>
+                  <th className="px-3 py-2">Kho hỏng</th>
                   <th className="px-3 py-2 text-right">Thao tác kho</th>
                 </tr>
               </thead>
@@ -458,6 +461,7 @@ export default function AdminInventoryPage() {
                     <td className="px-3 py-3 text-indigo-600">{variant.reservedQuantity || 0}</td>
                     <td className="px-3 py-3 font-semibold">{variant.availableQuantity || 0}</td>
                     <td className="px-3 py-3">{variant.soldQuantity || 0}</td>
+                    <td className="px-3 py-3 font-medium text-red-600">{variant.damagedQuantity || 0}</td>
                     <td className="px-3 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <button type="button" onClick={() => selectVariantMovements(variant.id)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900" title="Xem lịch sử SKU">

@@ -51,6 +51,10 @@ public class InventoryMovementResponse {
 
     private Integer soldAfter;
 
+    private Integer damagedBefore;
+
+    private Integer damagedAfter;
+
     private String referenceType;
 
     private String referenceId;

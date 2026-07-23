@@ -9,10 +9,14 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import mss.orderservice.model.ReturnOrder;
 
 import java.util.List;
 
 public record ReturnRequest(
+        // Loại khiếu nại (null = RETURN để tương thích với các request cũ)
+        ReturnOrder.ClaimType claimType,
+
         @NotBlank(message = "Lý do trả hàng là bắt buộc")
         @Size(max = 120, message = "Lý do trả hàng tối đa 120 ký tự")
         String reason,
@@ -27,8 +31,8 @@ public record ReturnRequest(
                 regexp = "^/api/orders/uploads/[0-9a-fA-F-]{36}\\.(jpg|png)$",
                 message = "Đường dẫn ảnh bằng chứng không hợp lệ") String> imageUrls,
 
-        @NotEmpty(message = "Cần chọn ít nhất một sản phẩm để trả")
-        @Size(max = 20, message = "Một yêu cầu chỉ được trả tối đa 20 dòng sản phẩm")
+        @NotEmpty(message = "Cần chọn ít nhất một sản phẩm để trả/báo cáo")
+        @Size(max = 20, message = "Một yêu cầu chỉ được xử lý tối đa 20 dòng sản phẩm")
         List<@Valid ReturnItemRequest> items
 ) {
 }
