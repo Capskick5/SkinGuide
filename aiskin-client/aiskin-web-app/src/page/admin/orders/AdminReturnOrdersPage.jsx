@@ -175,7 +175,7 @@ function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewer }) {
       message.success('Đã ghi nhận review khiếu nại')
       onReviewed?.(updated)
     } catch (err) {
-      message.error(err.response?.data?.message || err?.message || 'Không thể ghi nhận review')
+      message.error(err?.message || 'Không thể ghi nhận review')
     } finally {
       setReviewing(false)
     }
@@ -188,7 +188,7 @@ function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewer }) {
       message.success('Đã xác nhận hoàn tiền thành công')
       setTimeout(() => window.location.reload(), 500)
     } catch (err) {
-      message.error(err.response?.data?.message || 'Có lỗi xảy ra')
+      message.error(err?.message || 'Có lỗi xảy ra khi xác nhận hoàn tiền')
     } finally {
       setCompleting(false)
     }
@@ -201,7 +201,7 @@ function ReturnDetailsModal({ request, onClose, onReviewed, currentReviewer }) {
       message.warning('Đã đánh dấu thông tin ngân hàng không hợp lệ')
       setTimeout(() => window.location.reload(), 500)
     } catch (err) {
-      message.error(err.response?.data?.message || 'Có lỗi xảy ra')
+      message.error(err?.message || 'Có lỗi xảy ra khi từ chối hoàn tiền')
     } finally {
       setCompleting(false)
     }
@@ -972,7 +972,7 @@ export default function AdminReturnOrdersPage() {
       await fetchReturns()
     } catch (err) {
       console.error('GHN sync failed:', err)
-      message.error(err.response?.data?.message || err?.message || 'Đồng bộ GHN thất bại')
+      message.error(err.message || 'Đồng bộ GHN thất bại')
     } finally {
       setSyncingGhn(false)
     }
@@ -1030,7 +1030,7 @@ export default function AdminReturnOrdersPage() {
       setReceivingRequest(null)
       fetchReturns()
     } catch (err) {
-      message.error(err.response?.data?.message || 'Có lỗi xảy ra khi cập nhật')
+      message.error(err?.message || 'Có lỗi xảy ra khi cập nhật')
     } finally {
       setUpdating(null)
     }
@@ -1099,7 +1099,7 @@ export default function AdminReturnOrdersPage() {
       message.success(resolutionType === 'REFUND' ? 'Đã chọn hoàn tiền cho khách' : 'Đã tạo đơn giao bù hàng')
       fetchReturns()
     } catch (err) {
-      message.error(err.response?.data?.message || 'Có lỗi xảy ra')
+      message.error(err?.message || 'Có lỗi xảy ra khi xử lý')
     } finally {
       setUpdating(null)
     }

@@ -449,7 +449,7 @@ export default function AdminOrdersPage() {
       await fetchOrders()
     } catch (err) {
       console.error('GHN sync failed:', err)
-      message.error(err.response?.data?.message || err?.message || 'Đồng bộ GHN thất bại')
+      message.error(err?.message || 'Đồng bộ GHN thất bại')
     } finally {
       setSyncingGhn(false)
     }
@@ -499,7 +499,7 @@ export default function AdminOrdersPage() {
       await fetchOrders()
     } catch (err) {
       console.error('Update order status failed:', err)
-      message.error(err.response?.data?.message || err?.message || 'Cập nhật trạng thái thất bại')
+      message.error(err?.message || 'Cập nhật trạng thái thất bại')
     } finally {
       setUpdating(null)
     }
